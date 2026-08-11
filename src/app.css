@@ -1,0 +1,1158 @@
+/* ==========================================================================
+   Grazing calculator components
+
+   styles.css holds the design system shared with SDSHC-farm-budget and the
+   Virtual Fence ROI tool. Do not add app-specific rules there, and do not
+   change its token values in one tool only. Everything particular to this
+   calculator lives here.
+   ========================================================================== */
+
+/* ---- app header and tabs ------------------------------------------------ */
+
+/* The tabs sit ON this line, the way a folder tab sits on the top of a folder.
+   align-items:flex-end is what lets the active tab break through it. */
+.app-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin: 8px 0 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-title {
+  font-size: 19px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  margin: 0;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-nav {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  margin-bottom: -1px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.tab {
+  position: relative;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--muted);
+  border-radius: 9px 9px 0 0;
+  padding: 10px 20px 11px;
+  font-size: 14.5px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.tab:hover {
+  color: var(--brand-ink);
+  background: var(--olive-bg);
+}
+
+/* The active tab pulls the card background up over the head's bottom border,
+   joining tab and content into one shape. */
+.tab.active {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--green);
+  font-weight: bold;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--card);
+}
+
+/* ---- stepper ------------------------------------------------------------
+   Equal spacing at every width, nothing clipped, nothing scrolling. Each item
+   takes an equal share of the row (flex: 1 1 0) and the connector is drawn
+   from the previous circle's centre to this one's, so the gaps are equal by
+   construction rather than by a fixed pixel width that stops fitting on a
+   narrow phone. */
+
+.stepper {
+  display: flex;
+  width: 100%;
+  margin: 14px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.step-item {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.step-item:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: -50%;
+  right: 50%;
+  height: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.step-item--reached::before {
+  background: var(--olive);
+}
+
+.step-num {
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: default;
+}
+
+.step-item--reached .step-num {
+  cursor: pointer;
+  border-color: var(--olive);
+  color: var(--brand-ink);
+}
+
+.step-item--done .step-num {
+  background: var(--olive-bg);
+  border-color: var(--olive);
+}
+
+.step-item--active .step-num {
+  background: var(--sky);
+  border-color: var(--sky);
+  color: var(--on-sky);
+}
+
+.step-label {
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  overflow-wrap: anywhere;
+  padding: 0 2px;
+}
+
+.step-item--active .step-label {
+  color: var(--sky);
+}
+
+.step-item--done .step-label {
+  color: var(--brand-ink);
+}
+
+/* Only shown once the labels are hidden, so the current step is still named. */
+.step-caption {
+  display: none;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  margin: 2px 0 0;
+}
+
+/* ---- mode pill ----------------------------------------------------------
+   Ported from farm-budget, sized up. There it is a dense inline control on a
+   fifteen-line expense list and has to stay 23px tall, with an invisible
+   pseudo-element carrying the 44px touch target. Here there is one per step,
+   so it can simply be big enough to hit. */
+
+.mode-pill {
+  --pill-h: 40px;
+  display: flex;
+  align-items: stretch;
+  height: var(--pill-h);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--pill-h) / 2);
+  overflow: hidden;
+  background: transparent;
+  margin: 0 0 12px;
+  max-width: 100%;
+}
+
+/* Hairlines BETWEEN segments only. A border on every segment would double up
+   against the container's own and read as a chunkier control. */
+.mode-seg + .mode-seg {
+  border-left: 1px solid var(--border);
+}
+
+.mode-seg {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1;
+  padding: 0 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Olive, with its own ink token. White here is unreadable, and --on-sky IS
+   white, so reaching for it is the mistake --on-olive exists to prevent. */
+.mode-seg[aria-pressed='true'] {
+  background: var(--olive-soft);
+  color: var(--on-olive);
+  font-weight: bold;
+}
+
+.mode-seg:hover:not([aria-pressed='true']) {
+  color: var(--brand-ink);
+  background: var(--olive-bg);
+}
+
+/* ---- landing ------------------------------------------------------------ */
+
+.setup-block {
+  margin: 0 0 18px;
+}
+
+.setup-q {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+/* Goal and forage cards are checkboxes and radios wearing a card. The real
+   control is a visually hidden input inside the label, so keyboard focus,
+   Space to toggle, and screen-reader state all work without being rebuilt. */
+.pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.pick:hover {
+  border-color: var(--sky);
+  background: var(--info-bg);
+}
+
+/* Border WIDTH changes, so the padding drops by the same pixel to stop the
+   card resizing as it is picked. */
+.pick:has(input:checked) {
+  border-color: var(--sky);
+  border-width: 2px;
+  padding: 12px 13px;
+  background: var(--info-bg);
+}
+
+.pick:has(input:focus-visible) {
+  outline: 2px solid var(--sky);
+  outline-offset: 2px;
+}
+
+.pick input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.pick-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A box that fills with a tick when chosen, so selection is never carried by
+   the border colour alone. */
+.pick-title::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--card);
+}
+
+.pick:has(input[type='radio']) .pick-title::before {
+  border-radius: 50%;
+}
+
+.pick:has(input:checked) .pick-title::before {
+  content: '\2713';
+  background: var(--sky);
+  border-color: var(--sky);
+  color: var(--on-sky);
+  font-size: 13px;
+  line-height: 17px;
+  text-align: center;
+}
+
+.pick-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.forage-group {
+  margin: 0 0 12px;
+}
+
+.forage-group h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--brand-ink);
+  border-bottom: 2px solid var(--olive);
+  padding-bottom: 4px;
+  margin: 0 0 8px;
+}
+
+.forage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.forage-card .pick-title {
+  font-size: 14px;
+}
+
+/* Full width under both groups rather than an eighth card in the grid, so it
+   reads as a fallback instead of competing with the real answers. */
+.forage-mixed {
+  margin-top: 4px;
+}
+
+/* ---- what you will need ------------------------------------------------- */
+
+.needs {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--olive);
+  border-radius: 8px;
+  background: var(--olive-bg);
+  padding: 12px 14px;
+}
+
+.needs h3 {
+  font-size: 14px;
+  color: var(--brand-ink);
+  margin: 0 0 8px;
+}
+
+.needs-group + .needs-group {
+  margin-top: 12px;
+}
+
+.needs-group h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--brand-ink);
+  margin: 0 0 4px;
+}
+
+.needs ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ---- sticky bar --------------------------------------------------------- */
+
+/* The bar is fixed, so the last thing on the page would otherwise sit under it
+   and be unreachable. Only applied while the bar is on screen. */
+body:has(.sticky-bar) {
+  padding-bottom: 92px;
+}
+
+.sticky-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+/* ---- setup chip row ----------------------------------------------------- */
+
+.chiprow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 16px;
+  background: var(--info-bg);
+  border: 1px solid var(--border);
+  color: var(--brand-ink);
+  font-weight: bold;
+}
+
+.chip--forage {
+  background: var(--olive-bg);
+}
+
+/* ---- steps -------------------------------------------------------------- */
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.step-n {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--on-olive);
+  background: var(--olive-soft);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+.step-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.step-nav .spacer,
+.chiprow .spacer {
+  flex: 1;
+}
+
+/* A row of controls that belongs to the step rather than dividing it, so it
+   takes no rule above it. */
+.step-nav--plain {
+  border-top: none;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+/* Trimmed from a button label on a narrow screen, so "Save calculation"
+   becomes "Save" rather than wrapping or pushing the bar out of shape. */
+@media (max-width: 620px) {
+  .btn-word {
+    display: none;
+  }
+}
+
+/* ---- sample weights ----------------------------------------------------- */
+
+.samples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.sample {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sample-n {
+  flex: 0 0 auto;
+  width: 20px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.sample .input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.sample-stats {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- instructional panels ----------------------------------------------- */
+
+.howto-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: start;
+}
+
+.howto {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.howto > summary {
+  cursor: pointer;
+  padding: 11px 13px;
+  font-weight: bold;
+  font-size: 13.5px;
+  color: var(--green);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.howto > summary::-webkit-details-marker {
+  display: none;
+}
+
+.howto > summary::before {
+  content: '';
+  flex: 0 0 auto;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.howto[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.howto-body {
+  padding: 0 13px 13px;
+}
+
+.howto-body p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+.howto-media {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.howto-body .photo-ph {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* ---- photos ------------------------------------------------------------- */
+
+.photo-btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.photo-btn:hover,
+.photo-btn:focus-visible {
+  border-color: var(--sky);
+}
+
+.photo-btn img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
+}
+
+/* Shown until real photography lands. Same shape and same tap target as a real
+   thumbnail, so nothing about the layout moves when images arrive. */
+.photo-ph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  aspect-ratio: 4 / 3;
+  background: var(--olive-bg);
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+  padding: 8px;
+  line-height: 1.35;
+}
+
+.photo-ph::before {
+  content: '';
+  width: 26px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+
+.forage-card .photo-btn {
+  margin-bottom: 6px;
+}
+
+.stage-photo {
+  flex: 0 0 88px;
+}
+
+/* ---- photo viewer ------------------------------------------------------- */
+
+.pv {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* touch-action:none so dragging a zoomed photo pans it rather than scrolling
+   the page underneath. */
+.pv-stage {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.pv-stage img {
+  max-width: 100%;
+  max-height: 55dvh;
+  display: block;
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.pv-stage.zoomed {
+  cursor: grab;
+}
+
+.pv-stage.panning {
+  cursor: grabbing;
+}
+
+.pv-stage .photo-ph {
+  width: 100%;
+  aspect-ratio: auto;
+  min-height: 200px;
+  font-size: 13px;
+}
+
+/* Outside the stage, so it neither scales nor pans with the image. */
+.pv-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pv-meta {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.pv-label {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brand-ink);
+}
+
+.pv-sub {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.pv-credit {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.pv-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.pv-btn {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--brand-ink);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pv-btn:hover:not(:disabled) {
+  border-color: var(--sky);
+  color: var(--sky);
+}
+
+.pv-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pv-count {
+  font-size: 12.5px;
+  color: var(--muted);
+  min-width: 58px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The dry matter table and the photo viewer both need more room than a column
+   of prose. styles.css caps .modal at 620px; this widens it without touching
+   the shared file. */
+.modal--wide {
+  max-width: 940px;
+}
+
+/* ---- tables ------------------------------------------------------------- */
+
+.tbl-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tbl th,
+.tbl td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.tbl thead th {
+  background: var(--bg);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--brand-ink);
+  min-width: 84px;
+}
+
+/* The stage description under its heading. Normal weight and case, so the
+   heading still reads as the heading. */
+.th-desc {
+  display: block;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.3;
+  margin-top: 3px;
+  white-space: normal;
+}
+
+.tbl td.num,
+.tbl th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tbl .rowhead {
+  font-weight: bold;
+  color: var(--brand-ink);
+  min-width: 150px;
+}
+
+.tbl .rowhead span {
+  display: block;
+  font-weight: normal;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* A picked cell is marked by weight and a tick as well as by the wash. */
+.tbl td.picked {
+  background: var(--info-bg);
+}
+
+.tbl td.picked .cell {
+  font-weight: bold;
+  color: var(--sky);
+}
+
+.tbl td.picked .cell::after {
+  content: ' \2713';
+}
+
+.tbl button.cell {
+  width: 100%;
+  min-height: 36px;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tbl button.cell:hover {
+  background: var(--olive-bg);
+}
+
+/* ---- mix builder -------------------------------------------------------- */
+
+.mix-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  margin-bottom: 6px;
+}
+
+.mix-row .field {
+  flex: 1 1 130px;
+  min-width: 0;
+  margin: 0;
+}
+
+.mix-row .field.pct {
+  flex: 0 0 96px;
+}
+
+/* ---- results ------------------------------------------------------------ */
+
+.result-card + .result-card {
+  margin-top: 12px;
+}
+
+/* Shown in place of an answer that is still waiting on an input. */
+.result-missing {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--info-bg);
+  border-left: 3px solid var(--sky);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.result-formula {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin-top: 8px;
+}
+
+.reconcile {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--clay-bg);
+  border-left: 3px solid var(--clay);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.warn-list {
+  margin: 10px 0 0;
+  padding: 10px 12px 10px 30px;
+  border-radius: 8px;
+  background: var(--cost-bg);
+  color: var(--cost);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---- cover crops tab ---------------------------------------------------- */
+
+.cc-frame {
+  width: 100%;
+  min-height: 70dvh;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.offline-note {
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--cost-bg);
+  border-left: 3px solid var(--cost);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---- saved calculations ------------------------------------------------- */
+
+.saved-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.saved-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--fld-grey);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 12px 13px;
+}
+
+.saved-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brand-ink);
+}
+
+.saved-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+
+.saved-figs {
+  margin-top: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.saved-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.empty-note {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 18px 0;
+  text-align: center;
+}
+
+/* ---- responsive --------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .app-nav {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .tab {
+    flex: 1 1 0;
+    padding: 10px 8px 11px;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Two up rather than one, so all seven forage options stay in four rows and
+     the list is still comparable at a glance. */
+  .forage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .forage-card {
+    padding: 10px;
+  }
+
+  .forage-card .pick-title {
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .forage-card .pick-sub {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Five labels cannot sit side by side on a phone without wrapping into a
+     block of text. The circles stay, at full size and full tap target, and the
+     current step is named once underneath instead. */
+  .step-label {
+    display: none;
+  }
+
+  .step-caption {
+    display: block;
+  }
+
+  .samples {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .step-nav {
+    flex-wrap: wrap;
+  }
+
+  .step-nav .btn-main {
+    flex: 1 1 auto;
+  }
+}
+
+/* ---- print --------------------------------------------------------------
+   The wizard shows one step at a time; paper shows all five. This is the same
+   out-specificity trick styles.css uses for collapsed folders: [hidden] is
+   set with !important, so beating it needs a higher specificity, not another
+   !important. (0,2,0) beats (0,1,0). */
+
+@media print {
+  .step[hidden],
+  .steps[hidden] {
+    display: block !important;
+  }
+
+  .howto[hidden],
+  .howto-row[hidden] {
+    display: none !important;
+  }
+
+  .app-nav,
+  .stepper,
+  .step-caption,
+  .step-nav,
+  .howto-row,
+  .pv-controls,
+  .saved-actions,
+  .photo-btn {
+    display: none !important;
+  }
+
+  .step-num {
+    border-color: #999;
+  }
+
+  .box,
+  .saved-card,
+  .result-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .tbl-scroll {
+    overflow: visible !important;
+  }
+
+  .pick input {
+    position: static;
+  }
+}

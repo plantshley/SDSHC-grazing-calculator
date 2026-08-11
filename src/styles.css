@@ -1,0 +1,1237 @@
+/* ==========================================================================
+   SDSHC shared design system
+
+   Ported unchanged from SDSHC-farm-budget, which took it from the Virtual
+   Fence ROI tool, so all three SDSHC tools read as one family. Colour values
+   are deliberately identical; do not drift them. A change here belongs in
+   every tool or in none of them.
+
+   Rules that outlive any one app:
+     - --green means a positive number, not an action.
+     - --sky is the one loud button per screen and the KPI card edge.
+     - The `?` explains and never changes a value.
+     - Colour is never the only signal.
+
+   Anything specific to the grazing calculator goes in app.css, not here.
+   ========================================================================== */
+
+:root {
+  --bg: #f7f9f7;
+  --card: #ffffff;
+  --text: #222222;
+  --muted: #5a625a;
+  --green: #2e7d32;
+  --green-dark: #256628;
+  --border: #d7ddd7;
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --save: #2e7d32;
+  --save-bg: #e8f5e9;
+  --cost: #c0392b;
+  --cost-bg: #fdecea;
+  --overlay: rgba(0, 0, 0, 0.45);
+
+  /* ---- SDSHC logo palette ---------------------------------------------
+     Taken from the coalition's own mark, so the tool is recognisably theirs
+     rather than generically green. Each has one job and keeps it:
+       --brown  headings and structural lines — the mark's darkest colour
+       --sky    the chrome: the `?` and its modals, the solid buttons, the KPI
+                card edge, the marker on whichever budget is open
+       --olive  the section rules under every sub-title
+       --clay   the warm counterweight — overhead, notes, secondary marks
+     --green is left to mean a positive dollar figure, and --cost a negative
+     one. Semantics beat brand: a producer reading a red loss and a green
+     profit must not have to work out which of four browns means "bad", and
+     that is worth more than having the loudest button on the page be green. */
+  --brown: #4e413a;
+  --sky: #0fb2e2;
+  --olive: #afbf42;
+  --clay: #8d5c3e;
+
+  --info: var(--sky);
+  --info-bg: #e6f7fd;
+  --olive-bg: #f4f7e3;
+  --clay-bg: #f6ede7;
+  --brand-ink: var(--brown);
+
+  /* ---- folder swatches -------------------------------------------------
+     Twelve: a walk round the wheel with PINK where red would be, closing on
+     two neutrals. Red is the one colour not on offer and that is not
+     squeamishness — the palette above is semantic, --green means a positive
+     dollar figure and --cost a negative one, and a red folder mark on a page
+     whose every row prints a profit or a loss re-opens the question the
+     palette exists to settle. Pink sits beside red on the wheel and carries
+     none of it.
+
+     Every one of these is its OWN value, the blue and the green included. They
+     used to borrow --sky and --olive, which cost no new tokens but tied a
+     folder's colour to the app's chrome: a "blue" folder was the same blue as
+     every `?` button and every KPI edge. A folder colour is a label a producer
+     chose and should not read as furniture, or move if the brand ever does.
+
+     Each is a pair: the ink the glyph is stroked in, and the wash behind it.
+
+     THE INK IS THE SAME IN BOTH THEMES. Only the wash is overridden under
+     [data-theme="dark"], so a folder keeps the colour the producer picked
+     whichever theme they are looking at it in — which is the job of a colour
+     used as a LABEL rather than as chrome. Every other colour token in this file
+     flips between themes; these twelve are the deliberate exception, and the
+     reason is that a producer who made the pink folder should find a pink
+     folder.
+
+     The constraint that follows: each ink has to carry on a white card AND on a
+     dark one, so they run mid-tone rather than the darker shades a light theme
+     alone would choose. They are stroked glyphs and filled dots with the
+     folder's name in ordinary text beside them, never text themselves, so a
+     mid-tone reads fine on both. Change one and check it against BOTH washes.
+
+     Adding a colour means: the pair here, the -bg under [data-theme="dark"],
+     AND a .fld-c-<key> class in the folders block below. See the header comment
+     in ui/folders.js. */
+  --fld-pink: #ec5887;
+  --fld-pink-bg: #fdeaf3;
+  --fld-magenta: #ce18a7;
+  --fld-magenta-bg: #fae9f8;
+  --fld-violet: #b94dcf;
+  --fld-violet-bg: #f8eafb;
+  --fld-indigo: #6616bb;
+  --fld-indigo-bg: #eaedfa;
+  --fld-blue: #1668c4;
+  --fld-blue-bg: #e7f0fc;
+  --fld-teal: #11b2ac;
+  --fld-teal-bg: #e2f4f3;
+  --fld-green: #1db44d;
+  --fld-green-bg: #e6f5ea;
+  --fld-lime: #a6af2a;
+  --fld-lime-bg: #f0f6de;
+  --fld-yellow: #ffd24a;
+  --fld-yellow-bg: #fbf3dd;
+  --fld-orange: #f68e3e;
+  --fld-orange-bg: #fbeee2;
+  --fld-slate: #8b5942;
+  --fld-slate-bg: #e3d0b8;
+  --fld-grey: #959595;
+  --fld-grey-bg: #eef1ef;
+  /* Text sitting ON a sky-filled button. White carries on the light theme's
+     saturated #0fb2e2; on the lighter dark-theme blue it does not, so the two
+     are separate tokens rather than a hardcoded #fff. */
+  --on-sky: #ffffff;
+
+  /* The selected segment of a mode pill.
+
+     A WASH rather than the flat colour. At full strength --olive is the
+     loudest thing on a card carrying fifteen of these, and it competes with
+     the figures — which is the same reason --green is reserved for a positive
+     dollar amount and not spent on chrome. A third of the way to the olive is
+     enough to say "this one", and the pill still reads as one control rather
+     than as a coloured button beside two plain ones.
+
+     The ink is NOT --on-sky, and reaching for that is the mistake this token
+     exists to prevent: --on-sky is white, and white on any strength of --olive
+     is unreadable. Over the light wash the brown is 7.6:1. */
+  --olive-soft: rgba(175, 191, 66, 0.35);
+  --on-olive: var(--brown);
+
+  /* Typography is one swappable property — see [data-font] below. */
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --maxw: 1400px;
+  --radius: 10px;
+}
+
+[data-theme="dark"] {
+  --bg: #14181a;
+  --card: #1e2426;
+  --text: #e7ecea;
+  --muted: #9fb0aa;
+  --green: #57b75c;
+  --green-dark: #4aa44f;
+  --border: #313a3d;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --save: #57b75c;
+  --save-bg: #1c2a1e;
+  --cost: #e57368;
+  --cost-bg: #2c1c1a;
+  --overlay: rgba(0, 0, 0, 0.6);
+
+  /* Lightened so they still carry on a dark card. The brown is the one that
+     cannot survive as-is — at #4e413a it disappears into the background — so
+     in dark mode it hands its heading job to a warm off-white. */
+  --brown: #b9a894;
+  --sky: #4fc9ef;
+  --olive: #c3d456;
+  --clay: #c08a68;
+
+  --info: var(--sky);
+  --info-bg: #10262e;
+  --olive-bg: #232817;
+  --clay-bg: #2b201a;
+  --brand-ink: #dfe6e2;
+  --on-sky: #0a1d24;
+  /* The wash goes the other way here. On a dark card a 35% olive is a bright
+     patch rather than a tint, so it comes down to 18% — and the ink goes UP to
+     the ordinary text colour instead of down to a near-black, because what it
+     is sitting on is now dark. 8:1 over the dark wash. */
+  --olive-soft: rgba(195, 212, 86, 0.18);
+  --on-olive: var(--text);
+
+  /* WASHES ONLY, and that is the whole point: the twelve inks are deliberately
+     NOT overridden here, so a folder is the same colour in either theme. See the
+     note beside them in :root. Each wash is its own ink at low lightness, so the
+     chip still reads as that colour rather than as a grey box. */
+  --fld-pink-bg: #33202a;
+  --fld-magenta-bg: #311f2f;
+  --fld-violet-bg: #2b2036;
+  --fld-indigo-bg: #221c33;
+  --fld-blue-bg: #17273c;
+  --fld-teal-bg: #16302f;
+  --fld-green-bg: #16301f;
+  --fld-lime-bg: #292c17;
+  --fld-yellow-bg: #322c17;
+  --fld-orange-bg: #33251a;
+  /* Slate is a warm brown in this palette, not a blue-grey — its light wash is
+     a tan. A blue-grey dark wash under a brown glyph was the one pair that did
+     not match its own ink. */
+  --fld-slate-bg: #2b2119;
+  --fld-grey-bg: #262c2e;
+}
+
+/* "Classic" = the Virtual Fence ROI tool's stack, for producers who prefer it
+   or want the two tools to look identical. "Browser" (default) uses the native
+   UI font so the app respects OS font-size settings. */
+[data-font="classic"] {
+  --font: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* The browser's own `[hidden] { display: none }` lives in the UA stylesheet, and
+   ANY author rule setting a display beats it — the cascade puts author sheets
+   above UA sheets before specificity is even considered. So `.scn` at
+   display:flex and `.typ-option` at display:grid both stayed on screen after
+   being hidden, and the two filters in this app quietly did nothing.
+   jsdom cannot catch this: it loads no CSS, so `el.hidden` reads true there
+   whatever the stylesheet says, and every test passed. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  font-family: var(--font);
+  margin: 0;
+  padding: 0 16px 16px;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+}
+
+main {
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
+
+/* ---- topbar ------------------------------------------------------------ */
+
+.topbar {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 12px 0 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* height:auto with an explicit aspect ratio: fixing only the height lets a
+   flex parent squash the box while the image inside keeps its proportions,
+   which is what was clipping the logo top and bottom on a phone. */
+.toplogo {
+  height: auto;
+  width: auto;
+  max-height: 44px;
+  max-width: min(60%, 300px);
+  object-fit: contain;
+  flex: 0 1 auto;
+}
+
+/* The mark is dark ink on transparent, so on a dark card it is nearly
+   invisible. Lifting it back out is better than shipping a second file. */
+[data-theme="dark"] .toplogo {
+  filter: brightness(0) invert(1) opacity(0.92);
+}
+
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+/* Matches SDSHC-tracker's .theme-toggle so the two tools' chrome is the same. */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.theme-toggle:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.theme-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Both font choices stay visible so it's obvious a choice exists and which one
+   is active — not a single button that swaps its own label. */
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 4px 4px 4px;
+  box-shadow: var(--shadow);
+}
+
+.segmented-label {
+  font-size: 10px;
+  color: var(--muted);
+  display: none;
+}
+
+.seg {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 11px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+/* Blue, not green. Green on this page means "this writes a value" — the save
+   button, "use typical value". Choosing a typeface writes nothing, and giving it
+   the action colour made it look like one more thing to decide before starting. */
+.seg[aria-pressed="true"] {
+  background: var(--sky);
+  color: var(--on-sky);
+  font-weight: bold;
+}
+
+.seg:hover:not([aria-pressed="true"]) {
+  color: var(--sky);
+}
+
+
+/* ---- cards ------------------------------------------------------------- */
+
+.box {
+  position: relative;
+  background: var(--card);
+  padding: 14px 15px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.title {
+  font-weight: bold;
+  font-size: 16px;
+  color: var(--green);
+}
+
+/* ---- fields ------------------------------------------------------------ */
+
+.field {
+  margin: 9px 0;
+}
+
+/* The `?` is a sibling of the label, not inside it — see labelRow() in
+   ui/fields.js. This row is what puts them back on one line. */
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 2px 6px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+  min-height: 22px;
+}
+
+/* "use typical value" sits in the label row now, so in a narrow enterprise
+   column it may wrap under the label rather than squeezing it. It keeps its own
+   line's height off the field either way. */
+.field-label .line-tip {
+  line-height: 1.2;
+}
+
+/* A control about the whole field rather than about its value, pinned to the
+   right-hand end of the label row. Remove, on an equipment or building name.
+
+   `margin-left: auto` in a wrapping flex line still puts it at the end of
+   whichever line it ends up on, so a narrow column that pushes it under the
+   label keeps it right-aligned rather than stranding it mid-row.
+
+   It carries a 44px target, which makes this row 44px tall wherever one is
+   present. That is the cost of keeping the target full size and is paid on the
+   two name fields only. */
+.field-aside {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.field-label > label,
+.field > label {
+  display: block;
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0;
+}
+
+input,
+select,
+button {
+  font-family: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px; /* 16px stops iOS Safari zooming on focus */
+  min-height: 44px;
+}
+
+input.invalid {
+  border-color: var(--cost);
+  background: var(--cost-bg);
+}
+
+/* `?` EXPLAINS. It must never change a value. */
+.help-btn {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+/* `?` is explanation, so it takes the sky accent — the same colour as the
+   definition panels it opens. "use typical value" keeps green, because green
+   means something is about to change. */
+.help-btn:hover {
+  color: var(--sky);
+  border-color: var(--sky);
+}
+
+/* `use typical value` ACTS — it writes into the field. Deliberately styled as a
+   text link, never as a `?`, so the two are never confused. */
+.tip {
+  background: none;
+  border: none;
+  color: var(--green);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0 0;
+  text-decoration: underline;
+}
+
+.tip:hover {
+  color: var(--green-dark);
+}
+
+/* Duplicate copies a budget rather than changing one, so it takes the blue that
+   everywhere else on this page means "this is about a budget" rather than the
+   green of the action that opens one. */
+.tip.alt {
+  color: var(--sky);
+}
+
+.flash {
+  animation: flash 0.7s ease;
+}
+
+@keyframes flash {
+  0% {
+    background: var(--save-bg);
+  }
+  100% {
+    background: var(--card);
+  }
+}
+
+
+/* ---- buttons ----------------------------------------------------------- */
+
+/* The one solid button on each screen: Save on the budget, Compare on the saved
+   list. It takes the logo's blue rather than the green, so the page's single
+   loudest object is the mark's own colour and green is left to mean "positive
+   number" wherever it appears — which, on a page whose whole output is money,
+   is the more useful job for it. */
+.btn-main {
+  padding: 14px 26px;
+  font-size: 17px;
+  font-weight: bold;
+  background-color: var(--sky);
+  color: var(--on-sky);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.btn-main:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.btn-add {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--green);
+  border-radius: 8px;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  min-height: 40px;
+  width: 100%;
+}
+
+.btn-add:hover {
+  border-color: var(--green);
+  background: var(--save-bg);
+}
+
+/* Header variant: "+ New budget" sits in the top right of the Saved header, so
+   it is sized to its text instead of spanning the card. */
+.btn-add-inline {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 7px 14px;
+  min-height: 36px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* 44px like every other control the app expects a thumb to find. This removes an
+   enterprise or a filled-in machine, so a mis-tap is expensive; it stays visually
+   quiet but is a full-size target. */
+.btn-remove {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 6px 10px;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.btn-remove:hover {
+  color: var(--cost);
+}
+
+.tip.danger {
+  color: var(--cost);
+}
+
+.footer {
+  text-align: center;
+  margin: 22px 0 96px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.footer .tip {
+  font-size: 12px;
+}
+
+/* Kept when the page is printed, unlike every other control in the footer.
+   A budget handed to a lender or an instructor still carries the statement
+   about where the data lives, and the sentence is true on paper. */
+.footer-privacy {
+  margin: 10px 0 4px;
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 4px 0 10px;
+  line-height: 1.45;
+}
+
+/* The min-height is what keeps two of these level side by side. A `?` is 22px
+   tall and a line of 15px text is not, so "Overhead ?" sat taller than "Land &
+   labor" and its underline finished several pixels lower — two rules across one
+   pair of columns, visibly not the same rule.
+
+   The number is 29px, not 22px, and the difference is the whole fix: `*` sets
+   box-sizing: border-box, so min-height covers the 5px padding and the 2px rule
+   as well. At 22px it resolved to 15px of content, under the natural height of
+   BOTH variants, and did nothing at all. 22 + 5 + 2 = 29. */
+.sub-title {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--brand-ink);
+  margin: 18px 0 4px;
+  border-bottom: 2px solid var(--olive);
+  padding-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 29px;
+  line-height: 1.25;
+}
+
+.pos {
+  color: var(--save);
+}
+.neg {
+  color: var(--cost);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+
+/* ---- input frames ------------------------------------------------------ */
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.affix {
+  position: absolute;
+  font-size: 14px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.prefix {
+  left: 10px;
+}
+.suffix {
+  right: 10px;
+}
+
+.has-prefix input {
+  padding-left: 24px;
+}
+.has-suffix input {
+  padding-right: 44px;
+}
+
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+
+/* ---- readouts ---------------------------------------------------------- */
+
+.readout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.readout-label {
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.readout-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.readout.strong {
+  font-weight: bold;
+}
+
+.readout.strong .readout-label,
+.readout.strong .readout-value {
+  color: var(--green);
+}
+
+
+/* ---- results ----------------------------------------------------------- */
+
+.results {
+  margin-bottom: 16px;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 14px 0 18px;
+}
+
+/* These four numbers are the answer the whole page exists to produce, and they
+   are read across a classroom and at arm's length in a pickup. Centred and
+   large so they carry; the blue top edge ties them to the logo palette without
+   competing with the figure itself, which has to stay free to go green or red
+   and mean it. */
+.kpi {
+  background: var(--info-bg);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--sky);
+  border-radius: 8px;
+  padding: 14px 12px 16px;
+  text-align: center;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-size: 30px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  color: var(--green);
+  /* Long dollar amounts must shrink rather than spill out of the card. */
+  overflow-wrap: anywhere;
+}
+
+/* Money is green when it is there and red when it is not. That is the one piece
+   of colour on this screen carrying meaning rather than brand, and it is not
+   negotiable for a producer reading the card at arm's length in a pickup. The
+   sticky bar shows the same two figures, so it gets the identical rule: the two
+   must never disagree about a colour any more than about a number. Blue is left
+   to the card's edge, where it decorates without claiming to say anything. */
+.kpi-value.pos,
+.sticky-figs b.pos {
+  color: var(--save);
+}
+
+.kpi-value.neg,
+.sticky-figs b.neg {
+  color: var(--cost);
+}
+
+.sub-note {
+  font-size: 11.5px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+
+/* ---- sticky results bar ------------------------------------------------ */
+
+.sticky-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.sticky-figs {
+  display: flex;
+  gap: 20px;
+  min-width: 0;
+}
+
+.sticky-figs span {
+  display: grid;
+}
+
+.sticky-figs small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.sticky-figs b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sticky-bar .btn-main {
+  padding: 12px 20px;
+  font-size: 15px;
+  flex: 0 0 auto;
+}
+
+
+/* ---- modals ------------------------------------------------------------ */
+
+/* The OVERLAY does not scroll — the modal body does. Scrolling the overlay let
+   the panel travel up out of the viewport, taking its close button with it, and
+   a gesture that ran past the end of the content carried on into the budget
+   underneath. Fixed height plus an internal scroller keeps the frame still. */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 100;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.overlay.open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  max-width: 620px;
+  width: 100%;
+  /* dvh, not vh: on mobile Safari and Chrome, vh is the tallest the viewport
+     ever gets, so the bottom of a full-height modal sits under the URL bar. */
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* A column now: the title row, and under it the one message that must not be
+   able to scroll away. The head is `flex: 0 0 auto` in a modal whose BODY does
+   the scrolling, which is exactly why the error was moved up here. */
+.modal-head {
+  display: block;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  flex: 0 0 auto;
+}
+
+.modal-head-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.modal-title {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+  color: var(--green);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 6px;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.modal-body {
+  padding: 6px 16px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Freeze the page while a modal is up, so closing it returns the producer to
+   exactly the field they were looking at. */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* ---- collapsible modal sections ---------------------------------------- */
+
+.def-fold,
+.typ-fold {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.def-fold > summary,
+.typ-fold > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: bold;
+  color: var(--green);
+  font-size: 14.5px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  background: var(--bg);
+}
+
+.def-fold > summary::-webkit-details-marker,
+.typ-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The disclosure triangle, drawn rather than inherited, so it looks the same
+   in every browser and matches the card chevrons elsewhere in the app. */
+.def-fold > summary::before,
+.typ-fold > summary::before {
+  content: '';
+  flex: 0 0 auto;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.def-fold[open] > summary::before,
+.typ-fold[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.def-fold-body {
+  padding: 2px 14px 10px;
+}
+
+.typ-fold > summary {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 12px;
+}
+
+.typ-fold .typ-option {
+  margin: 6px 10px;
+  width: calc(100% - 20px);
+}
+
+.modal-unit {
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin: 6px 0 12px;
+}
+
+.modal-unit b {
+  color: var(--brand-ink);
+}
+
+.def h3 {
+  font-size: 15px;
+  margin: 16px 0 6px;
+  color: var(--green);
+}
+
+.def p,
+.def li {
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 8px 0;
+}
+
+.def ol {
+  padding-left: 22px;
+}
+
+.modal-note,
+.modal-warn,
+.modal-source {
+  font-size: 13px;
+  line-height: 1.5;
+  border-radius: 6px;
+  padding: 9px 11px;
+  margin: 12px 0;
+}
+
+.modal-note {
+  background: var(--info-bg);
+  color: var(--text);
+}
+
+.modal-warn {
+  background: var(--cost-bg);
+  color: var(--cost);
+}
+
+.modal-source {
+  color: var(--muted);
+  font-size: 11.5px;
+  padding: 0;
+  margin-top: 16px;
+}
+
+
+/* ---- print ------------------------------------------------------------- */
+
+/* ---- print --------------------------------------------------------------
+   Everything that scrolls on screen has to become tall on paper instead, or the
+   part past the fold is simply gone. Three separate things were clipping:
+   .ent-scroller's horizontal overflow, .tbl-scroll's, and the enterprise
+   columns being laid out side by side across a page only 8.5in wide. A folded
+   card printed as a blank spine, too. All four are undone here.
+   -------------------------------------------------------------------------- */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  .app-nav,
+  .sticky-bar,
+  .btn-add,
+  .btn-remove,
+  .tip,
+  .help-btn,
+  .mode-pill,
+  .chev,
+  .scn-grip,
+  /* .save-state is not listed: it is app state rather than budget data and must
+     not print, but it now lives inside .sticky-bar, which is already hidden two
+     lines up. Naming it again would be a rule that looks load-bearing and is
+     not. If it ever moves out of the bar, it comes back here. */
+  .edit-name,
+  .edit-icon,
+  .overlay,
+  /* The box is a control, so it goes. The hint line stays, and while a filter
+     is running it reads "Showing 3 of 12 budgets" — which is the only thing on
+     paper that explains why nine budgets are missing from a printed list. */
+  .scn-filter,
+  /* Folder controls are controls. The header itself stays — it is structure,
+     and it says which budgets below it belong together. */
+  .fld-btns,
+  .footer button {
+    display: none !important;
+  }
+
+  /* A collapsed folder PRINTS EXPANDED. Paper has no chevron to tap, so a
+     printed list that silently leaves out half the budgets is a wrong document,
+     not a tidy one.
+
+     This has to out-specify `[hidden] { display: none !important }` at the top
+     of the sheet. Both are author-origin and both are !important, so the winner
+     is decided on specificity: (0,2,0) here against (0,1,0) there. Dropping
+     either the attribute selector or the !important puts the folds back.
+
+     Scoped to `.scn-list` on purpose. A row hidden by the FILTER stays hidden
+     on paper, where the hint line reads "Showing 3 of 12 budgets" and is the
+     only thing explaining why nine are missing. */
+  .scn-list[hidden] {
+    display: grid !important;
+  }
+
+  /* Browser chrome that only makes sense to a cursor: the up/down spinners on a
+     number box and the ▾ on a select. On screen they say "you can change this";
+     on paper they are ink on top of the producer's figures, and the ▾ in
+     particular reads as part of the value beside it. */
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: none !important;
+    padding-right: 8px !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+    padding: 0;
+    font-size: 11pt;
+  }
+
+  /* Keep the mark on the printed copy — this gets handed round a classroom. */
+  .topbar {
+    padding: 0 0 8px;
+    border-bottom: 1px solid #999;
+    margin-bottom: 10px;
+  }
+
+  .topbar-controls {
+    display: none !important;
+  }
+
+  .toplogo {
+    max-height: 34px;
+    filter: none !important;
+  }
+
+  .app-head {
+    border-bottom: none;
+    margin-bottom: 8px;
+  }
+
+  /* A name box with a border round it looks like an empty field on paper. */
+  .scenario-name,
+  .scn-name-input {
+    border-color: transparent !important;
+    background: transparent !important;
+    width: auto !important;
+    font-size: 15pt;
+  }
+
+  .box {
+    box-shadow: none;
+    border: 1px solid #999;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Anything with its own scrollbar on screen must print at full height. */
+  .ent-scroller,
+  .tbl-scroll,
+  .modal-body {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* One enterprise per block, down the page. Four columns across a sheet of
+     paper is where the right-hand ones fell off the edge. */
+  .ent-grid {
+    display: block !important;
+  }
+
+  .ent {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    margin-bottom: 10px;
+    padding: 10px 12px !important;
+  }
+
+  /* Print what a folded card contains, not the folded card. */
+  .ent.collapsed .ent-body,
+  .fixed-block.collapsed .fixed-body {
+    display: block !important;
+  }
+
+  /* A folded card is a fixed-width box on screen. On paper it is a full-width
+     card like any other, with its name allowed to run to whatever length it is
+     rather than being cut off with an ellipsis. */
+  .ent.collapsed .ent-name,
+  .ent.collapsed .ent-sub {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  .fixed-grid,
+  .results-grid {
+    display: block !important;
+  }
+
+  .kpi-row {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .kpi-value {
+    font-size: 16pt;
+  }
+
+  /* Split a long table across pages at a row boundary, with its heading
+     repeated, rather than mid-row. */
+  .tbl {
+    page-break-inside: auto;
+  }
+
+  .tbl thead {
+    display: table-header-group;
+  }
+
+  .tbl tr {
+    page-break-inside: avoid;
+  }
+
+  /* Guide sections are folded shut on screen; on paper they must all print. */
+  .def-fold > .def-fold-body,
+  .typ-fold > .typ-option {
+    display: block !important;
+  }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
