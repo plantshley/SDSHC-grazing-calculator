@@ -169,6 +169,18 @@ function clampStep(n) {
 }
 
 /**
+ * Which branches of the calculation each step's Clear empties, in step order.
+ *
+ * Named here rather than derived from the markup, because "what this step is
+ * for" is a fact about the worksheet and a step that renders a figure it does
+ * not own must not be able to clear it. The values come from newCalculation(),
+ * so a new field is blanked correctly by adding it to the factory and nothing
+ * else. STEP_INPUTS in calc.js is the same idea for a different question:
+ * which inputs a step COLLECTS, for saying what is still outstanding.
+ */
+const STEP_FIELDS = [['samples'], ['frame', 'dm'], ['usable'], ['demand'], ['pasture']]
+
+/**
  * Repaint the results block, then every computed figure on the page.
  *
  * The results block is rebuilt only when its SHAPE could have changed, which is
@@ -289,6 +301,20 @@ function chooseForage(id) {
   calc.forageType = id
   calc.dm.stageKey = ''
   calc.dm.stageTypeId = ''
+
+  // The mix builder follows too, but only its UNUSED rows. A share entered
+  // against a type is a deliberate statement about the stand and changing the
+  // headline answer must not rewrite it; a row with no share is one the builder
+  // filled in from the setup screen and never heard about again.
+  for (const row of calc.dm.mix ?? []) {
+    if (row.share === '' || row.share == null) {
+      row.typeId = defaultMixType(calc)
+      // The stage belongs to the ROW. Kept across a change of row it resolves
+      // to nothing and reads on screen as a dry matter of zero.
+      row.stageKey = ''
+    }
+  }
+
   notify()
   render()
 }
@@ -302,6 +328,30 @@ function chooseForage(id) {
  */
 function defaultMixType(calc) {
   return calc.forageType === MIXED.id ? '' : calc.forageType || ''
+}
+
+/**
+ * Ask before throwing away work that is not in the saved list.
+ *
+ * The working calculation is autosaved on every keystroke, so nothing is lost
+ * by closing the page. It IS lost by replacing the working calculation, which
+ * is what "+ New calculation" and opening a saved record both do. So the
+ * question is not "have you saved recently", it is "is this one in the list at
+ * all": if it is, the figures on screen are a copy of a record that survives.
+ *
+ * An untouched form is not work, so it goes without asking.
+ *
+ * @returns {boolean} true to go ahead.
+ */
+function confirmLeavingUnsaved(what) {
+  const calc = getCalculation()
+  const started = hasSamples(calc) || calc.goals.length > 0 || !!calc.forageType
+  if (!started) return true
+  if (listCalcs().some((c) => c.id === calc.id)) return true
+
+  return confirm(
+    `The calculation you have open is not in your saved list. ${what} will lose it. Save it first, or continue?`
+  )
 }
 
 /* ─────────────────── reordering the saved list, by drag ────────────────── */
@@ -491,16 +541,8 @@ function handleAction(action, btn) {
       break
     case 'new-calc': {
       // Everything goes, including the goals and the forage type, which is what
-      // separates this from Clear: that one empties the boxes for the next
-      // pasture, this one is the next calculation. Saved records are untouched
-      // and the confirm only appears when there is work that would be lost.
-      const started = hasSamples() || calc.goals.length || calc.forageType
-      if (
-        started &&
-        !confirm('Start a new calculation? Anything not saved on this one is lost.')
-      ) {
-        return
-      }
+      // separates this from a step's Clear. Saved records are untouched.
+      if (!confirmLeavingUnsaved('Starting a new calculation')) return
       clearWorking()
       setCalculation(newCalculation())
       setupOpen = true
@@ -527,11 +569,17 @@ function handleAction(action, btn) {
       render()
       scrollToTop()
       break
-    case 'go-step':
-      setPref('step', clampStep(btn.dataset.step))
+    case 'go-step': {
+      // The stepper offers the next circle as well as the ones behind, so
+      // arriving by circle has to raise the high-water mark the same way Next
+      // does. Without it the strip would offer step 3, then refuse step 4.
+      const to = clampStep(btn.dataset.step)
+      setPref('step', to)
+      setPref('maxStep', Math.max(getPref('maxStep'), to))
       render()
       scrollToTop()
       break
+    }
     case 'toggle-show-all': {
       const now = !getPref('showAll')
       setPref('showAll', now)
@@ -687,6 +735,10 @@ function handleAction(action, btn) {
     case 'open-calc': {
       const found = getCalcById(btn.dataset.id)
       if (!found) return
+      // Opening REPLACES the working calculation, so an unsaved one on screen
+      // goes with it. Skipped when the open calculation is already in the list,
+      // including when it is the very record being reopened.
+      if (!confirmLeavingUnsaved('Opening a saved calculation')) return
       // Open a COPY. Editing a saved calculation in place would rewrite a record
       // the user may only have wanted to look at.
       //
@@ -720,6 +772,20 @@ function handleAction(action, btn) {
       })
       break
     }
+    case 'go-saved': {
+      // A button that says "to saved" must not land on a list this calculation
+      // is missing from. It is written first if it is not in there yet, with
+      // whatever name it carries: the card offers Edit right beside it, which is
+      // a cheaper correction than a dialog in the way of every visit to the tab.
+      if (!listCalcs().some((c) => c.id === calc.id)) {
+        persist(calc)
+        notify()
+      }
+      setPref('tab', 'saved')
+      render()
+      scrollToTop()
+      break
+    }
     case 'clear-saved-filter':
       savedFilter = ''
       render()
@@ -743,28 +809,21 @@ function handleAction(action, btn) {
       render()
       break
     }
-    case 'clear-all': {
-      if (
-        !confirm(
-          'Clear the figures you have entered in the steps? Your goals and forage type are kept, and saved calculations are not affected. To start over completely, use "+ New calculation".'
-        )
-      ) {
-        return
-      }
-      // The setup answers survive. Clearing them too would drop the user back
-      // on the landing screen to re-answer two questions they did not ask to
-      // change, when what they wanted was an empty worksheet for the next
-      // pasture. The name goes: this is no longer the saved calculation it was
-      // opened from.
+    case 'clear-step': {
+      // One step at a time, from the Clear on that step's own head. A single
+      // button that emptied the whole worksheet had to be read carefully every
+      // time; this one names its scope by where it sits, so it needs no confirm.
+      const i = clampStep(btn.dataset.step)
       const fresh = newCalculation()
-      fresh.goals = [...calc.goals]
-      fresh.forageType = calc.forageType
-      clearWorking()
-      setCalculation(fresh)
-      setPref('step', 0)
-      setPref('maxStep', 0)
+      for (const key of STEP_FIELDS[i]) calc[key] = fresh[key]
+      // The mix rows come back blank with the rest of step 2, so they take the
+      // forage type the setup screen already named, the same as entering the
+      // builder does.
+      if (STEP_FIELDS[i].includes('dm')) {
+        for (const row of calc.dm.mix) row.typeId = defaultMixType(calc)
+      }
+      notify()
       render()
-      scrollToTop()
       break
     }
 

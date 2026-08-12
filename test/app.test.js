@@ -231,7 +231,7 @@ test('the whole worksheet runs and reproduces the golden fixture', () => {
 
   // The last step has no Next, so the right-hand end of the row carries the way
   // out to the list this calculation can be kept in.
-  const toSaved = $('.step-nav--results [data-action="set-tab"][data-tab="saved"]')
+  const toSaved = $('.step-nav--results [data-action="go-saved"]')
   assert.ok(toSaved, 'the last step offers the way through to the saved list')
   assert.ok(toSaved.classList.contains('btn-step'), 'sized to match Back at the other end')
 })
@@ -451,24 +451,29 @@ test('the mixed fallback offers the whole chart instead of one row', () => {
   assert.ok($('[data-action="open-chart-picker"]'), 'the chart picker is offered')
 })
 
-test('clear all empties the steps and keeps the setup answers', () => {
-  const goals = [...state.getCalculation().goals]
-  const forage = state.getCalculation().forageType
-  assert.ok(goals.length && forage, 'there is something to keep')
+test('a step clears itself and leaves every other step alone', () => {
+  // Clear is on each step's own head, so the control names its scope by where it
+  // sits. The one in the sticky bar emptied whatever happened to be on screen
+  // and had to be read carefully every time.
+  const before = state.getCalculation()
+  assert.equal(before.frame.key, 'small', 'step 2 is filled in')
+  assert.equal(before.demand.animalWeight, '1200', 'and so is step 4')
 
-  click('[data-action="clear-all"]')
+  click('.step[data-step="1"] [data-action="clear-step"]')
 
-  // Not back on the landing screen. What was wanted is an empty worksheet for
-  // the next pasture, not two questions to answer again that were not asked
-  // about.
-  assert.ok(!$('.goal-grid'), 'still on the steps')
-  assert.deepEqual(state.getCalculation().goals, goals, 'the goals are kept')
-  assert.equal(state.getCalculation().forageType, forage, 'and so is the forage type')
+  const after = state.getCalculation()
+  assert.equal(after.frame.key, 'custom', 'step 2 is back to its factory defaults')
+  assert.equal(after.frame.customArea, '')
+  assert.equal(after.dm.stageKey, '')
 
-  assert.equal(state.getCalculation().demand.animalWeight, '', 'the figures are gone')
-  assert.equal(state.getCalculation().pasture.totalAcres, '')
-  assert.deepEqual(state.getCalculation().samples, ['', '', '', '', ''])
-  assert.equal(localStorage.getItem('sdshc-gc-working'), null, 'and the autosave is gone')
+  assert.deepEqual(after.samples, ['20', '25', '30', '25', '25'], 'step 1 is untouched')
+  assert.equal(after.demand.animalWeight, '1200', 'and so is step 4')
+  assert.equal(after.pasture.totalAcres, '160', 'and step 5')
+  assert.ok(!$('.goal-grid'), 'and it does not throw you back to the setup screen')
+
+  // Every step head carries one, in both modes.
+  assert.equal($$('[data-action="clear-step"]').length, 5, 'one Clear per step')
+  assert.equal($('[data-action="clear-all"]'), null, 'and none in the sticky bar')
 })
 
 test('the cover crops tab embeds the form and names the offline limit', () => {
@@ -802,4 +807,48 @@ test('New calculation puts the work down and starts again', () => {
   assert.ok(start.disabled, 'nothing is answered yet')
   assert.ok(start.textContent.includes('Start'), 'and it is a start, not a return')
   assert.ok($('.start-warn'), 'with the reason on the row beside it')
+})
+
+test('the stepper offers the next circle, and a step says what it still needs', () => {
+  // Straight after New calculation, so nothing has been reached but step 1.
+  choose('input[data-action="toggle-goal"][value="days"]')
+  choose('input[data-action="set-forage"][value="coolSeasonGrass"]')
+  click('[data-action="start"]')
+  // "Show all steps" is a device preference and survived the new calculation.
+  // There is no stepper while it is on, which is the whole point of it.
+  if (!$('.stepper')) click('[data-action="toggle-show-all"]')
+
+  const nums = $$('.step-num')
+  assert.ok(!nums[1].disabled, 'the next circle is live, so it is another way to press Next')
+  assert.ok(nums[2].disabled, 'the one after it is not: the strip still says where the work got to')
+
+  // Nothing clipped yet, so step 1 says so where it is asked rather than
+  // leaving the user to find out from a dash three steps later.
+  const note = $('[data-step-missing="0"]')
+  assert.ok(!note.hidden, 'the step names what it is still waiting for')
+  assert.ok(note.textContent.toLowerCase().includes('clipped forage samples'))
+
+  click(nums[1])
+  assert.ok(!$$('.step-num')[2].disabled, 'arriving by circle unlocks the next one in turn')
+
+  const boxes = $$('[data-path^="samples."]')
+  for (const [i, g] of [20, 25, 30, 25, 25].entries()) type(boxes[i], g)
+  assert.ok($('[data-step-missing="0"]').hidden, 'and the note goes as soon as the box is filled')
+})
+
+test('To Saved writes a calculation that is not in the list yet', () => {
+  for (let i = 0; i < 3; i += 1) click('[data-action="next-step"]')
+
+  const before = JSON.parse(localStorage.getItem('sdshc-gc-calcs')).length
+  click('[data-action="go-saved"]')
+
+  // A button that says "to saved" must not land on a list this calculation is
+  // missing from.
+  const stored = JSON.parse(localStorage.getItem('sdshc-gc-calcs'))
+  assert.equal(stored.length, before + 1, 'it was written on the way')
+  assert.ok(
+    stored.some((c) => c.id === state.getCalculation().id),
+    'and the record is this calculation rather than a copy of another'
+  )
+  assert.equal($$('.saved-card').length, before + 1, 'the tab it lands on is showing it')
 })

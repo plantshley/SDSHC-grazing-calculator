@@ -11,9 +11,17 @@
  * current step instead. The circles stay full size, so every tap target
  * survives.
  *
- * A step already reached is clickable; steps ahead are not. The high-water mark
- * is kept separately from the current step so going back does not lock the
- * steps in front of you.
+ * A step already reached is clickable, and so is the NEXT one: the circle is
+ * another way of pressing Next, and a producer who has read ahead to step 3
+ * should not have to go back through step 2 to get there. Steps beyond that are
+ * still locked, because a strip where every circle is live stops saying where
+ * the work has got to.
+ *
+ * Reached and REACHABLE are separate on purpose. Only the first colours the
+ * connector, so opening the next step does not backdate the trail to it.
+ *
+ * The high-water mark is kept separately from the current step so going back
+ * does not lock the steps in front of you.
  */
 
 import { esc } from './format.js'
@@ -27,6 +35,7 @@ export function renderStepper(labels, current, maxReached) {
             const done = i < current
             const active = i === current
             const reached = i <= maxReached
+            const reachable = i <= maxReached + 1
             const classes = [
               'step-item',
               reached ? 'step-item--reached' : '',
@@ -39,7 +48,7 @@ export function renderStepper(labels, current, maxReached) {
             return `
               <li class="${classes}">
                 <button type="button" class="step-num" data-action="go-step" data-step="${i}"
-                  ${reached && !active ? '' : 'disabled'}
+                  ${reachable && !active ? '' : 'disabled'}
                   aria-current="${active ? 'step' : 'false'}"
                   aria-label="Step ${i + 1}: ${esc(label)}">${done ? '&#10003;' : i + 1}</button>
                 <span class="step-label">${esc(label)}</span>

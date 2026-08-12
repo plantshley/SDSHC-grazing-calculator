@@ -56,6 +56,22 @@ explicit `0` counts as answered: someone who types 0 meant 0.
 input means adding it to `GOAL_INPUTS` **and** to `answered()`, or the goal will
 happily produce an answer without it.
 
+The same shortfall is said twice, in two places, from one source. `missing` is
+per goal and drives the dash and the note on each result card. `missingByStep`
+sorts the same keys by the step that ASKS for them, via `STEP_INPUTS`, and
+drives the note on each step. Both count only the goals actually selected, so
+nobody is warned about a herd size for an answer they did not ask for.
+
+`STEP_INPUTS[4]` is deliberately empty: step 5's inputs are already named by the
+result cards sitting on it, and a second note above them saying the same thing
+in different words reads as two separate problems. `STEP_INPUTS` (which step
+COLLECTS an input) and `STEP_FIELDS` in `main.js` (which branches a step's Clear
+empties) are different questions and are deliberately not merged.
+
+The note is a `[data-step-missing]` placeholder refreshed by `updateOutputs()`,
+not markup built at render time, for the usual reason: it has to clear itself on
+the keystroke that fills the box, not the next time the page is rebuilt.
+
 ### The worksheet's constants are not "corrected"
 
 `43,560 / 453.592 / 0.96` is 100.03 and the worksheet prints **100**. The two
@@ -173,19 +189,37 @@ Grey is not one of the eleven swatches. Grey is already what an untagged card
 looks like (`.saved-card--untagged`), and offering it gives two ways to say the
 same thing with no way to see which was meant.
 
-### Clear and New calculation are different things
+### Clearing is per step, and it names its own scope
 
-**Clear** (sticky bar) empties the boxes in the steps and KEEPS the goals and the
-forage type. What is wanted after finishing a pasture is an empty worksheet for
-the next one, not two questions to re-answer that nobody asked to change.
+Each step head carries a **Clear**, right-aligned, in the wizard and under "Show
+all steps" alike. It empties that step and nothing else, from
+`STEP_FIELDS` in `main.js`, whose values come from `newCalculation()` — so
+blanking a new field correctly means adding it to the factory and nothing else.
+
+There is no Clear in the sticky bar and there must not be one. A single button
+that empties whatever happens to be on screen has to be read carefully every
+time; sitting on a step's own head is how this one says which step it means,
+which is also why it needs no confirm.
 
 **+ New calculation** (chip row, and the Saved tab header) drops the whole
-record, including those two answers, and lands back on the setup screen with a
-new id. It is the only way to a genuinely blank start.
+record, including the goals and the forage type, and lands back on the setup
+screen with a new id. It is the only way to a genuinely blank start.
 
-Both leave saved records alone, and both say so in their confirm. They are
-deliberately at opposite ends of the screen: side by side, they are one slip
-apart.
+### "Unsaved" means "not in the list", not "not saved recently"
+
+The working calculation autosaves on every keystroke, so nothing is lost by
+closing the page. It IS lost by REPLACING the working calculation, which
+`+ New calculation` and `open-calc` both do.
+
+So `confirmLeavingUnsaved()` asks one question: is this calculation's id in
+`listCalcs()`? If it is, the figures on screen are a copy of a record that
+survives, and the user is not asked. An untouched form is not work and is not
+asked about either. **Do not "improve" this into a dirty-flag check** — it would
+warn about the autosave, which is the thing that cannot be lost.
+
+`go-saved`, behind the To Saved button on step 5, is the other half of the same
+idea: a button that says "to saved" must not land on a list this calculation is
+missing from, so it writes the record first if there is not one.
 
 ### `storage.js` never throws
 
@@ -230,6 +264,20 @@ controls are nowhere near the same width.
 Rules that outlive any one app: `--green` means a positive number, not an
 action. `--sky` is the one loud button per screen and the KPI card edge. Colour
 is never the only signal.
+
+`--cost` / `--cost-bg` is for something to go and fix: `.result-missing`,
+`.step-missing`, `.start-warn`, `.warn-list`. `--info-bg` is for something to
+read. A dash where a figure should be is the first kind, not the second.
+
+Two alignment traps worth knowing before touching them again:
+
+- `.field-label` is a **wrapping** flex container. To move its text down inside
+  reserved height, use `align-content`, not `align-items`: `align-items` sets
+  the text on the floor of the box while the `?` stays centred in it, which
+  draws the `?` floating above the label it explains.
+- `.result-row` forces one row above 640px with `grid-auto-flow: column`, not
+  `auto-fit`. `auto-fit` off a 260px minimum breaks three answers onto two lines
+  in a half-screen window, and the one left underneath reads as an afterthought.
 
 ## Photo and media slots
 

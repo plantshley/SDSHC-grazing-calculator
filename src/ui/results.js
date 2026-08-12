@@ -158,16 +158,15 @@ export function renderStickyBar(showAll, calc, saved = false) {
         }
       </div>
       <div class="sticky-actions">
-        <!-- Both of these act on the whole worksheet, so they stack together
-             here rather than sitting up in the chip row beside Change, which
-             only reopens the setup screen. Clear empties the boxes and keeps the
-             two setup answers; starting over completely is "+ New calculation"
-             up in the chip row. -->
+        <!-- No Clear here. Emptying is per-step now, from the Clear on each step
+             head, where the control names its own scope by where it sits. One
+             button that empties whatever happens to be on screen is one that has
+             to be read carefully every time. Starting over completely is
+             "+ New calculation" up in the chip row. -->
         <div class="sticky-links">
           <button type="button" class="tip" data-action="toggle-show-all">
             ${showAll ? 'One step at a time' : 'Show all steps'}
           </button>
-          <button type="button" class="tip danger" data-action="clear-all">Clear</button>
         </div>
         <button type="button" class="btn-main" data-action="save-calc">
           ${
@@ -204,6 +203,19 @@ export function updateOutputs(res, root = document) {
     el.hidden = !outstanding.length
     if (outstanding.length) {
       el.textContent = `Still needed: ${outstanding
+        .map((k) => (INPUT_LABELS[k] ?? k).toLowerCase())
+        .join(', ')}.`
+    }
+  }
+
+  // The same shortfall again, on the step that asks for it. Refreshed on every
+  // keystroke like a figure is, so it clears itself the moment the box is
+  // filled rather than waiting for the user to try to leave the step again.
+  for (const el of root.querySelectorAll('[data-step-missing]')) {
+    const outstanding = res.missingByStep?.[Number(el.dataset.stepMissing)] ?? []
+    el.hidden = !outstanding.length
+    if (outstanding.length) {
+      el.textContent = `This step is not finished. Still needed: ${outstanding
         .map((k) => (INPUT_LABELS[k] ?? k).toLowerCase())
         .join(', ')}.`
     }

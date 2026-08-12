@@ -168,8 +168,12 @@
   width: 17px;
   height: 17px;
   font-size: 11px;
+  /* Centred on the LINE, which is what .field-label's align-items already does.
+     Not align-self: center against the container, which is a different box once
+     the label row reserves height for a second line. */
   align-self: center;
   vertical-align: middle;
+  
 }
 
 .tab {
@@ -683,11 +687,14 @@
 /* Centred on the label rather than aligned to its first line. Most of these run
    to one line and a top-aligned box sits visibly high against it; the few that
    wrap to two are still read as one item. */
+/* No padding at all. This is a tick list read straight down while gathering
+   kit, so the items want to read as one list rather than as seven separate
+   statements; the 17px box already sets the line's height. */
 .needs-list li {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 1px 0;
+  padding: 0;
 }
 
 .needs-list input {
@@ -701,7 +708,7 @@
 
 .needs-list label {
   font-size: 13.5px;
-  line-height: 1.45;
+  line-height: 1.3;
   cursor: pointer;
 }
 
@@ -725,10 +732,10 @@ body:has(.sticky-bar) {
   flex: 0 0 auto;
 }
 
-/* Two links that act on the whole worksheet, stacked and right-aligned so they
-   read as a pair against the one solid button beside them. Clear all is here
-   and not in the chip row: up there it sat next to Change, which only reopens
-   the setup screen, and the two were one slip apart. */
+/* One link now, but still a column: it is the quiet half of the pair beside the
+   one solid button, and a second may come back. Clearing does NOT live here.
+   A control that empties whatever is on screen has to be read carefully every
+   time; the per-step Clear on each step head names its own scope instead. */
 .sticky-links {
   display: flex;
   flex-direction: column;
@@ -841,6 +848,25 @@ body:has(.sticky-bar) {
   background: color-mix(in srgb, var(--sky) 78%, transparent);
   border-radius: 20px;
   padding: 3px 10px;
+}
+
+/* Pinned to the far end of the head, away from the title and the `?`. It empties
+   this step and only this step, and sitting on the step's own head is how it
+   says which one. Quiet, because it is never the thing to press: the step below
+   it is. */
+.step-clear {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 2px 0;
+  min-height: 0;
+}
+
+/* Standing alone at the foot of step 5 under "Show all steps", where there is
+   no nav row and therefore no rule above them to hold them off the figures. */
+.export-row--loose {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 /* ---- collapsible steps, under "Show all steps" -------------------------- */
@@ -982,9 +1008,11 @@ body:has(.sticky-bar) {
    wash rather than a plain hint: it is the one thing standing between this
    screen and the calculation. */
 .start-warn {
-  flex: 1 1 220px;
-  min-width: 0;
-  margin: 0;
+  /* Sized to its sentence. Stretched across the row it was a band of red the
+     width of the card, which is a page-level alarm rather than a caption on the
+     button next to it. */
+  flex: 0 1 auto;
+  margin: 0 auto 0 0;
   padding: 9px 12px;
   border-radius: 8px;
   background: var(--cost-bg);
@@ -1571,11 +1599,17 @@ body:has(.sticky-bar) {
    flex trick further down the field: the hint under the box varies in height
    too, so anything that distributes the slack inside the field puts the boxes
    back out of line the moment one field has a hint and its neighbour does not.
-   Only applied where the row is actually more than one column. */
+   Only applied where the row is actually more than one column.
+
+   align-CONTENT, not align-items. The label row is a wrapping flex container,
+   so align-content moves the whole line down inside the reserved 38px while
+   align-items keeps the `?` centred against the text within it. align-items
+   here instead put the text on the floor of the box and the `?` in the middle
+   of it, which is a `?` floating above the label it explains. */
 @media (min-width: 481px) {
   .field-row > .field > .field-label {
     min-height: 38px;
-    align-items: flex-end;
+    align-content: flex-end;
   }
 }
 
@@ -1791,6 +1825,19 @@ body:has(.sticky-bar) {
   align-items: stretch;
 }
 
+/* One row above phone width, whatever the count and whatever the width.
+   auto-fit off a 260px minimum breaks three answers onto two lines in a window
+   half a screen wide, and the answer left alone underneath reads as an
+   afterthought rather than as the third of three. They share the width instead.
+   The print block does the same thing with flex, for the same reason. */
+@media (min-width: 641px) {
+  .result-row {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
 .result-card {
   min-width: 0;
   display: flex;
@@ -1839,15 +1886,25 @@ body:has(.sticky-bar) {
   margin-top: 10px;
 }
 
-/* Shown in place of an answer that is still waiting on an input. */
-.result-missing {
+/* Shown in place of an answer that is still waiting on an input, and on the step
+   that asks for it. The warning wash rather than the information one: a dash
+   where a figure should be is a thing to go and fix, not a note about how the
+   calculator works. Same treatment in both places, because it is the same
+   shortfall said twice. */
+.result-missing,
+.step-missing {
   margin: 10px 0 0;
   padding: 9px 12px;
   border-radius: 8px;
-  background: var(--info-bg);
-  border-left: 3px solid var(--sky);
+  background: var(--cost-bg);
+  border-left: 3px solid var(--cost);
+  color: var(--cost);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.step-missing {
+  margin: 14px 0 0;
 }
 
 .result-formula {
@@ -2305,11 +2362,11 @@ body:has(.sticky-bar) {
     text-align: right;
   }
 
-  /* Right-aligned but still sized to its label. Stretched across the phone a
-     dashed outline button reads as the thing to press on this screen, which it
-     is not: the calculation below it is. */
+  /* Full width, and still reading "+ New calculation" rather than "+ New". A
+     button sized to its own label is a small target in a lot of empty row, and
+     this row is stacked one item per line anyway. */
   .chip-new {
-    align-self: flex-end;
+    width: 100%;
     margin-left: 0;
   }
 

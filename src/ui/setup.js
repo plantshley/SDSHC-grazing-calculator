@@ -209,8 +209,11 @@ export function renderChips(calc) {
         <span class="chip chip--forage">${esc(forage || 'No forage chosen')}</span>
       </span>
       <button type="button" class="tip chip-change" data-action="edit-setup">Change</button>
+      <!-- Never trimmed to "+ New". On a phone this button takes the full width
+           of its row, so there is no width to save, and "+ New" on its own does
+           not say new WHAT. -->
       <button type="button" class="btn-add btn-add-inline chip-new" data-action="new-calc">
-        + New<span class="btn-word"> calculation</span>
+        + New calculation
       </button>
     </div>`
 }

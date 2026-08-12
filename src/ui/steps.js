@@ -65,6 +65,7 @@ export function renderSteps(calc, step, showAll) {
             ${head(i + 1, title, infoKeys, showAll, open)}
             <div class="step-body"${showAll && !open ? ' hidden' : ''}>
               ${fn(calc, showAll)}
+              ${stepMissing(i)}
               ${showAll ? '' : nav(i)}
             </div>
           </section>`
@@ -82,13 +83,24 @@ export function renderSteps(calc, step, showAll) {
  * toggle on must not move the `?`: it explains the step title, it sits beside
  * the step title in the wizard, and pushing it out past a caret on the far right
  * makes it read as belonging to the caret instead.
+ *
+ * Clear is pinned to the far end of the row, in both modes. It empties THIS
+ * step and nothing else, which is why it lives on the step's own head rather
+ * than in the sticky bar: a control that empties whatever is on screen is one
+ * that has to be read carefully every time, and this one names its scope by
+ * where it sits.
  */
 function head(n, title, infoKeys, collapsible, open) {
   const label = `<span class="step-n">Step ${n}</span>
     <span class="title">${esc(title)}</span>`
 
+  const clear = `<button type="button" class="tip danger step-clear" data-action="clear-step"
+    data-step="${n - 1}">Clear</button>`
+
   if (!collapsible) {
-    return `<div class="step-head">${label}${infoKeys ? sectionInfo(infoKeys, title) : ''}</div>`
+    return `<div class="step-head">${label}${
+      infoKeys ? sectionInfo(infoKeys, title) : ''
+    }${clear}</div>`
   }
 
   return `
@@ -99,7 +111,22 @@ function head(n, title, infoKeys, collapsible, open) {
         ${label}
       </button>
       ${infoKeys ? sectionInfo(infoKeys, title) : ''}
+      ${clear}
     </div>`
+}
+
+/**
+ * What this step still owes, named on the step that asks for it.
+ *
+ * A [data-out]-style placeholder rather than markup built at render time, so it
+ * follows every keystroke like the figures do. updateOutputs() fills it from
+ * `missingByStep`, which counts only the goals actually selected.
+ *
+ * Step 5 has none: the result cards name their own outstanding inputs, and a
+ * second note above them saying the same thing reads as two problems.
+ */
+function stepMissing(i) {
+  return i === 4 ? '' : `<p class="step-missing" data-step-missing="${i}" hidden></p>`
 }
 
 /* Back and Next are the same control at the same size: same height, same font,
@@ -121,8 +148,12 @@ function nav(i) {
       <div class="step-nav step-nav--results">
         ${back}
         ${exportRow()}
-        <button type="button" class="btn-step btn-step--back" data-action="set-tab"
-          data-tab="saved">To Saved</button>
+        <!-- Not set-tab. A calculation that is not in the list yet is written to
+             it on the way, so pressing the button that says "to saved" does not
+             land on a list this calculation is missing from. -->
+        <button type="button" class="btn-step btn-step--back" data-action="go-saved">
+          To Saved
+        </button>
       </div>`
   }
 
@@ -466,7 +497,7 @@ function mixBuilder(calc) {
           </select>
         </div>
         <div class="field pct">
-          <div class="field-label"><label for="mix-share-${i}">Percent of stand</label></div>
+          <div class="field-label"><label for="mix-share-${i}">% of stand</label></div>
           <div class="input-wrap has-suffix">
             <input id="mix-share-${i}" type="number" step="1" min="0" inputmode="decimal"
               data-path="dm.mix.${i}.share" value="${esc(row.share ?? '')}" />
@@ -668,8 +699,10 @@ function step5(calc, showAll) {
 
     ${
       // Under "Show all steps" there is no nav row to carry these, so the last
-      // step carries them itself. In the wizard they live in nav(), beside Back.
-      showAll ? exportRow() : ''
+      // step carries them itself. In the wizard they live in nav(), beside Back,
+      // where the row's own rule separates them from the figures above. Standing
+      // alone they need that gap of their own.
+      showAll ? `<div class="export-row--loose">${exportRow()}</div>` : ''
     }`
 }
 

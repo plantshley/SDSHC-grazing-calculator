@@ -91,6 +91,26 @@ export const GOAL_INPUTS = {
   animals: { required: ['totalAcres', 'desiredDays'], optional: ['ungrazeableAcres'] },
 }
 
+/**
+ * Which of GOAL_INPUTS' keys each step of the worksheet collects.
+ *
+ * Used to tell someone leaving a step what they have not answered on it yet.
+ * Whether a key is REQUIRED still comes from GOAL_INPUTS and the goals actually
+ * selected, so this is a map of where a question is asked and not a second
+ * opinion about whether it has to be.
+ *
+ * Step 5 is deliberately empty. Its inputs are named by the result cards
+ * themselves, in `missing`, and a second note above them saying the same thing
+ * in different words reads as two separate problems.
+ */
+export const STEP_INPUTS = [
+  ['samples'],
+  ['frame', 'dryMatter'],
+  ['amountLeaving'],
+  ['animalWeight', 'bodyWeightPct', 'numAnimals'],
+  [],
+]
+
 /** Plain-language names for the checklist. Keys match GOAL_INPUTS. */
 export const INPUT_LABELS = {
   samples: 'Clipped forage samples and a gram scale',
@@ -397,6 +417,13 @@ export function compute(c = {}) {
     missing[goal] = [...GOAL_INPUTS.shared, ...spec.required].filter((k) => !have[k])
   }
 
+  // The same shortfall, sorted by the step it would be fixed on. Only the goals
+  // actually SELECTED count: `missing` is worked out for all three so a card can
+  // be added without recomputing, but warning someone about a herd size for an
+  // answer they did not ask for is noise.
+  const outstanding = new Set(goals.flatMap((g) => missing[g] ?? []))
+  const missingByStep = STEP_INPUTS.map((keys) => keys.filter((k) => outstanding.has(k)))
+
   const ready = (goal, value) => (missing[goal].length ? null : value)
 
   const grazingDays = ready('days', daysFrom(totalUsableForage, d.herd))
@@ -418,6 +445,7 @@ export function compute(c = {}) {
     goals,
     warnings,
     missing,
+    missingByStep,
 
     // Step 1
     avgGrams: sample.avgGrams,
