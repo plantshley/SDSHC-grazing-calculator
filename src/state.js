@@ -44,8 +44,15 @@ export function newCalculation(name = 'My grazing calculation') {
     /** Step 1. Sample weights in grams, as typed. */
     samples: Array(DEFAULT_SAMPLE_ROWS).fill(''),
 
-    /** Step 2. */
-    frame: { key: 'small', customArea: '' },
+    /**
+     * Step 2.
+     *
+     * "Other frame" with an empty area, not the small hoop. A default preset is
+     * a figure the user never entered and never checked, and it silently
+     * multiplies every sample weight by 100. Blank means the frame is an
+     * outstanding question, which is what answered() in calc.js now reports.
+     */
+    frame: { key: 'custom', customArea: '' },
     dm: {
       mode: 'stage',
       /** For a single forage type: which stage. */
@@ -80,8 +87,16 @@ export function newCalculation(name = 'My grazing calculation') {
   }
 }
 
-export function newMixRow() {
-  return { typeId: '', stageKey: '', share: '' }
+/**
+ * @param {string} [typeId]  the row of the chart to start on.
+ *
+ * The mix builder is reached from a screen where a forage type has already been
+ * named, so the first row starts on it. It is a default and not a lock: the
+ * whole point of the builder is that a stand is more than one type, so every
+ * row's select is still free.
+ */
+export function newMixRow(typeId = '') {
+  return { typeId, stageKey: '', share: '' }
 }
 
 /* ───────────────────────────── path access ─────────────────────────────── */

@@ -30,6 +30,12 @@
         width="763"
         height="200"
       />
+      <!-- Centred in the topbar on a desktop, where there is room either side of
+           it. Below 900px the row is already the logo and two controls with
+           nothing to spare, so this one is hidden and app.js's .app-title takes
+           over on the row below. Only ever one of the two is displayed, so the
+           page has one h1 at every width. -->
+      <h1 class="topbar-title">Grazing Calculator</h1>
       <div class="topbar-controls">
         <div class="segmented" role="group" aria-label="Font">
           <span class="segmented-label">Font</span>

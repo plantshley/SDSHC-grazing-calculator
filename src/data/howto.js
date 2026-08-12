@@ -57,8 +57,8 @@ export const HOW_TO_SECTIONS = [
     heading: 'Saving your work',
     body: [
       'Your entries save on this device as you type, so closing the page will not lose them.',
-      'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season.',
-      'Clear all resets the form you are working on. It does not touch anything you have saved.',
+      'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season. Once a calculation is saved, that button becomes Edit saved and writes your changes back to the same copy.',
+      'Clear empties the boxes in the steps and keeps your goals and forage type, for the next pasture. New calculation starts over from the setup screen. Neither touches anything you have saved.',
       'Nothing is uploaded anywhere. Everything stays in this browser, which also means clearing your browser data will remove it.',
     ],
   },

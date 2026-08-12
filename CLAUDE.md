@@ -64,6 +64,19 @@ alongside the screen must not find them disagreeing in the third digit, and a
 sample-based estimate is nowhere near accurate enough for 0.03% to mean
 anything. Only a custom frame area uses the exact conversion.
 
+This is why pressing "Small hoop" sets `frame.key`, and why filling the area box
+with 0.96 is a *display* of what the preset is rather than the thing the model
+reads. Routing the preset through `customArea` would silently switch it to
+100.03 and break paper parity.
+
+The form defaults to **Other frame with an empty box**, not to the small hoop. A
+default preset is a figure nobody entered and nobody checked, and it multiplies
+every sample weight by 100. Blank means the frame is an outstanding question,
+which is what `answered()` now reports. Typing over a preset's figure moves the
+pill to Other frame, in place, without a re-render: `syncFramePill()` in
+`main.js` updates `aria-pressed` directly, because rendering would take the
+caret out of the box mid-number.
+
 ### Exhibit 4-2 lives in one file
 
 `src/data/forage.js` is the only copy of the NRPH dry matter table. It feeds the
@@ -99,6 +112,13 @@ collapse hides `.step-body`, not the section, so the same rule holds: a shut
 body is still refreshed, and print forces `.step-body[hidden]` back open
 alongside `.step[hidden]`.
 
+A **shut** step opens from anywhere in its box. An **open** one closes from the
+caret only. The asymmetry is the point: an open step is full of inputs, and a
+stray click on the padding between two fields must not fold away what is being
+read. The handler in `main.js` returns early when the body is not hidden, and
+skips anything inside a `button`, so the `?` still explains the step rather than
+expanding it.
+
 The same rule is why `renderResults()` is called on a full render only and
 `updateOutputs()` on every keystroke: re-rendering the cards to refresh a figure
 would tear the focus out of the paddock width box on every character typed.
@@ -119,6 +139,12 @@ existing node.**
 
 A round `?` opens a definition. Anything that writes a field is styled as a text
 link. `openInfo()` and `openGuide()` are read-only by construction.
+
+It comes in two sizes and the boundary is what it explains. Beside a **field
+label, a readout caption or a hint** it is 17px and centred on the line: it is
+an aside on 13.5px type, not a control in its own right. Heading a **section** (a
+step title, a sub-title, the tab strip) it keeps the shared 22px. Both live in
+`app.css`; `styles.css` owns the 22px base and must not be changed for this.
 
 It also does not MOVE. In a collapsible step head the caret leads the row and
 `.step-toggle` is `flex: 0 1 auto`, so the `?` stays immediately right of the
@@ -146,6 +172,20 @@ and a list that reorders itself because somebody pressed a swatch is surprising.
 Grey is not one of the eleven swatches. Grey is already what an untagged card
 looks like (`.saved-card--untagged`), and offering it gives two ways to say the
 same thing with no way to see which was meant.
+
+### Clear and New calculation are different things
+
+**Clear** (sticky bar) empties the boxes in the steps and KEEPS the goals and the
+forage type. What is wanted after finishing a pasture is an empty worksheet for
+the next one, not two questions to re-answer that nobody asked to change.
+
+**+ New calculation** (chip row, and the Saved tab header) drops the whole
+record, including those two answers, and lands back on the setup screen with a
+new id. It is the only way to a genuinely blank start.
+
+Both leave saved records alone, and both say so in their confirm. They are
+deliberately at opposite ends of the screen: side by side, they are one slip
+apart.
 
 ### `storage.js` never throws
 
@@ -179,6 +219,14 @@ full-width row and the controls centred underneath. Here it stays on one line at
 every width, because the row below it is already the tab bar and two stacked
 full-width strips push the first question off a 320px screen.
 
+The tool's name is in the page twice, `.topbar-title` in `index.html` and
+`.app-title` from `header()`, and exactly one of them is displayed at any width:
+the topbar one from 900px up, the header one below it. `display: none` takes the
+other out of the accessibility tree, so the page still has one `h1`. **Adding a
+third copy, or dropping either breakpoint, gives it two.** The topbar one is
+absolutely centred rather than made a third flex child, because the logo and the
+controls are nowhere near the same width.
+
 Rules that outlive any one app: `--green` means a positive number, not an
 action. `--sky` is the one loud button per screen and the KPI card edge. Colour
 is never the only signal.
@@ -193,42 +241,59 @@ viewer, so filling one in is a data-file edit and no code change.
 
 ### `photos` is a list, and a card's index is not its position
 
-A forage type carries `photos: []`, not one image. Several rows of Exhibit 4-2
-name four or five species, and a producer who does not recognise the one that was
-photographed is no better off than with no photo at all.
+A forage type carries `photos: []`, not one image, because several rows of
+Exhibit 4-2 name four or five species and a row may one day carry one photo per
+species. Today every row carries exactly one.
 
 `registerForageSet()` FLATTENS those lists into one viewer set and hands back
-`{ setId, indexOf }`. Card 3 is not item 3. Assuming it is opens the viewer on
-somebody else's plant, which is the one thing these photos exist to prevent.
+`{ setId, indexOf }`. **Do not "simplify" this to the card's grid position.**
+The moment any row carries two, card 3 stops being item 3 and the viewer opens
+on somebody else's plant, which is the one thing these photos exist to prevent.
 
-### One species stands in for four rows, and the page says so
+`MIXED` is registered LAST, in the same set, and carries a photo of a grazed
+mixed stand. It is one of the eight cards on the screen, so it is drawn like
+the other seven; a placeholder beside seven photographs reads as the option
+where the photos ran out rather than as the answer for a stand with no single
+row, which is most South Dakota rangeland.
 
-`STAGE_PHOTOS.coolSeason` and `.warmSeason` are the SAME object: five photos of
-bottlebrush squirreltail from OSU Extension EM-9276. All four grass rows use the
-same five stage definitions, so one species shows what a boot or a shattered seed
-head looks like for any of them.
+### One plant stands in for every row, and the page says so
 
-What it does not show is timing. A warm season grass reaches these stages weeks
-later. `STAGE_PHOTO_NOTE` renders above the grid and the species is named in
-every stage's sublabel, on every stage, because the viewer can be entered on any
-of the five. **Do not drop either.** A photo of one grass standing in for another
-without saying so invites reading the date off it and picking the wrong column.
+There is one photographed season in the app: bottlebrush squirreltail, from OSU
+Extension EM-9276, held in `FRAME` in `forage.js`. Every set in `STAGE_PHOTOS` is
+built out of those frames.
+
+`STAGE_PHOTOS.coolSeason` and `.warmSeason` are the SAME object. All four grass
+rows use the same five stage definitions, so one species shows what a boot or a
+shattered seed head looks like for any of them. What it does not show is timing:
+a warm season grass reaches these stages weeks later.
+
+The forb set is the same plant mapped onto the forb stages, which is a further
+stretch. It is **not** the grass list reordered: a forb has no boot stage, so it
+reaches for the flowering frame where the grass mapping uses late boot. A test
+asserts the two lists differ, because making them equal is the shortcut that
+puts a boot photo under "Flowering to seed maturity".
+
+Each set carries its own `note`, rendered above the grid, saying what its photos
+may be read for. The species is also named in every stage's sublabel, on every
+stage, because the viewer can be entered on any of the five. **Do not drop
+either, and do not collapse the two notes into one:** what a grass photo can be
+read for under a grass row is not what it can be read for under a forb row.
 
 Stage photos default to HIDDEN (`showStagePhotos: false`) for the same reason.
-
-Forb stages are still `null` and must stay that way until forbs are
-photographed. Forbs have no boot stage and no seed shatter, so a grass photo
-under "Flowering to seed maturity" would not be an approximation, it would be
-wrong.
 
 ### Still wanted
 
 | Set | Count | What | State |
 |---|---|---|---|
-| A | 7 | One identification photo per forage type | done, plus a second for the four grasses |
+| A | 8 | One identification photo per forage type, plus the mixed stand | done |
 | B/C | 5 | Grass growth stages | done, borrowed from one cool season species |
-| D | 5 | A forb through its five stages (purple coneflower) | empty |
+| D | 5 | A forb through its five stages (purple coneflower) | **borrowing the grass photos, and saying so** |
 | M | 3 | How to clip, how to dry, how to weigh | empty |
+
+Dead weight to clear when SDSHC has decided: `a1`–`a4-PLANTS.webp` and
+`stages_boot-early.webp` are no longer referenced, and everything in `public/`
+is precached whether or not it is used. That is about 750 KB of the app's
+offline install size.
 
 Source files live in `public/forage-images/`. They are precached by the service
 worker, so the folder is the app's offline install size: **keep every file under

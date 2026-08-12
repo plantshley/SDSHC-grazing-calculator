@@ -15,18 +15,18 @@
  * their declaration is evaluated.
  */
 
-import { compute, GOALS } from './calc.js'
+import { compute, GOALS, FRAMES } from './calc.js'
 import {
   getCalculation,
   setCalculation,
   newCalculation,
   newMixRow,
   makeId,
-  getPath,
   setPath,
   subscribe,
   notify,
   resolved,
+  hasSamples,
 } from './state.js'
 import {
   saveWorking,
@@ -211,8 +211,27 @@ app.addEventListener('input', (e) => {
   const path = e.target.dataset?.path
   if (!path) return
   setPath(getCalculation(), path, e.target.value)
+  if (path === 'frame.customArea') syncFramePill(e.target.value)
   notify()
 })
+
+/**
+ * Typing an area of your own IS "Other frame", so the pill follows the box.
+ *
+ * Updated in place rather than by re-rendering: a render here would replace the
+ * input mid-number and take the caret with it, which is the same reason
+ * updateOutputs() exists instead of re-rendering the result cards.
+ */
+function syncFramePill(value) {
+  const calc = getCalculation()
+  const preset = FRAMES.find((f) => f.key === calc.frame?.key)
+  if (!preset || preset.area == null || String(preset.area) === String(value)) return
+
+  calc.frame.key = 'custom'
+  for (const seg of app.querySelectorAll('[data-action="set-frame"]')) {
+    seg.setAttribute('aria-pressed', String(seg.dataset.mode === 'custom'))
+  }
+}
 
 // <select> fires change rather than input in older Safari, so both are wired.
 app.addEventListener('change', (e) => {
@@ -272,6 +291,17 @@ function chooseForage(id) {
   calc.dm.stageTypeId = ''
   notify()
   render()
+}
+
+/**
+ * The row of the chart a new mix row starts on.
+ *
+ * "Mixed or not sure" is the one answer that names no row, and it is also the
+ * answer most likely to lead here, so it defaults to nothing rather than to the
+ * first type in the list.
+ */
+function defaultMixType(calc) {
+  return calc.forageType === MIXED.id ? '' : calc.forageType || ''
 }
 
 /* ─────────────────── reordering the saved list, by drag ────────────────── */
@@ -394,6 +424,24 @@ const endTouchDrag = () => {
 app.addEventListener('pointerup', endTouchDrag)
 app.addEventListener('pointercancel', endTouchDrag)
 
+/**
+ * A shut step opens from anywhere in its box, not only from the caret.
+ *
+ * Only while it is SHUT. Once it is open the box is full of inputs and readouts
+ * and a stray click on the padding between two fields must not fold the step
+ * away underneath what the user is reading; collapsing it again stays the
+ * caret's job. Buttons are skipped so the `?` still explains the step rather
+ * than expanding it.
+ */
+app.addEventListener('click', (e) => {
+  const section = e.target.closest?.('.step--collapsible')
+  if (!section || e.target.closest('button, a, input, select, textarea, label')) return
+  const body = section.querySelector('.step-body')
+  if (!body?.hidden) return
+  setStepOpen(clampStep(section.dataset.step), true)
+  render()
+})
+
 /* ───────────────────────────── click actions ───────────────────────────── */
 
 document.addEventListener('click', (e) => {
@@ -441,6 +489,29 @@ function handleAction(action, btn) {
       setupOpen = true
       render()
       break
+    case 'new-calc': {
+      // Everything goes, including the goals and the forage type, which is what
+      // separates this from Clear: that one empties the boxes for the next
+      // pasture, this one is the next calculation. Saved records are untouched
+      // and the confirm only appears when there is work that would be lost.
+      const started = hasSamples() || calc.goals.length || calc.forageType
+      if (
+        started &&
+        !confirm('Start a new calculation? Anything not saved on this one is lost.')
+      ) {
+        return
+      }
+      clearWorking()
+      setCalculation(newCalculation())
+      setupOpen = true
+      startedOnce = false
+      setPref('tab', 'perennial')
+      setPref('step', 0)
+      setPref('maxStep', 0)
+      render()
+      scrollToTop()
+      break
+    }
 
     /* stepping */
     case 'next-step': {
@@ -501,13 +572,26 @@ function handleAction(action, btn) {
       break
 
     /* step 2 */
-    case 'set-frame':
+    case 'set-frame': {
       calc.frame.key = btn.dataset.mode
+      // A preset is a shortcut to a number, not a replacement for one. It fills
+      // the box in so the figure being used is on screen and can be measured
+      // against the hoop in the pickup, and so switching to "Other frame" starts
+      // from something rather than from blank.
+      const preset = FRAMES.find((f) => f.key === calc.frame.key)
+      if (preset?.area != null) calc.frame.customArea = String(preset.area)
       notify()
       render()
       break
+    }
     case 'set-dm-mode':
       calc.dm.mode = btn.dataset.mode
+      // Entering the builder from a screen that already named a forage type
+      // should not ask for it again. Only EMPTY rows are filled: a row the user
+      // has already set is theirs.
+      if (calc.dm.mode === 'mix') {
+        for (const row of calc.dm.mix) if (!row.typeId) row.typeId = defaultMixType(calc)
+      }
       notify()
       render()
       break
@@ -538,7 +622,7 @@ function handleAction(action, btn) {
       render()
       break
     case 'add-mix':
-      calc.dm.mix.push(newMixRow())
+      calc.dm.mix.push(newMixRow(defaultMixType(calc)))
       notify()
       render()
       break
@@ -662,7 +746,7 @@ function handleAction(action, btn) {
     case 'clear-all': {
       if (
         !confirm(
-          'Clear the figures you have entered in the steps? Your goals and forage type are kept, and saved calculations are not affected.'
+          'Clear the figures you have entered in the steps? Your goals and forage type are kept, and saved calculations are not affected. To start over completely, use "+ New calculation".'
         )
       ) {
         return

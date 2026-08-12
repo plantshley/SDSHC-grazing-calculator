@@ -57,6 +57,38 @@
   }
 }
 
+/* The name of the tool, centred in the topbar between the logo and the two
+   controls. Absolutely positioned rather than made a third flex child, because
+   the logo and the controls are nowhere near the same width and a flex centre
+   would sit visibly off to one side of the row.
+
+   pointer-events:none so it cannot swallow a tap meant for the logo or the
+   theme toggle underneath it. Below 900px it is hidden and .app-title on the
+   row beneath takes over, so only ever one of the two is in the page. */
+.topbar-title {
+  display: none;
+  margin: 0;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (min-width: 900px) {
+  .topbar {
+    position: relative;
+  }
+
+  .topbar-title {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* ---- app header and tabs ------------------------------------------------ */
 
 /* The tabs sit ON this line, the way a folder tab sits on the top of a folder.
@@ -71,15 +103,25 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* The narrow-screen half of the pair with .topbar-title. Hidden from 900px up,
+   where the topbar carries the name instead. */
 .app-title {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: bold;
   color: var(--brand-ink);
   margin: 0;
   padding-bottom: 8px;
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+}
+
+@media (min-width: 900px) {
+  .app-title {
+    display: none;
+  }
 }
 
 /* The `?` rides at the end of the tab strip. It is not a tab, so it sits
@@ -93,10 +135,13 @@
   flex: 0 0 auto;
 }
 
+/* align-items:stretch, so a tab whose label wraps to two lines makes every tab
+   that tall rather than leaving two short ones hanging off the top of the row.
+   The tabs are one strip and have to read as one edge. */
 .app-nav {
   display: flex;
   gap: 4px;
-  align-items: flex-end;
+  align-items: stretch;
   margin-bottom: -1px;
   flex: 0 1 auto;
   min-width: 0;
@@ -112,8 +157,27 @@
   margin-bottom: -1px;
 }
 
+/* Beside a field label or a readout caption the `?` is an aside on a 13.5px
+   line, not a control in its own right, so it comes down from the shared 22px
+   and centres on the text rather than sitting on its cap height. The 22px
+   version stays where it heads a whole section: a step title, a sub-title, or
+   the tab strip. */
+.field-label > .help-btn,
+.readout-label > .help-btn,
+.hint > .help-btn {
+  width: 17px;
+  height: 17px;
+  font-size: 11px;
+  align-self: center;
+  vertical-align: middle;
+}
+
 .tab {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
@@ -121,6 +185,7 @@
   border-radius: 9px 9px 0 0;
   padding: 10px 20px 11px;
   font-size: 14.5px;
+  line-height: 1.25;
   cursor: pointer;
   min-height: 44px;
 }
@@ -565,12 +630,11 @@
   content: '\2713';
 }
 
-/* No photo to show, so the slot carries the same shape and the same words the
-   card's answer means. */
-.photo-ph--mixed {
-  border-radius: 6px;
-  border: 1px dashed var(--border);
-}
+/* "Mixed or not sure" carries a photo like the seven rows do, so it needs no
+   variant of its own. It is a different kind of ANSWER, not a different kind of
+   card, and drawing it differently made it read as the place the photos ran
+   out. Its photo is a whole grazed pasture rather than a plant: nothing in it is
+   the answer, which is the point. */
 
 /* ---- what you will need ------------------------------------------------- */
 
@@ -623,7 +687,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
+  padding: 1px 0;
 }
 
 .needs-list input {
@@ -734,6 +798,13 @@ body:has(.sticky-bar) {
   background: var(--olive-bg);
 }
 
+/* Pushed to the far right of the row, away from Change. The two read as
+   opposites and sit at opposite ends: one reopens the answers above this
+   worksheet, the other puts the worksheet down. */
+.chip-new {
+  margin-left: auto;
+}
+
 /* ---- steps -------------------------------------------------------------- */
 
 .steps {
@@ -782,6 +853,17 @@ body:has(.sticky-bar) {
 
 .step--collapsible:has(.step-body:not([hidden])) .step-head--toggle {
   margin-bottom: 10px;
+}
+
+/* A shut step opens from anywhere in its box, so the whole box says so. Once it
+   is open the cursor goes back to normal: the box is then full of inputs and
+   only the caret folds it away again. See the click handler in main.js. */
+.step--collapsible:has(.step-body[hidden]) {
+  cursor: pointer;
+}
+
+.step--collapsible:has(.step-body[hidden]):hover {
+  border-color: var(--sky);
 }
 
 /* NOT flex: 1 1 auto. A toggle that fills the row pushes the `?` out to the far
@@ -882,6 +964,36 @@ body:has(.sticky-bar) {
   justify-content: flex-end;
 }
 
+/* The last step has no Next, so the right-hand end carries the way out to the
+   Saved tab instead. Back and To Saved are both .btn-step and therefore the same
+   width, which is what lets the export links centre between them rather than
+   sitting a little left of centre. */
+.step-nav--results .export-links {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* One control on the row and nothing at the other end to balance it against. */
+.step-nav--modal {
+  justify-content: center;
+}
+
+/* The reason the Start button is disabled, on the row with the button. Warning
+   wash rather than a plain hint: it is the one thing standing between this
+   screen and the calculation. */
+.start-warn {
+  flex: 1 1 220px;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--cost-bg);
+  border-left: 3px solid var(--cost);
+  color: var(--cost);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 /* A row of controls that belongs to the step rather than dividing it, so it
    takes no rule above it. */
 .step-nav--plain {
@@ -929,22 +1041,21 @@ body:has(.sticky-bar) {
   min-width: 0;
 }
 
-/* Each sits in ITS OWN grid cell, so on a wide screen they follow the last
-   weight box at the same size rather than starting a row of their own. */
-.sample--add,
-.sample--drop {
-  gap: 8px;
-}
-
-.sample--drop {
+/* Both controls in ONE cell, spanning two columns of the weight grid, so they
+   follow the last box as a pair. A cell each put a whole empty column between
+   the button and the link that undoes it. */
+.sample--actions {
+  grid-column: span 2;
   justify-content: flex-start;
+  gap: 12px;
 }
 
+/* Sized to its text, not to its cell. Stretched to a full column the label had
+   nowhere to go and spilled out of the dashes. */
 .btn-add-cell {
-  flex: 0 1 auto;
-  width: 100%;
+  flex: 0 0 auto;
   min-height: 44px;
-  padding: 0 14px;
+  padding: 0 16px;
   border: 1px dashed var(--green);
   border-radius: 8px;
   background: var(--save-bg);
@@ -954,10 +1065,6 @@ body:has(.sticky-bar) {
   font-weight: bold;
   cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-left: 10px;
-  margin-right: 10px;
 }
 
 .btn-add-cell:hover {
@@ -968,7 +1075,6 @@ body:has(.sticky-bar) {
 .sample-remove {
   flex: 0 0 auto;
   white-space: nowrap;
- 
 }
 
 .sample-stats {
@@ -980,12 +1086,15 @@ body:has(.sticky-bar) {
 
 /* ---- instructional panels ----------------------------------------------- */
 
+/* stretch, not start: the three captions are different lengths and one of them
+   wraps to two lines at most widths, which left three cards of two heights
+   sitting on the same line. */
 .howto-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 8px;
   margin-bottom: 14px;
-  align-items: start;
+  align-items: stretch;
 }
 
 /* Three cards that OPEN something, rather than three drop-downs that push the
@@ -1260,6 +1369,13 @@ body:has(.sticky-bar) {
   flex: 0 0 auto;
 }
 
+.pv-zoom,
+.pv-page {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .pv-btn {
   width: 44px;
   height: 44px;
@@ -1446,6 +1562,23 @@ body:has(.sticky-bar) {
   min-width: 0;
 }
 
+/* The boxes across a row start on the same line, whether or not the label above
+   them wrapped. "Percent of body weight eaten per day" takes two lines where
+   "Average animal weight" takes one, and without this its box sat a line lower
+   than the two beside it, which on paper reads as a different row of the form.
+
+   A reserved two-line label with its text pushed to the BOTTOM, rather than a
+   flex trick further down the field: the hint under the box varies in height
+   too, so anything that distributes the slack inside the field puts the boxes
+   back out of line the moment one field has a hint and its neighbour does not.
+   Only applied where the row is actually more than one column. */
+@media (min-width: 481px) {
+  .field-row > .field > .field-label {
+    min-height: 38px;
+    align-items: flex-end;
+  }
+}
+
 /* ---- dry matter: the choice on the left, its answer on the right ---------
    Three ways to answer one question. A pill across the full width pushed the
    chart and the mix builder below the fold and made them read as separate
@@ -1535,9 +1668,14 @@ body:has(.sticky-bar) {
 
 /* ---- growth stage picker ------------------------------------------------ */
 
+/* Five fixed columns, not auto-fit. These are the five columns of one row of
+   Exhibit 4-2, in order, and a stand moves along them: wrapping three onto a
+   second line breaks the sequence the picker is a picture of. They shrink
+   together instead, and the phone layout below drops to two rows of a shape
+   that still reads left to right. */
 .stage-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1662,6 +1800,20 @@ body:has(.sticky-bar) {
 /* Takes the slack, so the cards end level however much sits inside them. */
 .result-card .result-split {
   flex: 1 1 auto;
+}
+
+/* Every answer's figure sits in a box the same height as the others, on screen
+   and on paper. The three captions are different lengths and one of them wraps
+   at most column widths, which left the blue boxes at two different heights on
+   the same line and made the shorter one read as the lesser answer.
+
+   Two lines of caption is the worst case, so the box reserves two. Not applied
+   to the solo layout: there is one box and nothing for it to match. */
+.result-row:not(.result-row--solo) .kpi {
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .result-split {
@@ -1812,6 +1964,26 @@ body:has(.sticky-bar) {
 }
 
 /* ---- saved calculations ------------------------------------------------- */
+
+/* Title and hint on the left, the way out on the right. The button is on the
+   same line as the title rather than above the list, because it belongs to the
+   tab and not to any card in it. */
+.saved-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.saved-head-text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.saved-head .hint {
+  margin-bottom: 0;
+}
 
 .saved-tools {
   display: flex;
@@ -2031,6 +2203,14 @@ body:has(.sticky-bar) {
   .mix-row .field.pct {
     flex: 1 1 100%;
   }
+
+  /* Once the row has wrapped, the pill has a sub-title above it and a field
+     below it and neither gap is its own. It carries its bottom margin off
+     .mode-pill, so it takes a matching one at the top rather than sitting hard
+     against the rule above it. */
+  .inline-row > .mode-pill {
+    margin-top: 12px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2082,12 +2262,30 @@ body:has(.sticky-bar) {
     font-size: 12px;
   }
 
+  /* The placeholder names four things to filter on and has one line of a phone
+     to do it in. Matches farm-budget's filter box at the same width. */
+  .saved-filter {
+    font-size: 13px;
+  }
+
+  /* A line of their own, then apart to the two ends of it. Zooming is about the
+     photo in front of you and paging is about leaving it, and five buttons in a
+     row on a phone gave no clue which of them did which. */
+  .pv-controls {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
   /* One item per line. Four things wrapping across a phone made the name, the
      goals and the forage type run together into a paragraph; a row each keeps
-     each key with the value it labels. */
+     each key with the value it labels.
+
+     Key on the left, value on the right. Stacked, the answers then share a
+     right-hand edge and can be read straight down as a column, which is what
+     they are; left-aligned they staggered with the length of each key. */
   .chiprow {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 6px;
   }
 
@@ -2097,25 +2295,36 @@ body:has(.sticky-bar) {
     border-right: none;
   }
 
-  .chip-pair,
-  .chip-change {
+  .chip-pair {
     width: 100%;
+    justify-content: space-between;
   }
 
   .chip-change {
-    text-align: left;
+    width: 100%;
+    text-align: right;
+  }
+
+  /* Right-aligned but still sized to its label. Stretched across the phone a
+     dashed outline button reads as the thing to press on this screen, which it
+     is not: the calculation below it is. */
+  .chip-new {
+    align-self: flex-end;
+    margin-left: 0;
   }
 
   /* Full width beneath the weights, which is what it was before it moved into
-     the grid. Two columns of boxes leave it nothing useful to sit beside. */
-  .sample--add,
-  .sample--drop {
+     the grid. Two columns of boxes leave it nothing useful to sit beside, and
+     on a phone a button sized to its own label is a small target in a lot of
+     empty row. */
+  .sample--actions {
     grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .btn-add-cell {
-    flex: 1 1 auto;
-    margin: 0px !important;
+    flex: 1 1 100%;
   }
 }
 
@@ -2147,6 +2356,19 @@ body:has(.sticky-bar) {
     justify-content: center;
     width: 100%;
     gap: 14px;
+  }
+
+  /* Back and To Saved keep the row, at the two ends of it, and the export links
+     drop to a line of their own underneath. `order` rather than a reordering of
+     the markup, because the two buttons are the pair a keyboard should reach
+     first in every layout. */
+  .step-nav--results {
+    justify-content: space-between;
+  }
+
+  .step-nav--results .export-links {
+    order: 3;
+    flex: 1 0 100%;
   }
 
   .field-row,
@@ -2193,7 +2415,14 @@ body:has(.sticky-bar) {
   .pv-pick,
   .saved-actions,
   .saved-tools,
-  .photo-btn {
+  .photo-btn,
+  /* Controls, not data. .btn-add is already hidden by styles.css; these two are
+     this app's own and were still printing a dashed "+ Add sample" box in the
+     middle of a page of figures. */
+  .sample--actions,
+  .btn-add-cell,
+  .start-warn,
+  .chip-new {
     display: none !important;
   }
 

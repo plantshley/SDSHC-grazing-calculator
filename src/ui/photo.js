@@ -83,12 +83,19 @@ export function openPhoto(setId, index = 0) {
            <div class="pv-credit" data-pv-credit></div>
          </div>
          <div class="pv-pick" data-pv-pick hidden></div>
+         <!-- Two groups, not one row of five. On a phone they take a line of
+              their own and separate to the two ends of it: zooming is about the
+              photo in front of you and paging is about leaving it. -->
          <div class="pv-controls">
-           <button type="button" class="pv-btn" data-pv="zoom-out" aria-label="Zoom out">&minus;</button>
-           <button type="button" class="pv-btn" data-pv="zoom-in" aria-label="Zoom in">+</button>
-           <button type="button" class="pv-btn" data-pv="prev" aria-label="Previous photo">&#8249;</button>
-           <span class="pv-count" role="status" aria-live="polite" data-pv-count></span>
-           <button type="button" class="pv-btn" data-pv="next" aria-label="Next photo">&#8250;</button>
+           <span class="pv-zoom">
+             <button type="button" class="pv-btn" data-pv="zoom-out" aria-label="Zoom out">&minus;</button>
+             <button type="button" class="pv-btn" data-pv="zoom-in" aria-label="Zoom in">+</button>
+           </span>
+           <span class="pv-page">
+             <button type="button" class="pv-btn" data-pv="prev" aria-label="Previous photo">&#8249;</button>
+             <span class="pv-count" role="status" aria-live="polite" data-pv-count></span>
+             <button type="button" class="pv-btn" data-pv="next" aria-label="Next photo">&#8250;</button>
+           </span>
          </div>
        </div>
      </div>`,
@@ -153,13 +160,20 @@ function show(i) {
   // photo the user is looking at can be the one they take. The button is built
   // as ordinary [data-action] markup and handled by main.js's delegated click,
   // the same as if it were on the page behind.
+  //
+  // `pick.data` carries any further data-* the action needs. A growth stage is
+  // two facts, the row and the column, and an action that took only the column
+  // would write a stage onto whichever row happened to be selected.
   const pick = view.el.querySelector('[data-pv-pick]')
   if (item.pick) {
+    const extra = Object.entries(item.pick.data ?? {})
+      .map(([k, v]) => `data-${esc(k)}="${esc(v)}"`)
+      .join(' ')
     pick.hidden = false
     pick.innerHTML = item.pick.current
       ? `<span class="pv-picked">&#10003; ${esc(item.pick.chosenLabel || 'Selected')}</span>`
       : `<button type="button" class="btn-main" data-action="${esc(item.pick.action)}"
-           data-value="${esc(item.pick.value)}">${esc(item.pick.label || 'Select')}</button>`
+           data-value="${esc(item.pick.value)}" ${extra}>${esc(item.pick.label || 'Select')}</button>`
   } else {
     pick.hidden = true
     pick.innerHTML = ''

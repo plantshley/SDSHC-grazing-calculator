@@ -164,8 +164,10 @@ function isBlank(v) {
 function answered(c) {
   const leaveField = c.usable?.mode === 'pct' ? c.usable?.harvestPct : c.usable?.amountLeaving
   return {
-    // Always has a default, so it is never the thing that is missing.
-    frame: true,
+    // A preset hoop answers this by itself. "Other frame" does not: it starts
+    // blank, and a blank area silently zeroes total production, which used to be
+    // hidden by the form defaulting to a hoop nobody had confirmed owning.
+    frame: c.frame?.key !== 'custom' || !isBlank(c.frame?.customArea),
     ungrazeableAcres: true,
     samples: (Array.isArray(c.samples) ? c.samples : []).some((s) => !isBlank(s)),
     dryMatter: dryMatterAnswered(c),

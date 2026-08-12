@@ -82,7 +82,7 @@ export function renderSaved(list, filter = '') {
   if (!list.length) {
     return `
       <div class="box">
-        <div class="title">Saved calculations</div>
+        ${savedHead('')}
         <p class="empty-note">Nothing saved yet. Work through the calculator and
           press Save to keep a copy you can come back to.</p>
       </div>`
@@ -90,18 +90,19 @@ export function renderSaved(list, filter = '') {
 
   return `
     <div class="box">
-      <div class="title">Saved calculations</div>
-      <p class="hint">Saved on this device only. Clearing your browser data removes them.
-        ${
-          filtering
-            ? 'Clear the search box to drag them into a different order.'
-            : 'Drag a card by its handle to reorder the list.'
-        }</p>
+      ${savedHead(
+        `Saved on this device only. Clearing your browser data removes them.
+         ${
+           filtering
+             ? 'Clear the search box to drag them into a different order.'
+             : 'Drag a card by its handle to reorder the list.'
+         }`
+      )}
 
       <div class="saved-tools">
         <input type="search" class="saved-filter" data-saved-filter
-          value="${esc(filter)}" placeholder="Search by name, pasture, or forage"
-          aria-label="Search saved calculations" />
+          value="${esc(filter)}" placeholder="Filter name, pasture, forage, or date saved"
+          aria-label="Filter saved calculations" />
         ${
           filtering
             ? '<button type="button" class="tip" data-action="clear-saved-filter">Clear</button>'
@@ -119,11 +120,37 @@ export function renderSaved(list, filter = '') {
     </div>`
 }
 
-/** Everything on the card that a producer would think to search by. */
+/**
+ * The title, the hint, and the way out of this tab.
+ *
+ * "+ New calculation" is here as well as in the chip row because this is where
+ * someone lands who has finished one pasture and is starting the next, and the
+ * only other route out of the Saved tab is to open a record they did not want.
+ */
+function savedHead(hint) {
+  return `
+    <div class="saved-head">
+      <div class="saved-head-text">
+        <div class="title">Saved calculations</div>
+        ${hint ? `<p class="hint">${esc(hint.replace(/\s+/g, ' ').trim())}</p>` : ''}
+      </div>
+      <button type="button" class="btn-add btn-add-inline" data-action="new-calc">
+        + New calculation
+      </button>
+    </div>`
+}
+
+/**
+ * Everything on the card that a producer would think to search by.
+ *
+ * The date is matched as it is DISPLAYED, not as it is stored. Someone typing
+ * "2026" or "8/12" is reading the line on the card, and the ISO timestamp
+ * underneath it would match neither of those the way they expect.
+ */
 function matches(calc, filter) {
   const forage =
     calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label ?? ''
-  return [calc.name, calc.pastureName, forage]
+  return [calc.name, calc.pastureName, forage, shortDate(calc.updatedAt)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -222,8 +249,9 @@ export function openSaveDialog(calc, onSave, { title = 'Save calculation', confi
        ${swatchGrid(tag)}
      </div>
      <p class="modal-err" hidden></p>
-     <div class="step-nav">
-       <div class="spacer"></div>
+     <!-- Centred, not pushed right. There is one control on this row and
+          nothing on the other end of it for it to be balanced against. -->
+     <div class="step-nav step-nav--modal">
        <button type="button" class="btn-main" data-save-confirm>${esc(confirm)}</button>
      </div>`
   )

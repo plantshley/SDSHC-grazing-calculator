@@ -160,12 +160,14 @@ export function renderStickyBar(showAll, calc, saved = false) {
       <div class="sticky-actions">
         <!-- Both of these act on the whole worksheet, so they stack together
              here rather than sitting up in the chip row beside Change, which
-             only reopens the setup screen. -->
+             only reopens the setup screen. Clear empties the boxes and keeps the
+             two setup answers; starting over completely is "+ New calculation"
+             up in the chip row. -->
         <div class="sticky-links">
           <button type="button" class="tip" data-action="toggle-show-all">
             ${showAll ? 'One step at a time' : 'Show all steps'}
           </button>
-          <button type="button" class="tip danger" data-action="clear-all">Clear all</button>
+          <button type="button" class="tip danger" data-action="clear-all">Clear</button>
         </div>
         <button type="button" class="btn-main" data-action="save-calc">
           ${

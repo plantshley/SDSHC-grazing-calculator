@@ -24,7 +24,7 @@ import {
 import { stageThumb } from './table.js'
 import { FRAMES } from '../calc.js'
 import { INSTRUCTIONS } from '../data/instructions.js'
-import { FORAGE_TYPES, MIXED, STAGE_PHOTO_NOTE, stagesFor, forageById } from '../data/forage.js'
+import { FORAGE_TYPES, MIXED, STAGE_PHOTOS, stagesFor, forageById } from '../data/forage.js'
 import { isStepOpen, getPref } from '../prefs.js'
 
 export const STEP_LABELS = [
@@ -107,20 +107,30 @@ function head(n, title, infoKeys, collapsible, open) {
    button and a link. Back is outlined rather than filled, because --sky is the
    one loud button on a screen and Next is the one you are meant to press. */
 function nav(i) {
-  const last = i === 4
+  const back =
+    i > 0
+      ? '<button type="button" class="btn-step btn-step--back" data-action="prev-step">Back</button>'
+      : ''
+
+  // The last step has nowhere further forward, so the right-hand end of the row
+  // carries the way OUT instead: to the list this calculation can be kept in.
+  // It is a .btn-step like Back, so the pair are the same size at both ends and
+  // the three export links sit centred between them.
+  if (i === 4) {
+    return `
+      <div class="step-nav step-nav--results">
+        ${back}
+        ${exportRow()}
+        <button type="button" class="btn-step btn-step--back" data-action="set-tab"
+          data-tab="saved">To Saved</button>
+      </div>`
+  }
+
   return `
     <div class="step-nav">
-      ${
-        i > 0
-          ? '<button type="button" class="btn-step btn-step--back" data-action="prev-step">Back</button>'
-          : ''
-      }
+      ${back}
       <div class="spacer"></div>
-      ${
-        last
-          ? exportRow()
-          : '<button type="button" class="btn-step btn-step--next" data-action="next-step">Next</button>'
-      }
+      <button type="button" class="btn-step btn-step--next" data-action="next-step">Next</button>
     </div>`
 }
 
@@ -190,21 +200,20 @@ function step1(calc) {
         )
         .join('')}
 
-      <!-- Each in its OWN grid cell, so on a wide screen they land after the
-           last weight box at the same size as it. Sharing one cell left the two
-           of them fighting over 150px and the add label spilling out. -->
-      <div class="sample sample--add">
+      <!-- Both in ONE cell spanning two columns, so they follow the last weight
+           box as a pair. A cell each put a column's worth of empty grid between
+           the button and the link that undoes it, and the button had to fill its
+           cell to look deliberate, which is what made the label spill. -->
+      <div class="sample sample--actions">
         <button type="button" class="btn-add-cell" data-action="add-sample"
           aria-label="Add another sample">+ Add sample</button>
+        ${
+          calc.samples.length > 1
+            ? `<button type="button" class="tip danger sample-remove"
+                 data-action="remove-sample">Remove last</button>`
+            : ''
+        }
       </div>
-      ${
-        calc.samples.length > 1
-          ? `<div class="sample sample--drop">
-               <button type="button" class="tip danger sample-remove"
-                 data-action="remove-sample">Remove last</button>
-             </div>`
-          : ''
-      }
     </div>
 
     <div class="results">
@@ -256,8 +265,9 @@ function mediaSlot(panel) {
 /* ─────────────────────────────── step 2 ────────────────────────────────── */
 
 function step2(calc) {
-  const frameKey = calc.frame?.key ?? 'small'
+  const frameKey = calc.frame?.key ?? 'custom'
   const mode = calc.dm?.mode ?? 'stage'
+  const preset = FRAMES.find((f) => f.key === frameKey)
 
   const DM_MODES = [
     { key: 'stage', label: 'Use the chart', sub: 'Pick the growth stage you clipped at' },
@@ -268,8 +278,15 @@ function step2(calc) {
   return `
     <p class="sub-title">Frame size ${infoButton('frame', 'Clipping frame')}</p>
 
-    <!-- The pill and the box it reveals are one question, so on a wide screen
-         they share a row instead of the box dropping below the fold. -->
+    <!-- The pill and the box are one question, so on a wide screen they share a
+         row instead of the box dropping below the fold.
+
+         The box is ALWAYS here, and the two hoop presets fill it in rather than
+         hiding it. A number that appears and disappears as the pill is pressed
+         leaves no way to see what a preset actually is, and someone measuring an
+         unmarked hoop has to guess which of the two they own. Typing over the
+         figure moves the pill to "Other frame", which is what main.js does on
+         input: the box is the answer and the pill is a shortcut to it. -->
     <div class="inline-row">
       ${modePill({
         label: 'Frame size',
@@ -281,18 +298,16 @@ function step2(calc) {
           label: f.area ? `${f.label} (${f.area} sq ft)` : f.label,
         })),
       })}
-      ${
-        frameKey === 'custom'
-          ? numField({
-              label: 'Frame area',
-              path: 'frame.customArea',
-              value: calc.frame?.customArea,
-              suffix: 'sq ft',
-              step: '0.01',
-              hint: 'Measure the inside of your frame. A 12 by 12 inch frame is 1 square foot.',
-            })
-          : ''
-      }
+      ${numField({
+        label: 'Frame area',
+        path: 'frame.customArea',
+        value: calc.frame?.customArea,
+        suffix: 'sq ft',
+        step: '0.01',
+        hint: preset?.area
+          ? `The ${preset.label.toLowerCase()} measures ${preset.area} sq ft. Type your own to use a different frame.`
+          : 'Measure the inside of your frame. A 12 by 12 inch frame is 1 square foot.',
+      })}
     </div>
 
     <div class="results">
@@ -369,7 +384,10 @@ function stagePicker(calc) {
 
   const showPhotos = getPref('showStagePhotos')
   const type = forageById(calc.forageType)
-  const borrowed = showPhotos && stages.some((s) => s.photo) && type.photoSet !== 'forb'
+  // Every set is one borrowed species, so the note comes off the set rather than
+  // being one sentence covering all of them: what a grass photo can be read for
+  // under a grass row is not what it can be read for under a forb row.
+  const note = showPhotos && stages.some((s) => s.photo) ? STAGE_PHOTOS[type.photoSet]?.note : ''
 
   return `
     <div class="field-label">
@@ -383,11 +401,11 @@ function stagePicker(calc) {
       </span>
     </div>
     ${
-      // One species stands in for all four grass rows, so the page says which
-      // species and what it can and cannot be read for. Left unsaid, someone
+      // One photographed plant stands in for every row, so the page says which
+      // plant and what it can and cannot be read for. Left unsaid, someone
       // matching their warm season stand against a cool season plant would
       // read the DATE off the photo and pick the wrong column.
-      borrowed ? `<p class="hint stage-note">${esc(STAGE_PHOTO_NOTE)}</p>` : ''
+      note ? `<p class="hint stage-note">${esc(note)}</p>` : ''
     }
     <div class="stage-grid">
       ${stages
@@ -401,7 +419,7 @@ function stagePicker(calc) {
             checked: calc.dm?.stageKey === s.key,
             title: s.label,
             sub: `${s.desc}. ${s.pct}% dry matter.`,
-            media: showPhotos ? stageThumb(calc.forageType, s) : '',
+            media: showPhotos ? stageThumb(calc.forageType, s, calc.dm?.stageKey) : '',
           })
         )
         .join('')}

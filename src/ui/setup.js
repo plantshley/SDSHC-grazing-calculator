@@ -89,8 +89,11 @@ export function renderSetup(calc, returning = false) {
               checked: calc.forageType === MIXED.id,
               title: MIXED.label,
               sub: MIXED.sub,
-              media: `<span class="photo-ph photo-ph--mixed" role="img"
-                aria-label="No single forage type">Any row of the chart</span>`,
+              media: photoThumb(MIXED.photos?.[0], {
+                setId,
+                index: indexOf(MIXED.id),
+                label: MIXED.label,
+              }),
             })}
           </div>
         </div>
@@ -98,8 +101,16 @@ export function renderSetup(calc, returning = false) {
 
       ${renderChecklist(calc.goals)}
 
+      <!-- The reason the button is disabled sits ON the row with the button,
+           reading as the caption to it rather than as a note dropped underneath
+           after the fact. It carries the warning wash for the same reason: it is
+           the one thing standing between here and the calculation. -->
       <div class="step-nav step-nav--start">
-        <div class="spacer"></div>
+        ${
+          ready
+            ? '<div class="spacer"></div>'
+            : `<p class="start-warn">Choose at least one answer and a forage type to begin.</p>`
+        }
         <!-- Coming back from Change is not starting over. The button says so,
              and main.js leaves the current step where it was. -->
         <button type="button" class="btn-main" data-action="start" ${ready ? '' : 'disabled'}>
@@ -110,7 +121,6 @@ export function renderSetup(calc, returning = false) {
           }
         </button>
       </div>
-      ${ready ? '' : '<p class="hint">Choose at least one answer and a forage type to begin.</p>'}
     </div>`
 }
 
@@ -178,9 +188,10 @@ export function renderChips(calc) {
   const forage = calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label
   const plural = calc.goals.length > 1 ? 'Goals' : 'Goal'
 
-  // Clear all is NOT here. It lives in the sticky bar with the other thing that
-  // acts on the whole worksheet, well away from Change, which only reopens the
-  // setup screen. Side by side they were one slip apart.
+  // New calculation is a different thing from Change and from Clear, so it is
+  // the only one of the three that is a button rather than a link: Change
+  // reopens the setup screen over the work in progress, Clear empties the boxes
+  // and keeps the answers, and this one puts the work down and starts again.
   return `
     <div class="chiprow">
       ${
@@ -198,5 +209,8 @@ export function renderChips(calc) {
         <span class="chip chip--forage">${esc(forage || 'No forage chosen')}</span>
       </span>
       <button type="button" class="tip chip-change" data-action="edit-setup">Change</button>
+      <button type="button" class="btn-add btn-add-inline chip-new" data-action="new-calc">
+        + New<span class="btn-word"> calculation</span>
+      </button>
     </div>`
 }

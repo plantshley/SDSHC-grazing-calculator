@@ -22,9 +22,11 @@
  * `{ src, alt, credit }`, where `src` resolves against import.meta.env.BASE_URL.
  *
  * A type carries `photos`, an ARRAY, not one image. Several rows of the chart
- * list four or five species, and a producer who does not recognise the one that
- * was photographed is no better off than with no photo at all. The first entry
- * is the thumbnail; the rest are reached by paging the viewer.
+ * list four or five species, so a row may one day carry one photo per species.
+ * The first entry is the thumbnail; the rest are reached by paging the viewer.
+ * Today every row carries exactly one, which is why registerForageSet() in
+ * ui/table.js hands back an index map rather than letting a caller assume that
+ * card 3 is item 3 of the viewer set.
  */
 
 /** Column headings for the four grass rows. */
@@ -51,67 +53,78 @@ export const GROUP_LABELS = { grass: 'Grasses', forb: 'Forbs' }
 
 const OSU = 'Bunchgrass Phenology, OSU Extension EM-9276.'
 
+const SQUIRRELTAIL = 'Bottlebrush squirreltail'
+
 /**
- * One photographed season, shared by all four grass rows.
+ * One photographed season of one plant, drawn on by every row of the chart.
  *
- * The five entries line up with GRASS_STAGES. They are bottlebrush squirreltail,
- * a cool season bunchgrass, and there is no second species set: the four grass
- * rows of Exhibit 4-2 use the SAME five stage definitions, so one species shows
- * what a boot or a shattered seed head looks like for any of them.
- *
- * What it does not show is timing. A warm season grass reaches these stages
- * weeks later than this plant did. The stage picker says so in words above the
- * grid rather than leaving the photo to imply otherwise, and `species` is
- * carried here so the viewer can name what is actually pictured.
+ * Every stage photo in the app comes from this object. Bottlebrush squirreltail
+ * is a cool season bunchgrass, and it is the only species SDSHC has a full
+ * season of, so the grass sets and the forb set below are both built out of
+ * these seven frames rather than out of seven species each.
  */
-const GRASS_SEASON = {
-  species: 'Bottlebrush squirreltail',
-  photos: [
-    {
-      src: 'forage-images/stages_growth-init.webp',
-      alt: 'New green leaves pushing up through the dead centre of a bunchgrass crown',
-      credit: `Growth initiation, bottlebrush squirreltail. ${OSU}`,
-    },
-    {
-      src: 'forage-images/stages_boot-late.webp',
-      alt: 'A seed head still wrapped in the leaf sheath, swelling the stem below the collar',
-      credit: `Late boot, bottlebrush squirreltail. ${OSU}`,
-    },
-    {
-      src: 'forage-images/stages_seed.webp',
-      alt: 'A green bunchgrass carrying ripe seed heads with awns fully out',
-      credit: `Seed set, bottlebrush squirreltail. ${OSU}`,
-    },
-    {
-      src: 'forage-images/stages_seed-shatter.webp',
-      alt: 'A mostly cured bunchgrass with seed heads breaking apart and leaves curling dry',
-      credit: `Seed shatter, bottlebrush squirreltail. ${OSU}`,
-    },
-    {
-      src: 'forage-images/stages_dormant.webp',
-      alt: 'Fully cured golden bunchgrasses on a rangeland site, with a measuring stake for scale',
-      credit: `Dormant, bottlebrush squirreltail. ${OSU}`,
-    },
-  ],
+const FRAME = {
+  growthInit: {
+    src: 'forage-images/stages_growth-init.webp',
+    alt: 'New green leaves pushing up through the dead centre of a bunchgrass crown',
+    credit: `Growth initiation, bottlebrush squirreltail. ${OSU}`,
+  },
+  bootLate: {
+    src: 'forage-images/stages_boot-late.webp',
+    alt: 'A seed head still wrapped in the leaf sheath, swelling the stem below the collar',
+    credit: `Late boot, bottlebrush squirreltail. ${OSU}`,
+  },
+  flowering: {
+    src: 'forage-images/stages_flowering.webp',
+    alt: 'An open seed head shedding pollen, anthers hanging clear of the glumes',
+    credit: `Flowering, bottlebrush squirreltail. ${OSU}`,
+  },
+  seed: {
+    src: 'forage-images/stages_seed.webp',
+    alt: 'A green bunchgrass carrying ripe seed heads with awns fully out',
+    credit: `Seed set, bottlebrush squirreltail. ${OSU}`,
+  },
+  seedShatter: {
+    src: 'forage-images/stages_seed-shatter.webp',
+    alt: 'A mostly cured bunchgrass with seed heads breaking apart and leaves curling dry',
+    credit: `Seed shatter, bottlebrush squirreltail. ${OSU}`,
+  },
+  dormant: {
+    src: 'forage-images/stages_dormant.webp',
+    alt: 'Fully cured golden bunchgrasses on a rangeland site, with a measuring stake for scale',
+    credit: `Dormant, bottlebrush squirreltail. ${OSU}`,
+  },
 }
 
 /**
- * Indexes line up with the group's stages. Suggested species are recorded so a
- * later photographer knows what was meant for the slots still empty.
+ * Stage photos, one set per photoSet key, indexed to line up with that group's
+ * stages. `note` is rendered above the picker and says what the photos may and
+ * may not be read for.
  *
- * Forbs get their own set and it is still empty, deliberately. Forbs do not have
- * a boot stage or a seed shatter stage, so a grass photograph under "Flowering
- * to seed maturity" would not be an approximation, it would be wrong.
+ * All four grass rows share one set, because they share the same five stage
+ * definitions. What a shared photo does not show is TIMING: a warm season grass
+ * reaches these stages weeks later than this plant did.
+ *
+ * The forb set is the same plant again, mapped onto the forb stages, which is a
+ * bigger stretch and its note says so. A forb has no boot stage, so the forb
+ * mapping reaches for the flowering frame where the grass mapping uses late
+ * boot, and the two sets are NOT the same list in a different order. Purple
+ * coneflower through a season is still the photography that would replace this.
  */
 export const STAGE_PHOTOS = {
-  coolSeason: GRASS_SEASON,
-  warmSeason: GRASS_SEASON,
-  forb: { species: 'Purple coneflower', photos: [null, null, null, null, null] },
+  coolSeason: {
+    species: SQUIRRELTAIL,
+    note: `The photos are ${SQUIRRELTAIL.toLowerCase()}. Every grass row of the chart uses these same five stages, so read them for what the plant is doing, not for the date.`,
+    photos: [FRAME.growthInit, FRAME.bootLate, FRAME.seed, FRAME.seedShatter, FRAME.dormant],
+  },
+  forb: {
+    species: SQUIRRELTAIL,
+    note: `The photos are ${SQUIRRELTAIL.toLowerCase()}, a grass, standing in until forbs are photographed. Read them for how far through the season the stand is, not for what a forb looks like.`,
+    photos: [FRAME.growthInit, FRAME.flowering, FRAME.seed, FRAME.seedShatter, FRAME.dormant],
+  },
 }
 
-/** Set when the pictured species is not one from the row being illustrated. */
-export const STAGE_PHOTO_NOTE =
-  'The photos are bottlebrush squirreltail. Every grass row of the chart uses these same five stages, so use them for what the plant is doing, not for the date.'
+STAGE_PHOTOS.warmSeason = STAGE_PHOTOS.coolSeason
 
 const PLANTS = 'USDA PLANTS Database.'
 
@@ -140,11 +153,6 @@ export const FORAGE_TYPES = [
         src: 'forage-images/a1-local-western-wheatgrass.webp',
         alt: 'A stand of western wheatgrass, blue-green with stiff upright stems',
       },
-      {
-        src: 'forage-images/a1-PLANTS.webp',
-        alt: 'Western wheatgrass growing on a dry rangeland site',
-        credit: `Sheri Hagwood. Jarbidge Resource Area, Bureau of Land Management, Idaho, 7 February 2007. ${PLANTS}`,
-      },
     ],
   },
   {
@@ -158,11 +166,6 @@ export const FORAGE_TYPES = [
       {
         src: 'forage-images/a2-local-big-bluestem.webp',
         alt: 'Big bluestem in late summer, showing its three-pronged turkeyfoot seed head',
-      },
-      {
-        src: 'forage-images/a2-PLANTS.webp',
-        alt: 'Big bluestem growing in a tallgrass prairie stand',
-        credit: `Jennifer Anderson. Pigeon Creek Park, Bettendorf, Scott County, Iowa, 2002. ${PLANTS}`,
       },
     ],
   },
@@ -178,11 +181,6 @@ export const FORAGE_TYPES = [
         src: 'forage-images/a3-local-little-bluestem-2.webp',
         alt: 'A little bluestem bunch turning rust red, with fluffy white seed along the stems',
       },
-      {
-        src: 'forage-images/a3-PLANTS.webp',
-        alt: 'Little bluestem growing as a distinct bunch on open range',
-        credit: `Patrick J. Alexander. ${PLANTS}`,
-      },
     ],
   },
   {
@@ -196,11 +194,6 @@ export const FORAGE_TYPES = [
       {
         src: 'forage-images/a4-local-buffalo-grass.webp',
         alt: 'A low buffalograss sod, curly grey-green leaves only a few inches tall',
-      },
-      {
-        src: 'forage-images/a4-PLANTS.webp',
-        alt: 'Buffalograss in flower, showing its short comb-like seed heads',
-        credit: `Robert Soreng. Provided by the Smithsonian Institution, Department of Botany. ${PLANTS}`,
       },
     ],
   },
@@ -259,6 +252,16 @@ export const MIXED = {
   id: 'mixed',
   label: 'Mixed or not sure',
   sub: 'Show the whole chart and let me pick any cell',
+  // A photo of what a mixed stand actually looks like, so this card is read
+  // alongside the seven rows rather than as the place the photos run out. It is
+  // deliberately a whole pasture rather than a plant: nothing in it is the
+  // answer, which is the point of the card.
+  photos: [
+    {
+      src: 'forage-images/grazing-management.webp',
+      alt: 'A grazed mixed-grass pasture, several species and heights in the same stand',
+    },
+  ],
 }
 
 const BY_ID = new Map(FORAGE_TYPES.map((t) => [t.id, t]))

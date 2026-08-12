@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 
 import {
   FORAGE_TYPES,
+  MIXED,
   GRASS_STAGES,
   FORB_STAGES,
   STAGES_BY_GROUP,
@@ -115,8 +116,38 @@ test('every filled photo slot carries a usable src and alt', () => {
 test('every photo set has one slot per stage', () => {
   for (const [key, set] of Object.entries(STAGE_PHOTOS)) {
     assert.equal(set.photos.length, 5, `${key} has five stage slots`)
-    assert.ok(set.species, `${key} records which species is to be photographed`)
+    assert.ok(set.species, `${key} records which species is pictured`)
+    assert.ok(set.note, `${key} says what its photos can be read for`)
   }
+})
+
+/**
+ * Every card on the setup screen carries a photo, the mixed fallback included.
+ * A card drawn as a placeholder beside seven photographed ones reads as the
+ * option that ran out rather than as the option for a stand with no single
+ * answer, which is most South Dakota rangeland.
+ */
+test('every row of the chart carries one identification photo', () => {
+  for (const type of FORAGE_TYPES) {
+    assert.equal(type.photos.length, 1, `${type.id} has exactly one photo`)
+  }
+  assert.ok(MIXED.photos?.[0]?.src, 'and so does the mixed fallback')
+})
+
+/**
+ * One plant is photographed and every row borrows it, so the two mappings have
+ * to be built for the stages they illustrate rather than shared outright.
+ * Forbs have no boot stage: a late boot photo under "Flowering to seed
+ * maturity" would not be an approximation, it would be wrong.
+ */
+test('the forb stage set is not the grass set relabelled', () => {
+  const grass = STAGE_PHOTOS.coolSeason.photos.map((p) => p.src)
+  const forb = STAGE_PHOTOS.forb.photos.map((p) => p.src)
+  assert.notDeepEqual(grass, forb, 'the boot frame is not used under a forb stage')
+  assert.ok(
+    STAGE_PHOTOS.forb.note.includes('grass'),
+    'and the picker says the plant pictured is not a forb'
+  )
 })
 
 test('groups partition the table', () => {

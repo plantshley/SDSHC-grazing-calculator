@@ -16,6 +16,7 @@ import { openModal } from './modals.js'
 import { photoThumb, registerPhotoSet } from './photo.js'
 import {
   FORAGE_TYPES,
+  MIXED,
   STAGES_BY_GROUP,
   STAGE_PHOTOS,
   GROUP_LABELS,
@@ -111,7 +112,7 @@ function rowFor(type, stages, { typeId, stageKey, pickable, path }) {
  * of big bluestem is a photo of the user's own sideoats grama would be worse
  * than saying which it is.
  */
-export function registerStageSet(typeId) {
+export function registerStageSet(typeId, currentKey = '') {
   const stages = stagesFor(typeId)
   if (!stages.length) return null
 
@@ -127,20 +128,33 @@ export function registerStageSet(typeId) {
       label: s.label,
       // The species is named on every stage, not once at the top, because the
       // viewer can be entered on any of the five and left again from any of
-      // them. A photo of one grass standing in for another has to say so
+      // them. A photo of one plant standing in for another has to say so
       // wherever it is looked at.
       sublabel: `${s.desc}. ${s.pct}% dry matter.${
         s.photo && species ? ` Pictured: ${species.toLowerCase()}.` : ''
       }`,
       placeholder: `Photo coming soon: ${species || type.label} at ${s.label.toLowerCase()}`,
+      // Same contract as the forage picker: a photo you are looking at in order
+      // to decide is a photo you can decide FROM. The action is `pick-cell`,
+      // already handled in main.js, so the stage and the row it belongs to
+      // travel together rather than the stage being written onto whatever row
+      // happened to be selected.
+      pick: {
+        action: 'pick-cell',
+        value: s.key,
+        data: { 'type-id': typeId, 'stage-key': s.key },
+        label: 'Use this stage',
+        chosenLabel: 'Your growth stage',
+        current: s.key === currentKey,
+      },
     }))
   )
   return setId
 }
 
 /** A thumbnail strip for the stage picker, shown behind the photos toggle. */
-export function stageThumb(typeId, stage) {
-  const setId = registerStageSet(typeId)
+export function stageThumb(typeId, stage, currentKey = '') {
+  const setId = registerStageSet(typeId, currentKey)
   if (!setId) return ''
   return photoThumb(stage.photo, {
     setId,
@@ -159,6 +173,11 @@ export function stageThumb(typeId, stage) {
  * is handed back an `indexOf` rather than being left to assume that card 3 is
  * item 3. Getting that wrong opens the viewer on somebody else's plant.
  *
+ * MIXED is registered LAST, in the same set, because it is one of the eight
+ * cards on the screen and paging through seven photos and then off the end of
+ * the gallery reads as the eighth card being a different kind of thing. It is a
+ * different kind of answer, not a different kind of card.
+ *
  * `current` is the type already chosen. It is passed in rather than read from
  * state here because this module has no business knowing about the working
  * calculation; it turns the gallery into a picker, which is the whole point of
@@ -169,18 +188,16 @@ export function registerForageSet(current = '') {
   const first = new Map()
   const items = []
 
-  for (const t of FORAGE_TYPES) {
+  for (const t of [...FORAGE_TYPES, MIXED]) {
     const photos = t.photos?.length ? t.photos : [null]
+    const species = t.species?.join(', ') ?? t.sub ?? ''
     first.set(t.id, items.length)
     photos.forEach((photo, i) => {
       items.push({
         photo,
         title: 'Forage types',
         label: t.label,
-        sublabel:
-          photos.length > 1
-            ? `${t.species.join(', ')} (${i + 1} of ${photos.length})`
-            : t.species.join(', '),
+        sublabel: photos.length > 1 ? `${species} (${i + 1} of ${photos.length})` : species,
         placeholder: `Photo coming soon: ${t.label}`,
         pick: {
           action: 'pick-forage',

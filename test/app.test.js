@@ -155,22 +155,22 @@ test('a forage type can be chosen from the expanded photo', () => {
  * is not its position in the grid. Getting that wrong opens the viewer on
  * somebody else's plant, which the photos exist to prevent.
  */
-test('each card opens the viewer on its own first photo', () => {
+test('each card opens the viewer on its own photo', () => {
   let checked = 0
 
   for (const card of $$('.forage-card')) {
     const button = card.querySelector('[data-action="open-photo"]')
-    if (!button) continue
+    assert.ok(button, 'every card has a photo to open, the mixed fallback included')
 
     const title = card.querySelector('.pick-title').textContent.trim()
     button.click()
     assert.equal($('.pv-label').textContent, title, `${title} opened on its own photo`)
-    assert.equal($('.pv-count').textContent, `${Number(button.dataset.photoIndex) + 1} of 11`)
+    assert.equal($('.pv-count').textContent, `${Number(button.dataset.photoIndex) + 1} of 8`)
     click('.modal-close')
     checked += 1
   }
 
-  assert.equal(checked, 7, 'every chart row was checked')
+  assert.equal(checked, 8, 'every chart row and the mixed fallback were checked')
 })
 
 test('the whole worksheet runs and reproduces the golden fixture', () => {
@@ -191,8 +191,10 @@ test('the whole worksheet runs and reproduces the golden fixture', () => {
   assert.equal(out('avgGrams'), '25 g')
   assert.equal(out('sampleCount'), '5')
 
-  // Step 2. Small hoop is the default, so only the stage needs choosing.
+  // Step 2. The form defaults to "Other frame" with an empty box rather than to
+  // a hoop nobody confirmed owning, so the frame is chosen here.
   click('[data-action="next-step"]')
+  click('[data-action="set-frame"][data-mode="small"]')
   choose('input[data-action="set-stage"][value="headOut"]')
   assert.equal(out('totalProduction'), '2,500 lbs/ac')
   assert.equal(out('dryMatterPct'), '45%')
@@ -226,6 +228,61 @@ test('the whole worksheet runs and reproduces the golden fixture', () => {
   assert.equal(out('animalsAllowed'), '84 head')
 
   assert.equal($$('.warn-list').length, 0, 'a clean worksheet shows no warnings')
+
+  // The last step has no Next, so the right-hand end of the row carries the way
+  // out to the list this calculation can be kept in.
+  const toSaved = $('.step-nav--results [data-action="set-tab"][data-tab="saved"]')
+  assert.ok(toSaved, 'the last step offers the way through to the saved list')
+  assert.ok(toSaved.classList.contains('btn-step'), 'sized to match Back at the other end')
+})
+
+test('a frame preset fills the area box, and typing over it is Other frame', () => {
+  click('[data-action="go-step"][data-step="1"]')
+
+  const box = $('[data-path="frame.customArea"]')
+  assert.equal(box.value, '0.96', 'the small hoop put its own figure on screen')
+
+  // The box is the answer and the pill is a shortcut to it, so a number of your
+  // own moves the pill rather than being overruled by it.
+  type(box, '2')
+  assert.equal(
+    $('[data-action="set-frame"][data-mode="custom"]').getAttribute('aria-pressed'),
+    'true',
+    'a number of your own is what Other frame means'
+  )
+  // 96.03 over 2 sq ft, the exact conversion. Only the two hoop presets use the
+  // worksheet's round numbers.
+  assert.equal(out('totalProduction'), '1,200 lbs/ac')
+
+  click('[data-action="set-frame"][data-mode="small"]')
+  assert.equal($('[data-path="frame.customArea"]').value, '0.96', 'and the preset comes back')
+  assert.equal(out('totalProduction'), '2,500 lbs/ac', 'on the worksheet constant, not 100.03')
+
+  click('[data-action="go-step"][data-step="4"]')
+})
+
+test('a growth stage can be chosen from its photo', () => {
+  click('[data-action="go-step"][data-step="1"]')
+  click('[data-action="toggle-stage-photos"]')
+
+  const thumbs = $$('.stage-card [data-action="open-photo"]')
+  assert.equal(thumbs.length, 5, 'a photo for every stage of the row')
+  thumbs[3].click()
+
+  // Same contract as the forage picker: a photo you are looking at in order to
+  // decide is a photo you can decide from.
+  const pick = $('[data-pv-pick] [data-action="pick-cell"]')
+  assert.ok(pick, 'the viewer offers the stage it is showing')
+  assert.equal(pick.dataset.stageKey, 'mature')
+  assert.equal(pick.dataset.typeId, 'coolSeasonGrass', 'and the row it belongs to travels with it')
+  pick.click()
+
+  assert.equal($('input[data-action="set-stage"]:checked').value, 'mature')
+  assert.equal(out('dryMatterPct'), '85%')
+
+  choose('input[data-action="set-stage"][value="headOut"]')
+  click('[data-action="toggle-stage-photos"]')
+  click('[data-action="go-step"][data-step="4"]')
 })
 
 test('every result card renders its formula in words', () => {
@@ -294,8 +351,19 @@ test('show all puts every step on the page, collapsed except the current one', (
     'and still up to date'
   )
 
+  // A shut step opens from anywhere in its box, not only from the caret. The
+  // click lands on the section itself, which is what a tap on the padding
+  // beside the title does.
+  click('.step[data-step="1"]')
+  assert.ok(!$('.step[data-step="1"] .step-body').hidden, 'and opens from anywhere in the box')
+
+  // Closing it again is the caret's job alone. A box that also closed would
+  // fold the step away under a stray click between two of its own fields.
+  click('.step[data-step="1"] .step-body')
+  assert.ok(!$('.step[data-step="1"] .step-body').hidden, 'and an open one stays open')
+
   click('.step[data-step="1"] [data-action="toggle-step"]')
-  assert.ok(!$('.step[data-step="1"] .step-body').hidden, 'and opens when asked')
+  assert.ok($('.step[data-step="1"] .step-body').hidden, 'the caret still shuts it')
 
   click('[data-action="toggle-show-all"]')
   assert.ok($('.stepper'), 'the stepper comes back')
@@ -355,6 +423,22 @@ test('changing the forage type clears a stage that no longer applies', () => {
     $$('input[data-action="set-stage"]').some((el) => el.value === 'flowering'),
     'and the forb stages are offered instead'
   )
+})
+
+test('the weighted mix builder starts on the type already chosen', () => {
+  click('[data-action="set-dm-mode"][data-mode="mix"]')
+  assert.equal(
+    $('[data-path="dm.mix.0.typeId"]').value,
+    'succulentForb',
+    'the setup screen already asked this once'
+  )
+
+  click('[data-action="add-mix"]')
+  const rows = $$('[data-path$=".typeId"]')
+  assert.equal(rows.length, 3)
+  assert.equal(rows.at(-1).value, 'succulentForb', 'and so does a row added after it')
+
+  click('[data-action="set-dm-mode"][data-mode="stage"]')
 })
 
 test('the mixed fallback offers the whole chart instead of one row', () => {
@@ -418,6 +502,7 @@ function runFixture() {
 
   const boxes = $$('[data-path^="samples."]')
   for (const [i, g] of [20, 25, 30, 25, 25].entries()) type(boxes[i], g)
+  click('[data-action="set-frame"][data-mode="small"]')
   choose('input[data-action="set-stage"][value="headOut"]')
   type('[data-path="usable.amountLeaving"]', 600)
   type('[data-path="demand.animalWeight"]', 1200)
@@ -683,4 +768,38 @@ test('the saved list can be dragged into an order that sticks', () => {
     after,
     'the order survives leaving the tab and coming back'
   )
+})
+
+test('a saved calculation can be filtered by the date on its card', () => {
+  // Matched as DISPLAYED. Someone typing a date is reading the line on the
+  // card, not the ISO timestamp underneath it.
+  const shown = $('.saved-meta').textContent.match(/saved (.+)$/m)[1].trim()
+  type('[data-saved-filter]', shown)
+  assert.equal($$('.saved-card').length, 2, 'both were saved today')
+  click('[data-action="clear-saved-filter"]')
+})
+
+test('New calculation puts the work down and starts again', () => {
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  const before = state.getCalculation().id
+
+  // Clear empties the boxes and keeps the two setup answers. This one is the
+  // NEXT calculation: the answers go too, and it lands back on the setup screen.
+  click('[data-action="new-calc"]')
+
+  assert.ok($('.goal-grid'), 'back on the setup screen')
+  assert.notEqual(state.getCalculation().id, before, 'a new record, not the old one emptied')
+  assert.deepEqual(state.getCalculation().goals, [], 'the goals go too, unlike Clear')
+  assert.equal(state.getCalculation().forageType, '')
+  assert.equal(localStorage.getItem('sdshc-gc-working'), null, 'and the autosave with them')
+  assert.equal(
+    JSON.parse(localStorage.getItem('sdshc-gc-calcs')).length,
+    2,
+    'saved records are not touched'
+  )
+
+  const start = $('[data-action="start"]')
+  assert.ok(start.disabled, 'nothing is answered yet')
+  assert.ok(start.textContent.includes('Start'), 'and it is a start, not a return')
+  assert.ok($('.start-warn'), 'with the reason on the row beside it')
 })
