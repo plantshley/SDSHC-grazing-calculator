@@ -12,12 +12,20 @@
  */
 
 import { esc } from './format.js'
-import { field, numField, countField, modePill, readout, infoButton, sectionInfo } from './fields.js'
+import {
+  numField,
+  countField,
+  modePill,
+  readout,
+  infoButton,
+  sectionInfo,
+  pickCard,
+} from './fields.js'
 import { stageThumb } from './table.js'
 import { FRAMES } from '../calc.js'
 import { INSTRUCTIONS } from '../data/instructions.js'
-import { FORAGE_TYPES, MIXED, stagesFor, forageById } from '../data/forage.js'
-import { isPanelOpen, getPref } from '../prefs.js'
+import { FORAGE_TYPES, MIXED, STAGE_PHOTO_NOTE, stagesFor, forageById } from '../data/forage.js'
+import { isStepOpen, getPref } from '../prefs.js'
 
 export const STEP_LABELS = [
   'Clip and weigh',
@@ -27,72 +35,151 @@ export const STEP_LABELS = [
   'Results',
 ]
 
+/**
+ * Under "Show all steps" every section is collapsible and only the one the user
+ * is on starts open.
+ *
+ * Five steps expanded is a very long page, and the reason to turn the toggle on
+ * is usually to reach ONE earlier figure, not to read all five. The bodies are
+ * hidden with the [hidden] attribute rather than removed, so every [data-out]
+ * inside a shut section is still refreshed and still correct when it is opened,
+ * and printing can force them all back into view.
+ */
+const STEP_HEADS = [
+  ['Clip and weigh your samples', ['clipping', 'sampleSpread']],
+  ['Work out the forage available', ['frame', 'totalProduction', 'availableForage']],
+  ['Work out the usable forage', ['amountLeaving', 'usableForage', 'harvestPct']],
+  ['Work out the daily forage demand', ['bodyWeightPct', 'perAnimalDemand', 'herdDemand']],
+  ['Your results', null],
+]
+
 export function renderSteps(calc, step, showAll) {
   return `
     <div class="steps">
       ${[step1, step2, step3, step4, step5]
         .map((fn, i) => {
-          const open = showAll || i === step
-          return `<section class="box step" data-step="${i}"${open ? '' : ' hidden'}>
-            ${fn(calc)}
-            ${showAll ? '' : nav(i)}
+          const [title, infoKeys] = STEP_HEADS[i]
+          const open = showAll ? isStepOpen(i) : i === step
+          return `<section class="box step${showAll ? ' step--collapsible' : ''}"
+            data-step="${i}"${showAll || i === step ? '' : ' hidden'}>
+            ${head(i + 1, title, infoKeys, showAll, open)}
+            <div class="step-body"${showAll && !open ? ' hidden' : ''}>
+              ${fn(calc, showAll)}
+              ${showAll ? '' : nav(i)}
+            </div>
           </section>`
         })
         .join('')}
     </div>`
 }
 
-function head(n, title, infoKeys) {
+/**
+ * The `?` is a SIBLING of the toggle, never inside it. Nesting one button in
+ * another is invalid, and it would mean opening a definition also collapsed the
+ * step it was explaining.
+ *
+ * The caret is at the LEFT end of the toggle rather than the right. Turning the
+ * toggle on must not move the `?`: it explains the step title, it sits beside
+ * the step title in the wizard, and pushing it out past a caret on the far right
+ * makes it read as belonging to the caret instead.
+ */
+function head(n, title, infoKeys, collapsible, open) {
+  const label = `<span class="step-n">Step ${n}</span>
+    <span class="title">${esc(title)}</span>`
+
+  if (!collapsible) {
+    return `<div class="step-head">${label}${infoKeys ? sectionInfo(infoKeys, title) : ''}</div>`
+  }
+
   return `
-    <div class="step-head">
-      <span class="step-n">Step ${n}</span>
-      <span class="title">${esc(title)}</span>
+    <div class="step-head step-head--toggle">
+      <button type="button" class="step-toggle" data-action="toggle-step" data-step="${n - 1}"
+        aria-expanded="${open}">
+        <span class="step-chev" aria-hidden="true"></span>
+        ${label}
+      </button>
       ${infoKeys ? sectionInfo(infoKeys, title) : ''}
     </div>`
 }
 
+/* Back and Next are the same control at the same size: same height, same font,
+   same min-width, so the pair reads as one thing you move along rather than a
+   button and a link. Back is outlined rather than filled, because --sky is the
+   one loud button on a screen and Next is the one you are meant to press. */
 function nav(i) {
   const last = i === 4
   return `
     <div class="step-nav">
-      ${i > 0 ? '<button type="button" class="btn-add-inline" data-action="prev-step">Back</button>' : ''}
+      ${
+        i > 0
+          ? '<button type="button" class="btn-step btn-step--back" data-action="prev-step">Back</button>'
+          : ''
+      }
       <div class="spacer"></div>
       ${
         last
-          ? '<button type="button" class="btn-main" data-action="print">Print or save as PDF</button>'
-          : '<button type="button" class="btn-main" data-action="next-step">Next</button>'
+          ? exportRow()
+          : '<button type="button" class="btn-step btn-step--next" data-action="next-step">Next</button>'
       }
+    </div>`
+}
+
+/**
+ * The three ways off the last step, as text links rather than buttons.
+ *
+ * None of them changes a figure, so none of them is the one thing to press on
+ * this screen. Ordered the way they are asked for: the image first, because
+ * that is the one that gets sent to somebody.
+ */
+function exportRow() {
+  return `
+    <div class="export-links">
+      <button type="button" class="tip" data-action="export-png">Save as image</button>
+      <button type="button" class="tip" data-action="export-csv">Export CSV</button>
+      <button type="button" class="tip" data-action="print">Print or save as PDF</button>
     </div>`
 }
 
 /* ─────────────────────────────── step 1 ────────────────────────────────── */
 
+/**
+ * Scissors, sun, scales. Each is followed by U+FE0E, the text variation
+ * selector, which is what stops a phone drawing these three as full-colour
+ * emoji next to a heading set in the page's own type.
+ *
+ * Written as numeric entities so the source file stays ASCII and cannot be
+ * mangled by an editor guessing at its encoding.
+ */
+const HOWTO_ICONS = {
+  clip: '&#9986;&#65038;',
+  dry: '&#9728;&#65038;',
+  weigh: '&#9878;&#65038;',
+}
+
 function step1(calc) {
   return `
-    ${head(1, 'Clip and weigh your samples', ['clipping', 'sampleSpread'])}
+    <p class="hint">Enter each sample weight in grams. Blank rows are ignored, so
+      you do not need to fill them all.</p>
 
     <div class="howto-row">
       ${INSTRUCTIONS.map(
         (p) => `
-        <details class="howto" data-panel="${esc(p.id)}"${isPanelOpen(p.id) ? ' open' : ''}>
-          <summary>${esc(p.title)}</summary>
-          <div class="howto-body">
-            ${mediaSlot(p)}
-            ${p.body.map((line) => `<p>${esc(line)}</p>`).join('')}
-          </div>
-        </details>`
+        <button type="button" class="howto-card" data-action="open-howto" data-howto="${esc(p.id)}">
+          <span class="howto-card-icon" aria-hidden="true">${HOWTO_ICONS[p.id] ?? ''}</span>
+          <span class="howto-card-text">
+            <span class="howto-card-title">${esc(p.title)}</span>
+            <span class="howto-card-sub">${esc(p.mediaCaption)}</span>
+          </span>
+        </button>`
       ).join('')}
     </div>
-
-    <p class="hint">Enter each sample weight in grams. Blank rows are ignored, so
-      you do not need to fill them all.</p>
 
     <div class="samples">
       ${calc.samples
         .map(
           (value, i) => `
         <div class="sample">
-          <span class="sample-n">${i + 1}</span>
+          <span class="sample-n">${i + 1}:</span>
           <div class="input-wrap has-suffix">
             <input type="number" step="0.1" min="0" inputmode="decimal"
               data-path="samples.${i}" value="${esc(value ?? '')}"
@@ -102,13 +189,20 @@ function step1(calc) {
         </div>`
         )
         .join('')}
-    </div>
 
-    <div class="step-nav step-nav--plain">
-      <button type="button" class="btn-add" data-action="add-sample">+ Add another sample</button>
+      <!-- Each in its OWN grid cell, so on a wide screen they land after the
+           last weight box at the same size as it. Sharing one cell left the two
+           of them fighting over 150px and the add label spilling out. -->
+      <div class="sample sample--add">
+        <button type="button" class="btn-add-cell" data-action="add-sample"
+          aria-label="Add another sample">+ Add sample</button>
+      </div>
       ${
         calc.samples.length > 1
-          ? '<button type="button" class="tip danger" data-action="remove-sample">Remove last</button>'
+          ? `<div class="sample sample--drop">
+               <button type="button" class="tip danger sample-remove"
+                 data-action="remove-sample">Remove last</button>
+             </div>`
           : ''
       }
     </div>
@@ -118,6 +212,29 @@ function step1(calc) {
       ${readout('Samples used', 'sampleCount', { fmt: 'number' })}
     </div>
     <p class="sample-stats" data-spread-note hidden></p>`
+}
+
+/**
+ * How to clip, dry, and weigh, as a modal rather than a drop-down.
+ *
+ * Media on the left, numbered steps on the right. A collapsed panel above the
+ * weight boxes was competing for the top of the step with the thing the step is
+ * for, and it could not show a video at a useful size in the width it had.
+ */
+export function howToPanel(id) {
+  const panel = INSTRUCTIONS.find((p) => p.id === id)
+  if (!panel) return null
+
+  return {
+    title: panel.title,
+    html: `
+      <div class="howto-modal">
+        <div class="howto-modal-media">${mediaSlot(panel)}</div>
+        <ol class="howto-steps">
+          ${panel.body.map((line) => `<li>${esc(line)}</li>`).join('')}
+        </ol>
+      </div>`,
+  }
 }
 
 /** A photo or video when there is one, a labelled placeholder until then. */
@@ -142,32 +259,41 @@ function step2(calc) {
   const frameKey = calc.frame?.key ?? 'small'
   const mode = calc.dm?.mode ?? 'stage'
 
-  return `
-    ${head(2, 'Work out the forage available', ['frame', 'totalProduction', 'availableForage'])}
+  const DM_MODES = [
+    { key: 'stage', label: 'Use the chart', sub: 'Pick the growth stage you clipped at' },
+    { key: 'own', label: 'I dried my own', sub: 'Enter the percentage you measured' },
+    { key: 'mix', label: 'Weighted mix', sub: 'Two or three types, each a real share' },
+  ]
 
+  return `
     <p class="sub-title">Frame size ${infoButton('frame', 'Clipping frame')}</p>
-    ${modePill({
-      label: 'Frame size',
-      path: 'frame.key',
-      action: 'set-frame',
-      current: frameKey,
-      modes: FRAMES.map((f) => ({
-        key: f.key,
-        label: f.area ? `${f.label} (${f.area} sq ft)` : f.label,
-      })),
-    })}
-    ${
-      frameKey === 'custom'
-        ? numField({
-            label: 'Frame area',
-            path: 'frame.customArea',
-            value: calc.frame?.customArea,
-            suffix: 'sq ft',
-            step: '0.01',
-            hint: 'Measure the inside of your frame. A 12 by 12 inch frame is 1 square foot.',
-          })
-        : ''
-    }
+
+    <!-- The pill and the box it reveals are one question, so on a wide screen
+         they share a row instead of the box dropping below the fold. -->
+    <div class="inline-row">
+      ${modePill({
+        label: 'Frame size',
+        path: 'frame.key',
+        action: 'set-frame',
+        current: frameKey,
+        modes: FRAMES.map((f) => ({
+          key: f.key,
+          label: f.area ? `${f.label} (${f.area} sq ft)` : f.label,
+        })),
+      })}
+      ${
+        frameKey === 'custom'
+          ? numField({
+              label: 'Frame area',
+              path: 'frame.customArea',
+              value: calc.frame?.customArea,
+              suffix: 'sq ft',
+              step: '0.01',
+              hint: 'Measure the inside of your frame. A 12 by 12 inch frame is 1 square foot.',
+            })
+          : ''
+      }
+    </div>
 
     <div class="results">
       ${readout('Total production', 'totalProduction', {
@@ -177,21 +303,29 @@ function step2(calc) {
     </div>
 
     <p class="sub-title">Dry matter ${infoButton('airDryMatter', 'Air-dry matter')}</p>
-    ${modePill({
-      label: 'How to set dry matter',
-      path: 'dm.mode',
-      action: 'set-dm-mode',
-      current: mode,
-      modes: [
-        { key: 'stage', label: 'Use the chart' },
-        { key: 'own', label: 'I dried my own' },
-        { key: 'mix', label: 'Weighted mix' },
-      ],
-    })}
 
-    ${mode === 'own' ? ownDryMatter(calc) : ''}
-    ${mode === 'stage' ? stagePicker(calc) : ''}
-    ${mode === 'mix' ? mixBuilder(calc) : ''}
+    <!-- Three ways to answer one question, so the choice sits in a narrow
+         column on the left and its answer fills the wide column on the right.
+         A pill across the full width put the chart and the mix builder below
+         the fold and made them look like separate steps. -->
+    <div class="dm-split">
+      <div class="dm-modes" role="group" aria-label="How to set dry matter">
+        ${DM_MODES.map(
+          (m) => `
+          <button type="button" class="dm-mode" data-action="set-dm-mode" data-mode="${esc(m.key)}"
+            aria-pressed="${m.key === mode}">
+            <span class="dm-mode-label">${esc(m.label)}</span>
+            <span class="dm-mode-sub">${esc(m.sub)}</span>
+            <span class="dm-mode-chev" aria-hidden="true"></span>
+          </button>`
+        ).join('')}
+      </div>
+      <div class="dm-panel">
+        ${mode === 'own' ? ownDryMatter(calc) : ''}
+        ${mode === 'stage' ? stagePicker(calc) : ''}
+        ${mode === 'mix' ? mixBuilder(calc) : ''}
+      </div>
+    </div>
 
     <div class="results">
       ${readout('Dry matter', 'dryMatterPct', { fmt: 'pct' })}
@@ -235,10 +369,11 @@ function stagePicker(calc) {
 
   const showPhotos = getPref('showStagePhotos')
   const type = forageById(calc.forageType)
+  const borrowed = showPhotos && stages.some((s) => s.photo) && type.photoSet !== 'forb'
 
   return `
     <div class="field-label">
-      <span>Growth stage for ${esc(type.label.toLowerCase())}</span>
+      <span>Growth stages</span>
       <button type="button" class="help-btn" data-action="open-chart"
         aria-label="Show the dry matter chart" title="Show the dry matter chart">?</button>
       <span class="field-aside">
@@ -247,16 +382,27 @@ function stagePicker(calc) {
         </button>
       </span>
     </div>
-    <div class="goal-grid">
+    ${
+      // One species stands in for all four grass rows, so the page says which
+      // species and what it can and cannot be read for. Left unsaid, someone
+      // matching their warm season stand against a cool season plant would
+      // read the DATE off the photo and pick the wrong column.
+      borrowed ? `<p class="hint stage-note">${esc(STAGE_PHOTO_NOTE)}</p>` : ''
+    }
+    <div class="stage-grid">
       ${stages
         .map((s) =>
-          `<label class="pick">
-            <input type="radio" name="stage" value="${esc(s.key)}"
-              data-action="set-stage" ${calc.dm?.stageKey === s.key ? 'checked' : ''} />
-            ${showPhotos ? stageThumb(calc.forageType, s) : ''}
-            <span class="pick-title">${esc(s.label)}</span>
-            <span class="pick-sub">${esc(s.desc)}. ${s.pct}% dry matter.</span>
-          </label>`
+          pickCard({
+            class: 'stage-card',
+            noBox: showPhotos,
+            name: 'stage',
+            value: s.key,
+            action: 'set-stage',
+            checked: calc.dm?.stageKey === s.key,
+            title: s.label,
+            sub: `${s.desc}. ${s.pct}% dry matter.`,
+            media: showPhotos ? stageThumb(calc.forageType, s) : '',
+          })
         )
         .join('')}
     </div>`
@@ -326,42 +472,41 @@ function mixBuilder(calc) {
 function step3(calc) {
   const mode = calc.usable?.mode ?? 'lbs'
   return `
-    ${head(3, 'Work out the usable forage', ['amountLeaving', 'usableForage', 'harvestPct'])}
-
     <p class="hint">Some forage has to stay on the ground. It armors the soil, keeps
       roots alive, and lets the plant recover. Say how much you are leaving, either
       as pounds per acre or as the share you plan to take.</p>
 
-    ${modePill({
-      label: 'How to set the residual',
-      path: 'usable.mode',
-      action: 'set-usable-mode',
-      current: mode,
-      modes: [
-        { key: 'lbs', label: 'Leave lbs/ac' },
-        { key: 'pct', label: 'Take a percent' },
-      ],
-    })}
-
-    ${
-      mode === 'lbs'
-        ? numField({
-            label: 'Forage left behind',
-            path: 'usable.amountLeaving',
-            value: calc.usable?.amountLeaving,
-            suffix: 'lbs/ac',
-            info: 'amountLeaving',
-            hint: 'A common starting point is half of what is available.',
-          })
-        : numField({
-            label: 'Harvest percent',
-            path: 'usable.harvestPct',
-            value: calc.usable?.harvestPct,
-            suffix: '%',
-            info: 'harvestPct',
-            hint: 'Take half and leave half is 50%. Shorter grazing periods raise this.',
-          })
-    }
+    <div class="inline-row">
+      ${modePill({
+        label: 'How to set the residual',
+        path: 'usable.mode',
+        action: 'set-usable-mode',
+        current: mode,
+        modes: [
+          { key: 'lbs', label: 'Leave lbs/ac' },
+          { key: 'pct', label: 'Take a percent' },
+        ],
+      })}
+      ${
+        mode === 'lbs'
+          ? numField({
+              label: 'Forage left behind',
+              path: 'usable.amountLeaving',
+              value: calc.usable?.amountLeaving,
+              suffix: 'lbs/ac',
+              info: 'amountLeaving',
+              hint: 'A common starting point is half of what is available.',
+            })
+          : numField({
+              label: 'Harvest percent',
+              path: 'usable.harvestPct',
+              value: calc.usable?.harvestPct,
+              suffix: '%',
+              info: 'harvestPct',
+              hint: 'Take half and leave half is 50%. Shorter grazing periods raise this.',
+            })
+      }
+    </div>
 
     <div class="results">
       ${readout(
@@ -382,10 +527,11 @@ function step3(calc) {
 function step4(calc) {
   const needsHerd = calc.goals.includes('days') || calc.goals.includes('acres')
 
+  // One row on a desktop, one field per row on a phone. See .field-row in
+  // app.css: the columns are equal shares, so adding or dropping the herd size
+  // does not resize the two that are always there.
   return `
-    ${head(4, 'Work out the daily forage demand', ['bodyWeightPct', 'perAnimalDemand', 'herdDemand'])}
-
-    <div class="row-2">
+    <div class="field-row">
       ${numField({
         label: 'Average animal weight',
         path: 'demand.animalWeight',
@@ -401,16 +547,21 @@ function step4(calc) {
         info: 'bodyWeightPct',
         hint: 'NRCS puts the usual range at 2.5% to 3%.',
       })}
+      ${
+        needsHerd
+          ? countField({
+              label: 'Number of animals',
+              path: 'demand.numAnimals',
+              value: calc.demand?.numAnimals,
+              suffix: 'head',
+            })
+          : ''
+      }
     </div>
 
     ${
       needsHerd
-        ? countField({
-            label: 'Number of animals',
-            path: 'demand.numAnimals',
-            value: calc.demand?.numAnimals,
-            suffix: 'head',
-          })
+        ? ''
         : `<p class="hint">Your herd size is not needed here. It is what
              ${esc('"How many animals can I run?"')} works out for you.</p>`
     }
@@ -434,34 +585,55 @@ function step4(calc) {
 
 /* ─────────────────────────────── step 5 ────────────────────────────────── */
 
-function step5(calc) {
+function step5(calc, showAll) {
   const goals = calc.goals ?? []
   const needsPasture = goals.includes('days') || goals.includes('animals')
   const needsDays = goals.includes('animals') || goals.includes('acres')
 
   return `
-    ${head(5, 'Your results')}
+    ${
+      needsPasture || needsDays
+        ? `<p class="sub-title">Your pasture</p>
+           <div class="field-row">
+             ${
+               needsPasture
+                 ? numField({
+                     label: 'Total acres in the pasture',
+                     path: 'pasture.totalAcres',
+                     value: calc.pasture?.totalAcres,
+                     suffix: 'ac',
+                   }) +
+                   numField({
+                     label: 'Ungrazeable acres',
+                     path: 'pasture.ungrazeableAcres',
+                     value: calc.pasture?.ungrazeableAcres,
+                     suffix: 'ac',
+                     info: 'ungrazeable',
+                     hint: 'Water, rock, timber, roads, and ground they will not walk.',
+                   })
+                 : ''
+             }
+             ${
+               needsDays
+                 ? countField({
+                     label: 'How many days do you plan to graze?',
+                     path: 'pasture.desiredDays',
+                     value: calc.pasture?.desiredDays,
+                     suffix: 'days',
+                     hint:
+                       goals.includes('acres') && !goals.includes('animals')
+                         ? 'Optional. Leave blank for the daily figure only.'
+                         : '',
+                   })
+                 : ''
+             }
+           </div>`
+        : ''
+    }
 
     ${
       needsPasture
-        ? `<p class="sub-title">Your pasture</p>
-           <div class="row-2">
-             ${numField({
-               label: 'Total acres in the pasture',
-               path: 'pasture.totalAcres',
-               value: calc.pasture?.totalAcres,
-               suffix: 'ac',
-             })}
-             ${numField({
-               label: 'Ungrazeable acres',
-               path: 'pasture.ungrazeableAcres',
-               value: calc.pasture?.ungrazeableAcres,
-               suffix: 'ac',
-               info: 'ungrazeable',
-               hint: 'Water, rock, timber, roads, and ground they will not walk.',
-             })}
-           </div>
-           <div class="results">
+        ? `<div class="results">
              ${readout('Grazeable acres', 'acresAvailable', { fmt: 'acres' })}
              ${readout('Total usable forage', 'totalUsableForage', {
                fmt: 'lbs',
@@ -471,27 +643,50 @@ function step5(calc) {
         : ''
     }
 
-    ${
-      needsDays
-        ? countField({
-            label: 'How many days do you plan to graze?',
-            path: 'pasture.desiredDays',
-            value: calc.pasture?.desiredDays,
-            suffix: 'days',
-            hint: goals.includes('acres') && !goals.includes('animals')
-              ? 'Optional. Leave blank for the daily figure only.'
-              : '',
-          })
-        : ''
-    }
+    ${goals.includes('acres') ? paddockShape(calc) : ''}
 
     <div data-results></div>
     <div data-warnings></div>
 
-    <div class="step-nav">
-      <button type="button" class="btn-add-inline" data-action="save-calc">Save calculation</button>
-      <div class="spacer"></div>
-      <button type="button" class="btn-add-inline" data-action="export-csv">Export CSV</button>
-      <button type="button" class="btn-add-inline" data-action="export-png">Save as image</button>
+    ${
+      // Under "Show all steps" there is no nav row to carry these, so the last
+      // step carries them itself. In the wizard they live in nav(), beside Back.
+      showAll ? exportRow() : ''
+    }`
+}
+
+/**
+ * How much ground one day's grazing actually is, in fence.
+ *
+ * The acres-per-day figure above is the answer; this turns it into the two
+ * numbers someone stands in a pasture with. A square uses the least fence for a
+ * given area, so that is the default. Entering the side you already have, an
+ * existing fence line, solves the other one.
+ */
+function paddockShape(calc) {
+  return `
+    <p class="sub-title">Paddock size for one day ${infoButton('paddock', 'Paddock')}</p>
+    <p class="hint">The acres your herd needs each day, laid out as fence. Left
+      blank it is drawn as a square, which uses the least fence for the area. If
+      you are running off an existing fence line, enter the side you already have
+      and the other one is worked out for you.</p>
+
+    <div class="paddock-row">
+      ${numField({
+        label: 'One side',
+        path: 'pasture.paddockWidth',
+        value: calc.pasture?.paddockWidth,
+        suffix: 'ft',
+        placeholder: 'Leave blank for a square',
+        step: '1',
+      })}
+      <span class="paddock-x" aria-hidden="true">&times;</span>
+      <div class="paddock-out">
+        <span class="paddock-out-label">The other side</span>
+        <span class="paddock-out-value" data-out="paddockLength" data-fmt="feet">&mdash;</span>
+      </div>
+    </div>
+    <div class="results">
+      ${readout('Ground needed per day', 'sqFtPerDay', { fmt: 'sqft' })}
     </div>`
 }

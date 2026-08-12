@@ -11,12 +11,14 @@
  */
 
 import { esc, FORMATTERS } from './format.js'
-import { numField, readout, infoButton } from './fields.js'
+import { readout, infoButton } from './fields.js'
 import { INPUT_LABELS } from '../calc.js'
 
+/** `short` is the running bar's caption, where a card title does not fit. */
 const GOAL_CARDS = {
   days: {
     title: 'Grazing days',
+    short: 'Days',
     key: 'grazingDays',
     fmt: 'days',
     info: 'grazingDays',
@@ -24,6 +26,7 @@ const GOAL_CARDS = {
   },
   acres: {
     title: 'Acres needed per day',
+    short: 'Acres/day',
     key: 'acresPerDay',
     fmt: 'acres',
     info: 'acresNeeded',
@@ -31,6 +34,7 @@ const GOAL_CARDS = {
   },
   animals: {
     title: 'Animals allowed',
+    short: 'Animals',
     key: 'animalsAllowed',
     fmt: 'head',
     info: 'animalsAllowed',
@@ -38,16 +42,28 @@ const GOAL_CARDS = {
   },
 }
 
+/**
+ * One card per goal, side by side.
+ *
+ * With several goals the cards are equal columns, so the answers are compared
+ * rather than scrolled through. With one there is nothing to compare, so the
+ * card splits instead: the figure on the left at full size, the numbers it was
+ * built from on the right, which is the layout that reads at arm's length.
+ */
 export function renderResults(calc) {
   const goals = (calc.goals ?? []).filter((g) => GOAL_CARDS[g])
   if (!goals.length) return '<p class="hint">Choose an answer on the setup screen.</p>'
 
+  const solo = goals.length === 1
+
   return `
-    ${goals.map((g) => card(g, calc)).join('')}
+    <div class="result-row${solo ? ' result-row--solo' : ''}">
+      ${goals.map((g) => card(g)).join('')}
+    </div>
     ${goals.includes('days') && goals.includes('animals') ? reconcile() : ''}`
 }
 
-function card(goal, calc) {
+function card(goal) {
   const spec = GOAL_CARDS[goal]
   return `
     <div class="box result-card">
@@ -56,18 +72,26 @@ function card(goal, calc) {
         ${infoButton(spec.info, spec.title)}
       </div>
 
-      <div class="kpi">
-        <div class="kpi-value" data-out="${esc(spec.key)}" data-fmt="${esc(spec.fmt)}">&mdash;</div>
-        <div class="kpi-label">${esc(spec.unit)}</div>
+      <div class="result-split">
+        <div class="result-main">
+          <div class="kpi">
+            <div class="kpi-value" data-out="${esc(spec.key)}" data-fmt="${esc(
+              spec.fmt
+            )}">&mdash;</div>
+            <div class="kpi-label">${esc(spec.unit)}</div>
+          </div>
+        </div>
+        <div class="result-aside">
+          ${support(goal)}
+          <p class="result-formula" data-formula="${esc(goal)}"></p>
+        </div>
       </div>
 
       <p class="result-missing" data-missing="${esc(goal)}" hidden></p>
-      ${support(goal, calc)}
-      <p class="result-formula" data-formula="${esc(goal)}"></p>
     </div>`
 }
 
-function support(goal, calc) {
+function support(goal) {
   if (goal === 'days') {
     return `
       <div class="results">
@@ -82,21 +106,6 @@ function support(goal, calc) {
       <div class="results">
         ${readout('Square feet per day', 'sqFtPerDay', { fmt: 'sqft' })}
         ${readout('Acres for your planned days', 'acresForDesiredDays', { fmt: 'acres' })}
-      </div>
-      <p class="sub-title">Paddock shape ${infoButton('paddock', 'Paddock')}</p>
-      <p class="hint">A square uses the least fence. Enter one side and the other is
-        worked out for you, which is what you want when you are running off an
-        existing fence line.</p>
-      <div class="row-2">
-        ${numField({
-          label: 'One side',
-          path: 'pasture.paddockWidth',
-          value: calc.pasture?.paddockWidth,
-          suffix: 'ft',
-          placeholder: 'Leave blank for a square',
-          step: '1',
-        })}
-        ${readout('The other side', 'paddockLength', { fmt: 'feet' })}
       </div>`
   }
 
@@ -118,23 +127,53 @@ function reconcile() {
 
 /* ──────────────────────── the running totals bar ───────────────────────── */
 
-export function renderStickyBar(showAll) {
+/**
+ * @param {boolean} showAll
+ * @param {object} calc
+ * @param {boolean} saved  this calculation is already in the saved list, so the
+ *   button edits that record rather than offering to create one.
+ */
+export function renderStickyBar(showAll, calc, saved = false) {
+  const goals = (calc?.goals ?? []).filter((g) => GOAL_CARDS[g])
+
   return `
     <div class="sticky-bar">
       <div class="sticky-figs">
         <span><small>Available</small><b data-out="availableForage" data-fmt="lbsPerAcre">&mdash;</b></span>
         <span><small>Usable</small><b data-out="usableForage" data-fmt="lbsPerAcre">&mdash;</b></span>
-        <span data-headline-wrap hidden>
-          <small data-headline-label></small>
-          <b data-headline class="pos">&mdash;</b>
-        </span>
+        ${
+          // Every selected goal, not just the first. Two answers were chosen
+          // because both are wanted; showing one of them in the running bar
+          // reads as the other having failed to compute.
+          goals
+            .map(
+              (g) => `<span class="sticky-goal" data-headline-wrap="${esc(g)}" hidden>
+                <small>${esc(GOAL_CARDS[g].short)}</small>
+                <b class="pos" data-headline="${esc(g)}" data-fmt="${esc(
+                  GOAL_CARDS[g].fmt
+                )}">&mdash;</b>
+              </span>`
+            )
+            .join('')
+        }
       </div>
       <div class="sticky-actions">
-        <button type="button" class="tip" data-action="toggle-show-all">
-          ${showAll ? 'One step at a time' : 'Show all steps'}
-        </button>
+        <!-- Both of these act on the whole worksheet, so they stack together
+             here rather than sitting up in the chip row beside Change, which
+             only reopens the setup screen. -->
+        <div class="sticky-links">
+          <button type="button" class="tip" data-action="toggle-show-all">
+            ${showAll ? 'One step at a time' : 'Show all steps'}
+          </button>
+          <button type="button" class="tip danger" data-action="clear-all">Clear all</button>
+        </div>
         <button type="button" class="btn-main" data-action="save-calc">
-          Save<span class="btn-word"> calculation</span>
+          ${
+            // Still a save. The dialog it opens is the same one, and pressing
+            // it writes the figures as they now stand: an "edit" that only
+            // renamed the record would quietly leave the numbers behind.
+            saved ? 'Edit<span class="btn-word"> saved</span>' : 'Save<span class="btn-word"> calculation</span>'
+          }
         </button>
       </div>
     </div>`
@@ -217,20 +256,20 @@ export function updateOutputs(res, root = document) {
   updateHeadline(res, root)
 }
 
-/** The single most relevant figure, pinned in the bar at the bottom. */
+/** The answers so far, pinned in the bar at the bottom. */
 function updateHeadline(res, root) {
-  const wrap = root.querySelector('[data-headline-wrap]')
-  if (!wrap) return
+  for (const wrap of root.querySelectorAll('[data-headline-wrap]')) {
+    const goal = wrap.dataset.headlineWrap
+    const spec = GOAL_CARDS[goal]
+    const value = spec ? res[spec.key] : null
 
-  const goal = ['days', 'acres', 'animals'].find((g) => res.goals?.includes(g))
-  const spec = goal && GOAL_CARDS[goal]
-  const value = spec ? res[spec.key] : 0
-
-  wrap.hidden = !spec || !value
-  if (wrap.hidden) return
-
-  root.querySelector('[data-headline-label]').textContent = spec.title
-  root.querySelector('[data-headline]').textContent = FORMATTERS[spec.fmt](value)
+    // Hidden until there IS an answer. A dash in the running bar says nothing
+    // the result card does not already say better, and it costs width the two
+    // figures beside it need on a phone.
+    wrap.hidden = !spec || value == null
+    if (wrap.hidden) continue
+    wrap.querySelector('[data-headline]').textContent = FORMATTERS[spec.fmt](value)
+  }
 }
 
 /**

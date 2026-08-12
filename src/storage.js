@@ -210,20 +210,22 @@ export function saveCalc(calc, { force = false } = {}) {
   record.createdAt = existing?.createdAt ?? record.createdAt ?? record.updatedAt
 
   if (index >= 0) {
-    // The copy in memory has no idea where this was dragged to or what colour
-    // it was given; the stored record does. Both are owned by the Saved tab, in
-    // both directions, so the stored value always wins, including when it is
-    // absent.
-    //
-    // Without the tag half: colour a calculation from the Saved tab while it is
-    // still the open working copy, edit something, save again, and the colour
-    // is gone with nothing on screen to say so. The working copy was read
-    // before the colour was applied and still carries no tag.
+    // Position is owned by the Saved tab alone. The copy in memory has no idea
+    // where this was dragged to, so the stored value always wins.
     if (existing.sortIndex != null) record.sortIndex = existing.sortIndex
-    if (existing.tag != null) record.tag = existing.tag
-    else delete record.tag
+
+    // The colour has two owners: the Saved tab's Color button and the save
+    // dialog. Whichever ran last is the answer, so the stored value is only a
+    // FALLBACK, used when the incoming record says nothing about a colour.
+    //
+    // `undefined` is "not mentioned" and an empty string is "no colour,
+    // deliberately". Collapsing the two would make removing a colour from the
+    // save dialog silently put the old one back.
+    if (record.tag === undefined && existing.tag != null) record.tag = existing.tag
+    if (!record.tag) delete record.tag
     all[index] = record
   } else {
+    if (!record.tag) delete record.tag
     // A new calculation belongs at the top, where the newest-first fallback
     // would have put it. Only meaningful once something has been reordered.
     const indices = all.map((c) => Number(c.sortIndex)).filter(Number.isFinite)
@@ -239,30 +241,42 @@ export function saveCalc(calc, { force = false } = {}) {
   return result
 }
 
-export function renameCalc(id, name) {
-  const all = listCalcs()
-  const found = all.find((c) => c.id === id)
-  if (!found) return { ok: false, error: 'NotFound' }
-  found.name = String(name)
-  found.updatedAt = new Date().toISOString()
-  const result = writeKey(KEY, JSON.stringify(all))
-  if (result.ok) lastKnownUpdatedAt.set(id, found.updatedAt)
-  return result
-}
-
 /**
- * Set the colour label on a saved calculation.
+ * Change what a saved calculation is CALLED, without touching its figures.
  *
- * Deliberately does NOT bump `updatedAt`: tagging is filing, not editing, and
- * a reordered list jumping because someone coloured a card is surprising.
+ * Name, pasture and colour are one dialog in the UI, so they are one write
+ * here; three separate functions meant three separate read-modify-writes for
+ * what the user did as a single edit.
+ *
+ * `updatedAt` moves only when the name or the pasture changed. Colouring a card
+ * is filing, not editing, and a list that reorders itself because somebody
+ * pressed a swatch is surprising.
  */
-export function tagCalc(id, tag) {
+export function updateCalcMeta(id, { name, pastureName, tag } = {}) {
   const all = listCalcs()
   const found = all.find((c) => c.id === id)
   if (!found) return { ok: false, error: 'NotFound' }
-  if (tag) found.tag = String(tag)
-  else delete found.tag
-  return writeKey(KEY, JSON.stringify(all))
+
+  let renamed = false
+  if (name !== undefined && String(name) !== found.name) {
+    found.name = String(name)
+    renamed = true
+  }
+  if (pastureName !== undefined && String(pastureName) !== (found.pastureName ?? '')) {
+    found.pastureName = String(pastureName)
+    renamed = true
+  }
+  // `undefined` is "not mentioned" and '' is "no colour, deliberately", the
+  // same distinction saveCalc() draws.
+  if (tag !== undefined) {
+    if (tag) found.tag = String(tag)
+    else delete found.tag
+  }
+
+  if (renamed) found.updatedAt = new Date().toISOString()
+  const result = writeKey(KEY, JSON.stringify(all))
+  if (result.ok && renamed) lastKnownUpdatedAt.set(id, found.updatedAt)
+  return result
 }
 
 export function deleteCalc(id) {

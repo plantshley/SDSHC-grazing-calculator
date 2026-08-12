@@ -92,14 +92,60 @@ Because hidden steps are still in the DOM, a number baked into markup goes stale
 the moment an earlier step is edited. `updateOutputs()` writes into
 `[data-out]`, reading the formatter name off `data-fmt`.
 
+Under "Show all steps" every section is on the page and each one is collapsible,
+with only the step being left open. Five expanded sections is a very long page,
+and the reason to turn the toggle on is usually to reach one earlier figure. The
+collapse hides `.step-body`, not the section, so the same rule holds: a shut
+body is still refreshed, and print forces `.step-body[hidden]` back open
+alongside `.step[hidden]`.
+
 The same rule is why `renderResults()` is called on a full render only and
 `updateOutputs()` on every keystroke: re-rendering the cards to refresh a figure
 would tear the focus out of the paddock width box on every character typed.
+
+### `openModal()` hands back a NEW body element every time
+
+Callers wire their own controls by adding a listener to the element `openModal`
+returns. Reusing that node keeps every one of those listeners alive for the life
+of the page: the save dialog's colour swatches were also being handled by the
+colour dialog opened ten minutes earlier, so clicking one re-tagged whichever
+card that dialog had been about and closed the modal out from under the save.
+
+So `openModal()` builds a fresh `.modal-body` and replaces the old one, which
+drops the listeners with it. **Do not "optimise" this back to `innerHTML` on the
+existing node.**
 
 ### `?` explains and never changes a value
 
 A round `?` opens a definition. Anything that writes a field is styled as a text
 link. `openInfo()` and `openGuide()` are read-only by construction.
+
+It also does not MOVE. In a collapsible step head the caret leads the row and
+`.step-toggle` is `flex: 0 1 auto`, so the `?` stays immediately right of the
+step title whether "Show all steps" is on or off. A toggle that fills the row
+pushes it out to the far right, where it reads as belonging to the caret rather
+than to the title it explains. The `?` is a sibling of the toggle, never inside
+it: a button may not nest a button, and opening a definition must not collapse
+the step being explained.
+
+### One dialog owns a saved calculation's identity
+
+Name, pasture and colour are edited in one place, `openSaveDialog()`, reached
+three ways: Save, "Edit saved" in the sticky bar, and Edit on a card. There is no
+separate rename dialog and no separate colour dialog; there were, and there was
+then no way to change two of the three without opening two modals, and no way to
+change the pasture at all.
+
+"Edit saved" still SAVES. It writes the figures as they stand. A button that only
+renamed the record would quietly leave the numbers behind.
+
+`updateCalcMeta()` is the storage-side counterpart and moves `updatedAt` only
+when the name or the pasture changed. Colouring a card is filing, not editing,
+and a list that reorders itself because somebody pressed a swatch is surprising.
+
+Grey is not one of the eleven swatches. Grey is already what an untagged card
+looks like (`.saved-card--untagged`), and offering it gives two ways to say the
+same thing with no way to see which was meant.
 
 ### `storage.js` never throws
 
@@ -113,11 +159,25 @@ The working calculation is in its own key from the saved list. Autosave writes
 on every keystroke; the saved list is written only on Save. Sharing a key would
 let a failing autosave take the saved calculations with it.
 
+Two fields on a record are owned differently. `sortIndex` belongs to the Saved
+tab alone, so the stored value always wins over the copy in memory, which has no
+idea where a card was dragged to. `tag` has two owners, the Saved tab's Edit
+dialog and the sticky bar's, so the stored value is only a **fallback**, used
+when the incoming record's `tag` is `undefined`. `undefined` is "not mentioned"
+and `''` is "no colour, deliberately"; collapsing the two puts a removed colour
+straight back.
+
 ### The shared design system does not drift
 
 `src/styles.css` is shared with SDSHC-farm-budget and the Virtual Fence ROI
 tool. Colour values are deliberately identical. A change there belongs in every
 tool or in none of them. **App-specific rules go in `src/app.css`.**
+
+One deliberate divergence, and it lives in `app.css` rather than in the shared
+file: farm-budget lets the topbar wrap on a narrow phone, with the logo on a
+full-width row and the controls centred underneath. Here it stays on one line at
+every width, because the row below it is already the tab bar and two stacked
+full-width strips push the first question off a 320px screen.
 
 Rules that outlive any one app: `--green` means a positive number, not an
 action. `--sky` is the one loud button per screen and the KPI card edge. Colour
@@ -125,25 +185,55 @@ is never the only signal.
 
 ## Photo and media slots
 
-Every photo in `src/data/forage.js` and every media slot in
-`src/data/instructions.js` is `null` until SDSHC has photography. The UI renders
-a labelled placeholder with the same shape, the same tap target and the same
-viewer, so filling them in is a data-file edit and no code change.
-
-What is wanted, 22 images plus 3 instructional items:
-
-| Set | Count | What |
-|---|---|---|
-| A | 7 | One identification photo per forage type |
-| B | 5 | Cool-season grass through five growth stages (western wheatgrass) |
-| C | 5 | Warm-season grass through five growth stages (big bluestem) |
-| D | 5 | A forb through its five stages (purple coneflower) |
-| M | 3 | How to clip, how to dry, how to weigh |
-
-Forbs use different stage names from grasses, so set D cannot reuse B or C.
-
 A filled slot is `{ src, alt, credit }`, where `src` resolves against
-`import.meta.env.BASE_URL`. Credits render under the photo in the viewer.
+`import.meta.env.BASE_URL` and must not start with `/`. Credits render under the
+photo in the viewer, and an absent one renders as nothing. A `null` slot renders
+a labelled placeholder with the same shape, the same tap target and the same
+viewer, so filling one in is a data-file edit and no code change.
+
+### `photos` is a list, and a card's index is not its position
+
+A forage type carries `photos: []`, not one image. Several rows of Exhibit 4-2
+name four or five species, and a producer who does not recognise the one that was
+photographed is no better off than with no photo at all.
+
+`registerForageSet()` FLATTENS those lists into one viewer set and hands back
+`{ setId, indexOf }`. Card 3 is not item 3. Assuming it is opens the viewer on
+somebody else's plant, which is the one thing these photos exist to prevent.
+
+### One species stands in for four rows, and the page says so
+
+`STAGE_PHOTOS.coolSeason` and `.warmSeason` are the SAME object: five photos of
+bottlebrush squirreltail from OSU Extension EM-9276. All four grass rows use the
+same five stage definitions, so one species shows what a boot or a shattered seed
+head looks like for any of them.
+
+What it does not show is timing. A warm season grass reaches these stages weeks
+later. `STAGE_PHOTO_NOTE` renders above the grid and the species is named in
+every stage's sublabel, on every stage, because the viewer can be entered on any
+of the five. **Do not drop either.** A photo of one grass standing in for another
+without saying so invites reading the date off it and picking the wrong column.
+
+Stage photos default to HIDDEN (`showStagePhotos: false`) for the same reason.
+
+Forb stages are still `null` and must stay that way until forbs are
+photographed. Forbs have no boot stage and no seed shatter, so a grass photo
+under "Flowering to seed maturity" would not be an approximation, it would be
+wrong.
+
+### Still wanted
+
+| Set | Count | What | State |
+|---|---|---|---|
+| A | 7 | One identification photo per forage type | done, plus a second for the four grasses |
+| B/C | 5 | Grass growth stages | done, borrowed from one cool season species |
+| D | 5 | A forb through its five stages (purple coneflower) | empty |
+| M | 3 | How to clip, how to dry, how to weigh | empty |
+
+Source files live in `public/forage-images/`. They are precached by the service
+worker, so the folder is the app's offline install size: **keep every file under
+about 500 KB and the long side at 1400px**, in webp. Workbox refuses anything
+over 2 MB outright and fails the build, which fails the deploy.
 
 ## Deployment
 

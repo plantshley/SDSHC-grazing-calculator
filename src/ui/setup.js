@@ -13,13 +13,20 @@ import { photoThumb } from './photo.js'
 import { registerForageSet } from './table.js'
 import { GOALS, INPUT_LABELS, checklistForGoals } from '../calc.js'
 import { FORAGE_TYPES, MIXED, GROUP_LABELS, forageById } from '../data/forage.js'
+import { isNeedChecked } from '../prefs.js'
 
-export function renderSetup(calc) {
-  const setId = registerForageSet()
+/**
+ * @param {object} calc
+ * @param {boolean} returning  true once the steps have been opened at least
+ *   once, which turns Start into Return and leaves the current step alone.
+ */
+export function renderSetup(calc, returning = false) {
+  const { setId, indexOf } = registerForageSet(calc.forageType)
+  const ready = calc.goals.length && calc.forageType
 
   return `
     <div class="box">
-      <div class="title">Set up your calculation ${sectionInfo(
+      <div class="title setup-title">Set up your calculation ${sectionInfo(
         ['forageType'],
         'Setting up'
       )}</div>
@@ -46,63 +53,64 @@ export function renderSetup(calc) {
         <p class="setup-q">2. What forage are you evaluating?</p>
         <p class="setup-hint">Pick the type that makes up most of what you clipped.
           This chooses which row of the dry matter chart applies. Your sample already
-          holds the real mix; this only decides how it is dried down on paper.</p>
+          holds the real mix; this only decides how it is dried down on paper.
+          Tap a photo to see it large, with the species it covers.</p>
 
-        ${['grass', 'forb']
-          .map(
-            (group) => `
-          <div class="forage-group">
-            <h3>${esc(GROUP_LABELS[group])}</h3>
-            <div class="forage-grid">
-              ${FORAGE_TYPES.filter((t) => t.group === group)
-                .map((t, i) =>
-                  pickCard({
-                    class: 'forage-card',
-                    name: 'forageType',
-                    value: t.id,
-                    action: 'set-forage',
-                    checked: calc.forageType === t.id,
-                    title: t.label,
-                    sub: t.species.slice(0, 3).join(', '),
-                    media: photoThumb(t.photo, {
-                      setId,
-                      index: FORAGE_TYPES.indexOf(t),
-                      label: t.label,
-                    }),
-                  })
-                )
-                .join('')}
-            </div>
-          </div>`
-          )
-          .join('')}
+        <div class="forage-grid">
+          ${FORAGE_TYPES.map(
+            (t) => `
+            <div class="forage-cell">
+              ${pickCard({
+                class: 'forage-card',
+                noBox: true,
+                name: 'forageType',
+                value: t.id,
+                action: 'set-forage',
+                checked: calc.forageType === t.id,
+                title: t.label,
+                sub: t.species.slice(0, 3).join(', '),
+                media: photoThumb(t.photos?.[0], {
+                  setId,
+                  index: indexOf(t.id),
+                  label: t.label,
+                }),
+                extra: `<span class="forage-group-tag">${esc(GROUP_LABELS[t.group])}</span>`,
+              })}
+            </div>`
+          ).join('')}
 
-        <div class="forage-mixed">
-          ${pickCard({
-            name: 'forageType',
-            value: MIXED.id,
-            action: 'set-forage',
-            checked: calc.forageType === MIXED.id,
-            title: MIXED.label,
-            sub: MIXED.sub,
-          })}
+          <div class="forage-cell">
+            ${pickCard({
+              class: 'forage-card forage-card--mixed',
+              noBox: true,
+              name: 'forageType',
+              value: MIXED.id,
+              action: 'set-forage',
+              checked: calc.forageType === MIXED.id,
+              title: MIXED.label,
+              sub: MIXED.sub,
+              media: `<span class="photo-ph photo-ph--mixed" role="img"
+                aria-label="No single forage type">Any row of the chart</span>`,
+            })}
+          </div>
         </div>
       </div>
 
       ${renderChecklist(calc.goals)}
 
-      <div class="step-nav">
+      <div class="step-nav step-nav--start">
         <div class="spacer"></div>
-        <button type="button" class="btn-main" data-action="start"
-          ${calc.goals.length && calc.forageType ? '' : 'disabled'}>
-          Start Calculating →
+        <!-- Coming back from Change is not starting over. The button says so,
+             and main.js leaves the current step where it was. -->
+        <button type="button" class="btn-main" data-action="start" ${ready ? '' : 'disabled'}>
+          ${
+            returning
+              ? 'Return<span class="btn-word"> to calculation</span> &rarr;'
+              : 'Start<span class="btn-word"> calculating</span> &rarr;'
+          }
         </button>
       </div>
-      ${
-        calc.goals.length && calc.forageType
-          ? ''
-          : '<p class="hint">Choose at least one answer and a forage type to begin.</p>'
-      }
+      ${ready ? '' : '<p class="hint">Choose at least one answer and a forage type to begin.</p>'}
     </div>`
 }
 
@@ -112,34 +120,50 @@ export function renderSetup(calc) {
  * With one goal there is nothing to section. With several, the shared block
  * holds what every selected goal needs and each goal lists only what is left.
  * A figure can appear under two goals when both need it, which is correct.
+ *
+ * The items are real checkboxes because this list is used standing in a
+ * pasture, working down it. Their state is a device preference, not part of the
+ * calculation: ticking "gram scale" says nothing about the pasture and must not
+ * travel in an export or into a saved record.
  */
 function renderChecklist(goals) {
   const { shared, groups } = checklistForGoals(goals)
   if (!shared.length) return ''
 
-  const list = (keys) =>
-    `<ul>${keys.map((k) => `<li>${esc(INPUT_LABELS[k] ?? k)}</li>`).join('')}</ul>`
+  const list = (scope, keys) =>
+    `<ul class="needs-list">${keys
+      .map((k) => {
+        const id = `need-${scope}-${k}`
+        return `<li>
+          <input type="checkbox" id="${esc(id)}" data-need="${esc(`${scope}:${k}`)}"
+            ${isNeedChecked(`${scope}:${k}`) ? 'checked' : ''} />
+          <label for="${esc(id)}">${esc(INPUT_LABELS[k] ?? k)}</label>
+        </li>`
+      })
+      .join('')}</ul>`
 
   const goalLabel = (key) => GOALS.find((g) => g.key === key)?.short ?? key
 
   return `
     <div class="needs">
-      <h3>What you will need</h3>
+      <h3 class="setup-q">What you will need</h3>
       ${
         groups.length
-          ? `<div class="needs-group">
-               <h4>For every calculation</h4>
-               ${list(shared)}
-             </div>
-             ${groups
-               .map(
-                 (g) => `<div class="needs-group">
-                   <h4>For ${esc(goalLabel(g.goal).toLowerCase())}</h4>
-                   ${list(g.keys)}
-                 </div>`
-               )
-               .join('')}`
-          : list(shared)
+          ? `<div class="needs-cols">
+               <div class="needs-group">
+                 <h4>For every calculation</h4>
+                 ${list('all', shared)}
+               </div>
+               ${groups
+                 .map(
+                   (g) => `<div class="needs-group">
+                     <h4>For ${esc(goalLabel(g.goal).toLowerCase())}</h4>
+                     ${list(g.goal, g.keys)}
+                   </div>`
+                 )
+                 .join('')}
+             </div>`
+          : list('all', shared)
       }
     </div>`
 }
@@ -152,13 +176,27 @@ export function renderChips(calc) {
     .join(', ')
 
   const forage = calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label
+  const plural = calc.goals.length > 1 ? 'Goals' : 'Goal'
 
+  // Clear all is NOT here. It lives in the sticky bar with the other thing that
+  // acts on the whole worksheet, well away from Change, which only reopens the
+  // setup screen. Side by side they were one slip apart.
   return `
     <div class="chiprow">
-      <span class="chip">${esc(goalNames || 'No answer chosen')}</span>
-      <span class="chip chip--forage">${esc(forage || 'No forage chosen')}</span>
-      <button type="button" class="tip" data-action="edit-setup">Change</button>
-      <span class="spacer"></span>
-      <button type="button" class="tip danger" data-action="clear-all">Clear all</button>
+      ${
+        // Only a SAVED calculation has been named. An unnamed working copy shows
+        // nothing here rather than a placeholder, so the row does not imply a
+        // record exists that could be reopened.
+        calc.name ? `<span class="chip-name">${esc(calc.name)}</span>` : ''
+      }
+      <span class="chip-pair">
+        <span class="chip-key">${plural}:</span>
+        <span class="chip">${esc(goalNames || 'No answer chosen')}</span>
+      </span>
+      <span class="chip-pair">
+        <span class="chip-key">Forage type:</span>
+        <span class="chip chip--forage">${esc(forage || 'No forage chosen')}</span>
+      </span>
+      <button type="button" class="tip chip-change" data-action="edit-setup">Change</button>
     </div>`
 }

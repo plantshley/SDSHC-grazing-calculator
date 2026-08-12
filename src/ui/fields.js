@@ -211,8 +211,17 @@ export function readout(label, key, opts = {}) {
  * The control is a visually hidden input INSIDE the label rather than a
  * `<button aria-pressed>`, so keyboard focus, Space to toggle, arrow keys
  * within a radio group, and screen-reader state all come from the browser
- * instead of being rebuilt. app.css draws the card off `:has(input:checked)`
- * and adds a tick, so selection is never carried by border colour alone.
+ * instead of being rebuilt. app.css draws the card off `:has(input:checked)`.
+ *
+ * The title and its sub-line share `.pick-body`, so both start at the same left
+ * edge; `.pick-box` is a sibling of that column rather than a pseudo-element on
+ * the title, which is what lets it centre against the two lines together.
+ *
+ * `o.noBox` drops the box for cards led by a photo, where a control beside the
+ * caption competes with the image. Those get `.pick-flag` instead, a tick in
+ * the corner of the chosen card, so selection is never carried by border colour
+ * alone either way. The tick is drawn by CSS and the span is empty: a word
+ * beside it took a whole line of a card that is already mostly photograph.
  */
 export function pickCard(o) {
   return `
@@ -223,8 +232,14 @@ export function pickCard(o) {
         data-action="${esc(o.action)}"
         ${o.checked ? 'checked' : ''} />
       ${o.media || ''}
-      <span class="pick-title">${esc(o.title)}</span>
-      ${o.sub ? `<span class="pick-sub">${esc(o.sub)}</span>` : ''}
+      <span class="pick-row">
+        ${o.noBox ? '' : '<span class="pick-box" aria-hidden="true"></span>'}
+        <span class="pick-body">
+          <span class="pick-title">${esc(o.title)}</span>
+          ${o.sub ? `<span class="pick-sub">${esc(o.sub)}</span>` : ''}
+        </span>
+      </span>
+      ${o.noBox ? '<span class="pick-flag" aria-hidden="true"></span>' : ''}
       ${o.extra || ''}
     </label>`
 }

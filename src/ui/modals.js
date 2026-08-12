@@ -111,9 +111,20 @@ export function openModal(title, bodyHtml, { wide = false } = {}) {
   if (!el.classList.contains('open')) lastFocused = document.activeElement
   el.querySelector('.modal-title').textContent = title
   el.querySelector('.modal').classList.toggle('modal--wide', wide)
-  const body = el.querySelector('.modal-body')
+
+  // A FRESH body element every time, not innerHTML on the old one.
+  //
+  // Callers wire their own controls by adding a listener to the element this
+  // returns. Reusing the node keeps every one of those listeners alive for the
+  // life of the page, so the save dialog's colour swatches were also being
+  // handled by the colour dialog opened ten minutes earlier: clicking one
+  // re-tagged whichever card that dialog had been about, and closed the modal
+  // out from under the save. Replacing the node drops the listeners with it.
+  const old = el.querySelector('.modal-body')
+  const body = document.createElement('div')
+  body.className = 'modal-body'
   body.innerHTML = bodyHtml
-  body.scrollTop = 0
+  old.replaceWith(body)
   const err = el.querySelector('.modal-err')
   err.textContent = ''
   err.hidden = true

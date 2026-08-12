@@ -20,8 +20,12 @@ const DEFAULTS = {
   step: 0,
   maxStep: 0,
   showAll: false,
+  // Off. There is one photographed species and it stands in for four rows of
+  // the chart, so the photos are an aid someone asks for rather than the first
+  // thing the stage picker puts in front of them.
   showStagePhotos: false,
-  openPanels: [],
+  openSteps: [],
+  checkedNeeds: [],
 }
 
 let cache = null
@@ -59,6 +63,27 @@ export function setPref(key, value) {
 /* ─────────────────────────── theme and font ────────────────────────────── */
 
 /**
+ * The two icons, inline rather than from a sprite or a font.
+ *
+ * The icon shows what tapping will GIVE you, which is how farm-budget and the
+ * tracker both read: a sun while dark, a moon while light. Ported verbatim so
+ * the three tools' chrome stays identical.
+ */
+const SUN = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <circle cx="12" cy="12" r="5" />
+  <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+  <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+</svg>`
+
+const MOON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+  stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+</svg>`
+
+/**
  * Apply the stored theme, or the system setting when nothing is stored.
  *
  * `data-theme` is on <html> and is set in index.html to "light" so the first
@@ -74,6 +99,7 @@ export function applyTheme() {
   const toggle = document.querySelector('#themeToggle')
   if (toggle) {
     const dark = theme === 'dark'
+    toggle.innerHTML = `<span class="theme-toggle-icon">${dark ? SUN : MOON}</span>`
     toggle.setAttribute('aria-pressed', String(dark))
     toggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode')
     toggle.title = dark ? 'Light mode' : 'Dark mode'
@@ -103,13 +129,41 @@ export function setFont(choice) {
 
 /* ──────────────────────── collapsible panel state ──────────────────────── */
 
-export function isPanelOpen(id) {
-  return (getPref('openPanels') ?? []).includes(id)
+/**
+ * Which step sections are expanded under "Show all steps".
+ *
+ * Stored rather than derived so a producer who opens step 2 to check a figure
+ * still finds it open after typing into step 4, which re-renders the page.
+ */
+export function isStepOpen(index) {
+  return (getPref('openSteps') ?? []).includes(index)
 }
 
-export function setPanelOpen(id, open) {
-  const list = new Set(getPref('openPanels') ?? [])
-  if (open) list.add(id)
+export function setStepOpen(index, open) {
+  const list = new Set(getPref('openSteps') ?? [])
+  if (open) list.add(index)
+  else list.delete(index)
+  setPref('openSteps', [...list])
+}
+
+export function setOpenSteps(indexes) {
+  setPref('openSteps', [...indexes])
+}
+
+/* ───────────────────── the "what you will need" ticks ──────────────────── */
+
+/**
+ * A device fact, not a fact about the pasture. Ticking "gram scale" says
+ * nothing about the forage, so it must not enter the calculation, an export, or
+ * a saved record.
+ */
+export function isNeedChecked(id) {
+  return (getPref('checkedNeeds') ?? []).includes(id)
+}
+
+export function setNeedChecked(id, checked) {
+  const list = new Set(getPref('checkedNeeds') ?? [])
+  if (checked) list.add(id)
   else list.delete(id)
-  setPref('openPanels', [...list])
+  setPref('checkedNeeds', [...list])
 }

@@ -86,7 +86,29 @@ test('ids are unique and every type carries the fields the UI reads', () => {
     assert.ok(type.label, `${type.id} has a label`)
     assert.ok(Array.isArray(type.species) && type.species.length, `${type.id} lists species`)
     assert.ok(STAGE_PHOTOS[type.photoSet], `${type.id} names a known photo set`)
-    assert.ok('photo' in type, `${type.id} has a photo slot`)
+    assert.ok(Array.isArray(type.photos), `${type.id} has a photo list`)
+  }
+})
+
+/**
+ * A photo the app renders needs all three fields.
+ *
+ * `src` is resolved against BASE_URL, so a leading slash would send it to the
+ * domain root and 404 on GitHub Pages. `alt` is the only description a screen
+ * reader gets. A missing `credit` is allowed: SDSHC's own photography does not
+ * need one, and the viewer renders an empty credit as nothing.
+ */
+test('every filled photo slot carries a usable src and alt', () => {
+  const slots = [
+    ...FORAGE_TYPES.flatMap((t) => t.photos),
+    ...Object.values(STAGE_PHOTOS).flatMap((s) => s.photos),
+  ].filter(Boolean)
+
+  assert.ok(slots.length > 0, 'there are photos to check')
+  for (const photo of slots) {
+    assert.ok(photo.src, 'a photo names a file')
+    assert.ok(!photo.src.startsWith('/'), `${photo.src} is relative to the base path`)
+    assert.ok(photo.alt && photo.alt.length > 10, `${photo.src} describes itself`)
   }
 })
 

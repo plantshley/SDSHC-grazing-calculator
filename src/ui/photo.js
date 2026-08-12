@@ -82,6 +82,7 @@ export function openPhoto(setId, index = 0) {
            <div class="pv-sub" data-pv-sub></div>
            <div class="pv-credit" data-pv-credit></div>
          </div>
+         <div class="pv-pick" data-pv-pick hidden></div>
          <div class="pv-controls">
            <button type="button" class="pv-btn" data-pv="zoom-out" aria-label="Zoom out">&minus;</button>
            <button type="button" class="pv-btn" data-pv="zoom-in" aria-label="Zoom in">+</button>
@@ -147,6 +148,22 @@ function show(i) {
   const single = view.items.length < 2
   view.el.querySelector('[data-pv="prev"]').disabled = single
   view.el.querySelector('[data-pv="next"]').disabled = single
+
+  // A set whose items carry `pick` is a chooser as well as a gallery, so the
+  // photo the user is looking at can be the one they take. The button is built
+  // as ordinary [data-action] markup and handled by main.js's delegated click,
+  // the same as if it were on the page behind.
+  const pick = view.el.querySelector('[data-pv-pick]')
+  if (item.pick) {
+    pick.hidden = false
+    pick.innerHTML = item.pick.current
+      ? `<span class="pv-picked">&#10003; ${esc(item.pick.chosenLabel || 'Selected')}</span>`
+      : `<button type="button" class="btn-main" data-action="${esc(item.pick.action)}"
+           data-value="${esc(item.pick.value)}">${esc(item.pick.label || 'Select')}</button>`
+  } else {
+    pick.hidden = true
+    pick.innerHTML = ''
+  }
 
   // A new photo starts unzoomed. Carrying a 3x zoom and an offset across to a
   // different image lands the viewer somewhere meaningless.

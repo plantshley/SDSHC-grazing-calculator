@@ -7,6 +7,56 @@
    calculator lives here.
    ========================================================================== */
 
+/* ---- topbar, app-specific ----------------------------------------------
+   farm-budget lets the topbar wrap on a narrow phone: the logo takes a full
+   row and the controls centre themselves underneath. This tool keeps them on
+   one line at every width, because the row below it is already the tab bar and
+   two stacked full-width strips push the first question off a 320px screen.
+
+   Nothing here is a token change, so the shared file stays shared. The logo
+   gives up width first (flex: 0 1 auto and a percentage cap), then the font
+   control gives up padding. */
+
+.topbar {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 640px) {
+  .toplogo {
+    max-width: min(45%, 200px);
+  }
+
+  .topbar-controls {
+    gap: 8px;
+  }
+
+  .segmented {
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .seg {
+    font-size: 12px;
+    padding: 5px 9px;
+  }
+
+  .theme-toggle {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 420px) {
+  .toplogo {
+    max-width: 40%;
+  }
+
+  .seg {
+    font-size: 11.5px;
+    padding: 5px 8px;
+  }
+}
+
 /* ---- app header and tabs ------------------------------------------------ */
 
 /* The tabs sit ON this line, the way a folder tab sits on the top of a folder.
@@ -32,13 +82,34 @@
   gap: 8px;
 }
 
+/* The `?` rides at the end of the tab strip. It is not a tab, so it sits
+   outside the [role=tablist] rather than inside it, where a screen reader would
+   count it as one. */
+.app-nav-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
 .app-nav {
   display: flex;
   gap: 4px;
   align-items: flex-end;
   margin-bottom: -1px;
-  margin-left: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Centred against the tab strip, not hung off its baseline. The tabs are 44px
+   tall and the `?` is 26px, so anything other than align-self:center leaves it
+   floating in the top or bottom third of the row. The 1px matches the negative
+   bottom margin .app-nav uses to sit its active tab over the head's border. */
+.help-btn--head {
   flex: 0 0 auto;
+  align-self: center;
+  margin-bottom: -1px;
 }
 
 .tab {
@@ -183,6 +254,7 @@
   font-weight: bold;
   color: var(--brand-ink);
   margin: 2px 0 0;
+  margin-top: 10px;
 }
 
 /* ---- mode pill ----------------------------------------------------------
@@ -192,12 +264,12 @@
    so it can simply be big enough to hit. */
 
 .mode-pill {
-  --pill-h: 40px;
+  --pill-h: 44px;
   display: flex;
   align-items: stretch;
-  height: var(--pill-h);
+  min-height: var(--pill-h);
   border: 1px solid var(--border);
-  border-radius: calc(var(--pill-h) / 2);
+  border-radius: 20px;
   overflow: hidden;
   background: transparent;
   margin: 0 0 12px;
@@ -210,20 +282,30 @@
   border-left: 1px solid var(--border);
 }
 
+/* flex: 1 1 0, not 1 1 auto: equal shares regardless of label length, so
+   "Leave lbs/ac" and "Take a percent" are the same width and the control does
+   not shift as the wording changes.
+
+   The label WRAPS rather than being truncated. An ellipsis on a segment that
+   names the mode you are choosing hides the thing being chosen, which on a
+   phone left "Small hoop (0.96 sq ft)" reading "Small hoo…". */
 .mode-seg {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   background: transparent;
   border: none;
   color: var(--muted);
   font-family: inherit;
   font-size: 13.5px;
-  line-height: 1;
-  padding: 0 14px;
+  line-height: 1.25;
+  padding: 8px 12px;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Olive, with its own ink token. White here is unreadable, and --on-sky IS
@@ -241,8 +323,22 @@
 
 /* ---- landing ------------------------------------------------------------ */
 
+.setup-title {
+  display: block;
+  margin-bottom: 18px;
+}
+
 .setup-block {
-  margin: 0 0 18px;
+  margin: 0 0 22px;
+}
+
+/* The question and its hint are two blocks in the same column, so neither takes
+   an indent of its own: their text has to begin on the same vertical line or
+   the hint reads as belonging to something else. */
+.setup-q,
+.setup-hint {
+  padding-left: 0;
+  margin-left: 0;
 }
 
 .setup-q {
@@ -260,6 +356,7 @@
   color: var(--muted);
   margin: 0 0 10px;
   line-height: 1.45;
+  max-width: 78ch;
 }
 
 .goal-grid {
@@ -312,19 +409,26 @@
   pointer-events: none;
 }
 
-.pick-title {
-  font-size: 15px;
-  font-weight: bold;
-  color: var(--brand-ink);
+/* The box is a SIBLING of the title-and-sub column, not a marker on the title.
+   That is what centres it against both lines together, and what lets the sub
+   line start at the same left edge as the title instead of under the box. */
+.pick-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
 }
 
-/* A box that fills with a tick when chosen, so selection is never carried by
-   the border colour alone. */
-.pick-title::before {
-  content: '';
+.pick-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* Fills with a tick when chosen, so selection is never carried by the border
+   colour alone. */
+.pick-box {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
@@ -333,12 +437,11 @@
   background: var(--card);
 }
 
-.pick:has(input[type='radio']) .pick-title::before {
+.pick:has(input[type='radio']) .pick-box {
   border-radius: 50%;
 }
 
-.pick:has(input:checked) .pick-title::before {
-  content: '\2713';
+.pick:has(input:checked) .pick-box {
   background: var(--sky);
   border-color: var(--sky);
   color: var(--on-sky);
@@ -347,40 +450,126 @@
   text-align: center;
 }
 
+.pick:has(input:checked) .pick-box::before {
+  content: '\2713';
+}
+
+.pick-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brand-ink);
+}
+
 .pick-sub {
   font-size: 12.5px;
   color: var(--muted);
   line-height: 1.4;
 }
 
-.forage-group {
-  margin: 0 0 12px;
-}
-
-.forage-group h3 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--brand-ink);
-  border-bottom: 2px solid var(--olive);
-  padding-bottom: 4px;
-  margin: 0 0 8px;
-}
+/* ---- forage picker ------------------------------------------------------
+   All eight options in one row on a desktop, so the comparison the photos exist
+   for happens without scrolling. minmax(0, 1fr) rather than a minimum width:
+   eight columns each demanding 200px would overflow the card instead of
+   sharing it. */
 
 .forage-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.forage-cell {
+  display: flex;
+  min-width: 0;
+}
+
+/* Photo on top, caption centred underneath, and no control beside the caption:
+   a radio next to the label competes with the image for the same tap. The whole
+   card is the tap target, and the chosen one is marked by .pick-flag. */
+.forage-card {
+  flex: 1 1 auto;
+  align-items: stretch;
+  padding: 8px 8px 10px;
+  gap: 6px;
+}
+
+/* `.pick:has(input:checked)` carries the specificity of its argument, (0,2,1),
+   so it beats a bare `.forage-card` and would put the general padding back on a
+   chosen card. The border still grows by a pixel, so the padding still gives
+   one back. */
+.forage-card:has(input:checked) {
+  padding: 7px 7px 9px;
+}
+
+.forage-card .pick-row {
+  justify-content: center;
+}
+
+.forage-card .pick-body {
+  text-align: center;
+  align-items: center;
 }
 
 .forage-card .pick-title {
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.3;
 }
 
-/* Full width under both groups rather than an eighth card in the grid, so it
-   reads as a fallback instead of competing with the real answers. */
-.forage-mixed {
-  margin-top: 4px;
+.forage-card .pick-sub {
+  font-size: 11.5px;
+}
+
+/* margin-top:auto pins the tag to the FOOT of the card rather than to the last
+   line of the species list. Two cards side by side name types whose species
+   lists are one line and three, and a badge that floats up with the shorter one
+   reads as belonging to the text above it instead of labelling the card. */
+.forage-group-tag {
+  align-self: center;
+  margin-top: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  background: var(--olive-bg);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* The second signal on a card that has no checkbox: a tick in the corner,
+   nothing else. Hidden until chosen, and it reserves no space, so an unchosen
+   card is not left with a gap where it will appear. */
+.pick-flag {
+  display: none;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  background: var(--sky);
+  color: var(--on-sky);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 20px;
+  text-align: center;
+}
+
+.pick:has(input:checked) .pick-flag {
+  display: block;
+}
+
+.pick-flag::before {
+  content: '\2713';
+}
+
+/* No photo to show, so the slot carries the same shape and the same words the
+   card's answer means. */
+.photo-ph--mixed {
+  border-radius: 6px;
+  border: 1px dashed var(--border);
 }
 
 /* ---- what you will need ------------------------------------------------- */
@@ -394,13 +583,18 @@
 }
 
 .needs h3 {
-  font-size: 14px;
-  color: var(--brand-ink);
-  margin: 0 0 8px;
+  margin: 0 0 16px;
 }
 
-.needs-group + .needs-group {
-  margin-top: 12px;
+/* One column per group rather than one under the next. The groups are read
+   side by side ("what do I need for acres that I do not already need?"), and
+   stacked they put the last one below the fold on the screen this list exists
+   to be read from. */
+.needs-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px 20px;
+  align-items: start;
 }
 
 .needs-group h4 {
@@ -408,14 +602,48 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--brand-ink);
-  margin: 0 0 4px;
+  margin: 0 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--olive);
 }
 
-.needs ul {
+/* Real checkboxes: this list is worked down while gathering kit, so it has to
+   hold a mark. The state is a device preference, never part of the
+   calculation — see prefs.js. */
+.needs-list {
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
+}
+
+/* Centred on the label rather than aligned to its first line. Most of these run
+   to one line and a top-aligned box sits visibly high against it; the few that
+   wrap to two are still read as one item. */
+.needs-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.needs-list input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.needs-list label {
   font-size: 13.5px;
-  line-height: 1.6;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.needs-list input:checked + label {
+  color: var(--muted);
+  text-decoration: line-through;
 }
 
 /* ---- sticky bar --------------------------------------------------------- */
@@ -433,6 +661,24 @@ body:has(.sticky-bar) {
   flex: 0 0 auto;
 }
 
+/* Two links that act on the whole worksheet, stacked and right-aligned so they
+   read as a pair against the one solid button beside them. Clear all is here
+   and not in the chip row: up there it sat next to Change, which only reopens
+   the setup screen, and the two were one slip apart. */
+.sticky-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.sticky-links .tip {
+  font-size: 12.5px;
+  min-height: 0;
+  padding: 2px 0;
+}
+
 /* ---- setup chip row ----------------------------------------------------- */
 
 .chiprow {
@@ -442,6 +688,34 @@ body:has(.sticky-bar) {
   gap: 8px;
   margin: 10px 0 0;
   font-size: 13px;
+}
+
+/* A chip on its own says what was chosen but not what it answers, which is the
+   difference between "Cool season grasses" being the forage and being the goal.
+   The key is a sibling rather than text inside the chip so the chip keeps its
+   one job: carrying the value. */
+.chip-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chip-key {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Only present once the calculation has been saved under a name. */
+.chip-name {
+  font-weight: bold;
+  font-size: 14.5px;
+  color: var(--brand-ink);
+  padding-right: 10px;
+  margin-right: 2px;
+  border-right: 1px solid var(--border);
+  overflow-wrap: anywhere;
 }
 
 .chip {
@@ -477,17 +751,78 @@ body:has(.sticky-bar) {
   margin-bottom: 10px;
 }
 
+/* Sky, matching the stepper's active circle. The two name the same thing, and
+   a producer working between the strip and the card should not have to learn
+   that "Step 3" is one colour up there and another down here.
+
+   Held back from full strength so it reads as a marker on the title rather than
+   as a second button competing with Next. color-mix has a plain --sky fallback
+   for anything that does not support it: the badge is then simply solid, which
+   is what it was before. */
 .step-n {
   flex: 0 0 auto;
   font-size: 11px;
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--on-olive);
-  background: var(--olive-soft);
+  color: var(--on-sky);
+  background: var(--sky);
+  background: color-mix(in srgb, var(--sky) 78%, transparent);
   border-radius: 20px;
   padding: 3px 10px;
 }
+
+/* ---- collapsible steps, under "Show all steps" -------------------------- */
+
+.step-head--toggle {
+  margin-bottom: 0;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.step--collapsible:has(.step-body:not([hidden])) .step-head--toggle {
+  margin-bottom: 10px;
+}
+
+/* NOT flex: 1 1 auto. A toggle that fills the row pushes the `?` out to the far
+   right, so turning "Show all steps" on appeared to move it away from the title
+   it explains. Shrink-to-fit keeps it where it was in the wizard. */
+.step-toggle {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.step-toggle:hover .title {
+  color: var(--green-dark);
+}
+
+/* Leads the row rather than closing it, for the same reason: the `?` belongs
+   beside the step title at every setting of the toggle. */
+.step-chev {
+  flex: 0 0 auto;
+  border: solid var(--muted);
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.step-toggle[aria-expanded='true'] .step-chev {
+  transform: rotate(45deg);
+}
+
+/* ---- step navigation ---------------------------------------------------- */
 
 .step-nav {
   display: flex;
@@ -498,9 +833,53 @@ body:has(.sticky-bar) {
   border-top: 1px solid var(--border);
 }
 
-.step-nav .spacer,
-.chiprow .spacer {
+.step-nav .spacer {
   flex: 1;
+}
+
+/* Back and Next are one control at two ends of the same row: same height, same
+   font, same width, so the pair reads as a thing you move along. Only the fill
+   differs, because --sky is the one loud button on a screen and Next is the one
+   you are meant to press. */
+.btn-step {
+  flex: 0 0 auto;
+  min-width: 116px;
+  min-height: 44px;
+  padding: 11px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--sky);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-step--next {
+  background: var(--sky);
+  color: var(--on-sky);
+}
+
+.btn-step--next:hover {
+  filter: brightness(0.94);
+}
+
+.btn-step--back {
+  background: var(--card);
+  color: var(--sky);
+}
+
+.btn-step--back:hover {
+  background: var(--info-bg);
+}
+
+/* None of the three changes a figure, so none of them is the one thing to
+   press on this screen. Text links, like "Show all steps". */
+.export-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* A row of controls that belongs to the step rather than dividing it, so it
@@ -533,17 +912,63 @@ body:has(.sticky-bar) {
   gap: 6px;
 }
 
+/* Read while looking between a scale and a phone, so it has to be findable at
+   a glance rather than being a footnote on the box. */
 .sample-n {
   flex: 0 0 auto;
-  width: 20px;
-  font-size: 12px;
-  color: var(--muted);
+  width: auto;
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--brand-ink);
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .sample .input-wrap {
   flex: 1;
   min-width: 0;
+}
+
+/* Each sits in ITS OWN grid cell, so on a wide screen they follow the last
+   weight box at the same size rather than starting a row of their own. */
+.sample--add,
+.sample--drop {
+  gap: 8px;
+}
+
+.sample--drop {
+  justify-content: flex-start;
+}
+
+.btn-add-cell {
+  flex: 0 1 auto;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px dashed var(--green);
+  border-radius: 8px;
+  background: var(--save-bg);
+  color: var(--green);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: bold;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.btn-add-cell:hover {
+  background: var(--card);
+  border-style: solid;
+}
+
+.sample-remove {
+  flex: 0 0 auto;
+  white-space: nowrap;
+ 
 }
 
 .sample-stats {
@@ -563,52 +988,83 @@ body:has(.sticky-bar) {
   align-items: start;
 }
 
-.howto {
+/* Three cards that OPEN something, rather than three drop-downs that push the
+   weight boxes down the page. A collapsed panel above the inputs was competing
+   for the top of the step with the thing the step is for, and it could not show
+   a video at a useful size in the width it had. */
+.howto-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
   background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  min-height: 44px;
+  font-family: inherit;
 }
 
-.howto > summary {
-  cursor: pointer;
-  padding: 11px 13px;
+.howto-card:hover {
+  border-color: var(--sky);
+  background: var(--info-bg);
+}
+
+.howto-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* Scissors, sun, scales, drawn as TEXT. steps.js follows each with U+FE0E and
+   font-variant-emoji repeats the instruction for browsers that read it, so a
+   phone does not swap in a full-colour emoji beside type set in the page's own
+   face. */
+.howto-card-icon {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--save-bg);
+  color: var(--green);
+  font-size: 16px;
+  line-height: 30px;
+  text-align: center;
+  font-variant-emoji: text;
+}
+
+.howto-card-title {
   font-weight: bold;
   font-size: 13.5px;
   color: var(--green);
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
 }
 
-.howto > summary::-webkit-details-marker {
-  display: none;
+.howto-card-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
-.howto > summary::before {
-  content: '';
-  flex: 0 0 auto;
-  border: solid currentColor;
-  border-width: 0 2px 2px 0;
-  padding: 3px;
-  transform: rotate(-45deg);
-  transition: transform 0.15s ease;
+/* Media on the left, numbered steps on the right. Reading order on a phone is
+   the same, stacked, because the picture is what the words describe. */
+.howto-modal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
 }
 
-.howto[open] > summary::before {
-  transform: rotate(45deg);
+.howto-steps {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
-.howto-body {
-  padding: 0 13px 13px;
-}
-
-.howto-body p {
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 8px 0 0;
+.howto-steps li {
+  margin-bottom: 9px;
 }
 
 .howto-media {
@@ -616,12 +1072,12 @@ body:has(.sticky-bar) {
   width: 100%;
   border-radius: 6px;
   border: 1px solid var(--border);
-  margin-bottom: 4px;
 }
 
-.howto-body .photo-ph {
+.howto-modal-media .photo-ph {
   border-radius: 6px;
   border: 1px solid var(--border);
+  font-size: 13px;
 }
 
 /* ---- photos ------------------------------------------------------------- */
@@ -762,6 +1218,39 @@ body:has(.sticky-bar) {
   font-size: 11.5px;
   color: var(--muted);
   margin-top: 3px;
+}
+
+/* Turns the gallery into a picker: choose the type from the photo you are
+   actually looking at, rather than closing the viewer and hunting for the card
+   it came from. */
+.pv-pick {
+  flex: 0 0 auto;
+}
+
+/* A pill, not the page's one loud button. This sits under a photograph in a
+   modal, next to the zoom and paging controls, and at full --sky button size it
+   read as the point of the viewer rather than as one thing you can do in it. */
+.pv-pick .btn-main {
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 17px;
+  font-size: 13px;
+  background: var(--card);
+  color: var(--sky);
+  border: 1px solid var(--sky);
+}
+
+.pv-pick .btn-main:hover {
+  background: var(--info-bg);
+}
+
+.pv-picked {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--green);
+  white-space: nowrap;
 }
 
 .pv-controls {
@@ -911,6 +1400,220 @@ body:has(.sticky-bar) {
   background: var(--olive-bg);
 }
 
+/* ---- layout primitives for the steps ------------------------------------
+   Two shapes, both collapsing to one item per row on a phone.
+
+   .inline-row is a control and the box it reveals: the mode pill and the frame
+   area, the residual mode and its figure. They are one question, so on a wide
+   screen they share a row instead of the answer dropping below the fold.
+
+   .field-row is a set of peer inputs: equal columns, so adding or dropping one
+   does not resize the others. */
+
+/* Centre, not stretch. The pill and the box next to it are different heights
+   because one has a caption above it, and align-items:stretch grew the pill to
+   match, leaving a segmented control twice as tall as the segments in it. */
+.inline-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.inline-row > .mode-pill {
+  flex: 1 1 260px;
+  min-width: 0;
+  align-self: center;
+  margin-bottom: 0;
+}
+
+.inline-row > .field {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin: 0;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.field-row > .field {
+  margin: 0;
+  min-width: 0;
+}
+
+/* ---- dry matter: the choice on the left, its answer on the right ---------
+   Three ways to answer one question. A pill across the full width pushed the
+   chart and the mix builder below the fold and made them read as separate
+   steps. One third for the choice, two thirds for what it opens. */
+
+.dm-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.dm-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dm-mode {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 11px 30px 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  min-height: 44px;
+}
+
+.dm-mode:hover {
+  border-color: var(--sky);
+  background: var(--info-bg);
+}
+
+/* Border WIDTH changes, so the padding drops by the same pixel to stop the
+   card resizing as it is picked. */
+.dm-mode[aria-pressed='true'] {
+  border-color: var(--sky);
+  border-width: 2px;
+  padding: 10px 29px 10px 12px;
+  background: var(--info-bg);
+}
+
+.dm-mode-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--brand-ink);
+}
+
+.dm-mode-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+/* Points AT the panel it fills, so the pair reads as one control rather than
+   as a list beside an unrelated box. */
+.dm-mode-chev {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  margin-top: -4px;
+  border: solid var(--border);
+  border-width: 0 2px 2px 0;
+  padding: 3px;
+  transform: rotate(-45deg);
+}
+
+.dm-mode[aria-pressed='true'] .dm-mode-chev {
+  border-color: var(--sky);
+}
+
+.dm-panel {
+  min-width: 0;
+}
+
+.dm-panel > .field {
+  margin-top: 0;
+}
+
+/* ---- growth stage picker ------------------------------------------------ */
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.stage-card .pick-title {
+  font-size: 13.5px;
+}
+
+.stage-card .pick-sub {
+  font-size: 11.5px;
+}
+
+/* With a photo the caption sits under it, centred, like the forage cards. */
+.stage-card:has(.photo-btn) .pick-row {
+  justify-content: center;
+}
+
+.stage-card:has(.photo-btn) .pick-body {
+  text-align: center;
+  align-items: center;
+}
+
+/* ---- paddock shape ------------------------------------------------------
+   The readout is built to the same shape as the field beside it, a caption line
+   over a box of the same height, so the two line up on both edges without any
+   nudging. Centring a bare figure against a labelled input is a fight that
+   breaks the moment the label wraps. */
+
+.paddock-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.paddock-row > .field {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin: 0;
+}
+
+.paddock-x {
+  flex: 0 0 auto;
+  padding-bottom: 13px;
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.paddock-out {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.paddock-out-label {
+  font-size: 13px;
+  color: var(--muted);
+  padding-bottom: 5px;
+  min-height: 22px;
+}
+
+.paddock-out-value {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--brand-ink);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- mix builder -------------------------------------------------------- */
 
 .mix-row {
@@ -937,8 +1640,51 @@ body:has(.sticky-bar) {
 
 /* ---- results ------------------------------------------------------------ */
 
-.result-card + .result-card {
-  margin-top: 12px;
+/* Several goals: equal columns, so the answers are compared side by side rather
+   than scrolled through. One goal: nothing to compare, so the card splits
+   instead and the figure gets the left half at full size. */
+.result-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  /* stretch, not start: three answers with two, three and one supporting
+     figures under them would otherwise be three cards of three heights, and the
+     one with least to say would read as the one that had failed. */
+  align-items: stretch;
+}
+
+.result-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Takes the slack, so the cards end level however much sits inside them. */
+.result-card .result-split {
+  flex: 1 1 auto;
+}
+
+.result-split {
+  display: block;
+}
+
+.result-row--solo .result-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.result-row--solo .kpi-value {
+  font-size: 42px;
+}
+
+.result-row--solo .result-aside .results {
+  margin-bottom: 0;
+}
+
+.result-row--solo .result-formula {
+  margin-top: 10px;
 }
 
 /* Shown in place of an answer that is still waiting on an input. */
@@ -998,7 +1744,86 @@ body:has(.sticky-bar) {
   line-height: 1.5;
 }
 
+/* ---- color swatches -----------------------------------------------------
+   One class per key in TAGS, resolving the ink and wash pair once so the card's
+   edge and the picker's dot always read the same. A key with no class here
+   renders with no colour at all, which is the one failure in this feature that
+   nothing warns you about. */
+
+.fld-c-pink { --fld-ink: var(--fld-pink); --fld-wash: var(--fld-pink-bg); }
+.fld-c-magenta { --fld-ink: var(--fld-magenta); --fld-wash: var(--fld-magenta-bg); }
+.fld-c-violet { --fld-ink: var(--fld-violet); --fld-wash: var(--fld-violet-bg); }
+.fld-c-indigo { --fld-ink: var(--fld-indigo); --fld-wash: var(--fld-indigo-bg); }
+.fld-c-blue { --fld-ink: var(--fld-blue); --fld-wash: var(--fld-blue-bg); }
+.fld-c-teal { --fld-ink: var(--fld-teal); --fld-wash: var(--fld-teal-bg); }
+.fld-c-green { --fld-ink: var(--fld-green); --fld-wash: var(--fld-green-bg); }
+.fld-c-lime { --fld-ink: var(--fld-lime); --fld-wash: var(--fld-lime-bg); }
+.fld-c-yellow { --fld-ink: var(--fld-yellow); --fld-wash: var(--fld-yellow-bg); }
+.fld-c-orange { --fld-ink: var(--fld-orange); --fld-wash: var(--fld-orange-bg); }
+.fld-c-slate { --fld-ink: var(--fld-slate); --fld-wash: var(--fld-slate-bg); }
+/* No .fld-c-grey. Grey is not offered as a tag: an untagged card already looks
+   like that, and two ways to say the same thing leave no way to see which was
+   meant. .saved-card--untagged carries the neutral edge instead. */
+
+.fld-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(43px, 1fr));
+  justify-items: center;
+  gap: 6px;
+}
+
+.fld-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 43px;
+  height: 43px;
+  min-height: 43px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+}
+
+.fld-pick:hover {
+  border-color: var(--sky);
+}
+
+/* Pressed is a ring, not a fill: a filled state on a swatch button would fight
+   the swatch's own colour for the same square. */
+.fld-pick[aria-pressed='true'] {
+  border-color: var(--sky);
+  box-shadow: 0 0 0 2px var(--info-bg), 0 0 0 3px var(--sky);
+}
+
+.fld-dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--fld-ink);
+}
+
+/* "No colour" is a hole, not a thirteenth colour. */
+.fld-none .fld-dot {
+  background: transparent;
+  border: 2px dashed var(--border);
+}
+
 /* ---- saved calculations ------------------------------------------------- */
+
+.saved-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.saved-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 .saved-list {
   display: grid;
@@ -1007,11 +1832,65 @@ body:has(.sticky-bar) {
 }
 
 .saved-card {
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
-  border-left: 4px solid var(--fld-grey);
+  border-left: 4px solid var(--fld-ink, var(--border));
   border-radius: 8px;
   background: var(--card);
   padding: 12px 13px;
+}
+
+/* No colour chosen. Grey is not offered as a tag for exactly this reason: it is
+   already what "untagged" looks like. */
+.saved-card--untagged {
+  --fld-ink: var(--border);
+}
+
+.saved-card.dragging {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.saved-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.saved-headings {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* touch-action:none is half of the touch reorder: it says "a gesture starting
+   here is never a scroll", so the pointer handler in main.js can own it. The
+   filtered list sets draggable=false, which is the other half. */
+.saved-grip {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 26px;
+  margin: -2px 0 0 -4px;
+  cursor: grab;
+  touch-action: none;
+  background-image: radial-gradient(currentColor 1.4px, transparent 1.5px);
+  background-size: 7px 7px;
+  background-position: 3px 4px;
+  background-repeat: repeat;
+  color: var(--border);
+}
+
+.saved-grip:active {
+  cursor: grabbing;
+}
+
+.saved-card:hover .saved-grip {
+  color: var(--muted);
+}
+
+.saved-grip[draggable='false'] {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .saved-name {
@@ -1033,10 +1912,14 @@ body:has(.sticky-bar) {
   font-variant-numeric: tabular-nums;
 }
 
+/* margin-top:auto pins the buttons to the FOOT of the card. A calculation with
+   one goal has one figure above them and one with three has three, so without
+   this the four buttons sit at a different height on every card in the row. */
 .saved-actions {
   display: flex;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: auto;
+  padding-top: 10px;
   flex-wrap: wrap;
 }
 
@@ -1050,10 +1933,14 @@ body:has(.sticky-bar) {
 /* ---- responsive --------------------------------------------------------- */
 
 @media (max-width: 899px) {
-  .app-nav {
+  .app-nav-wrap {
     width: 100%;
-    justify-content: flex-start;
     margin-left: 0;
+  }
+
+  .app-nav {
+    flex: 1 1 auto;
+    justify-content: flex-start;
   }
 
   .tab {
@@ -1062,25 +1949,173 @@ body:has(.sticky-bar) {
   }
 }
 
+/* Eight across needs about 1100px of card to stay legible. Below that the row
+   breaks rather than the labels shrinking to nothing: four, then two. */
+@media (max-width: 1100px) {
+  .forage-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 640px) {
-  /* Two up rather than one, so all seven forage options stay in four rows and
+  /* Two up rather than one, so all eight forage options stay in four rows and
      the list is still comparable at a glance. */
   .forage-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
-  .forage-card {
-    padding: 10px;
+  .forage-card,
+  .forage-card:has(input:checked) {
+    padding: 8px;
+  }
+
+  .forage-card:has(input:checked) {
+    padding: 7px;
   }
 
   .forage-card .pick-title {
-    font-size: 13px;
-    gap: 6px;
+    font-size: 12.5px;
   }
 
   .forage-card .pick-sub {
-    font-size: 11.5px;
+    font-size: 11px;
+  }
+
+  /* Nothing to push against on a phone, so the spacer above it would strand the
+     button on the right-hand edge. */
+  .step-nav--start {
+    justify-content: center;
+  }
+
+  .step-nav--start .spacer {
+    display: none;
+  }
+
+  .step-nav--start .btn-main {
+    flex: 0 1 auto;
+  }
+}
+
+/* The three side-by-side layouts collapse together, at the width where the
+   narrower of their two columns stops being usable. */
+@media (max-width: 760px) {
+  .dm-split,
+  .result-row--solo .result-split,
+  .howto-modal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One full-width row each, still stacked. Three of them side by side left
+     each option about a hundred pixels wide, which is not enough for its label
+     and its one line of explanation. */
+  .dm-mode {
+    width: 100%;
+  }
+
+  /* The caret points DOWN once the panel it opens is below it rather than
+     beside it. A chevron aimed at the right edge of the screen is aimed at
+     nothing. */
+  .dm-mode-chev {
+    transform: rotate(45deg);
+    margin-top: -6px;
+  }
+
+  .result-row--solo .kpi-value {
+    font-size: 34px;
+  }
+
+  /* Equal shares, so the percent box lines up with the two selects above it
+     instead of sitting at a fixed 96px beside them. */
+  .mix-row .field,
+  .mix-row .field.pct {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Two columns for the stage cards, matching the forage picker on the setup
+     screen: the same kind of choice should not be laid out two different ways
+     two screens apart. */
+  .stage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .stage-card {
+    padding: 8px;
+  }
+
+  .stage-card:has(input:checked) {
+    padding: 7px;
+  }
+
+  .stage-card .pick-title {
+    font-size: 12.5px;
+  }
+
+  .stage-card .pick-sub {
+    font-size: 11px;
+  }
+
+  /* The running bar carries up to five figures on the narrowest screen there
+     is, so it gives up type size before it gives up a figure. */
+  .sticky-figs {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .sticky-figs small {
+    font-size: 10px;
+  }
+
+  .sticky-figs b {
+    font-size: 14px;
+  }
+
+  .sticky-bar {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+
+  .sticky-links .tip {
+    font-size: 12px;
+  }
+
+  /* One item per line. Four things wrapping across a phone made the name, the
+     goals and the forage type run together into a paragraph; a row each keeps
+     each key with the value it labels. */
+  .chiprow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .chip-name {
+    padding-right: 0;
+    margin-right: 0;
+    border-right: none;
+  }
+
+  .chip-pair,
+  .chip-change {
+    width: 100%;
+  }
+
+  .chip-change {
+    text-align: left;
+  }
+
+  /* Full width beneath the weights, which is what it was before it moved into
+     the grid. Two columns of boxes leave it nothing useful to sit beside. */
+  .sample--add,
+  .sample--drop {
+    grid-column: 1 / -1;
+  }
+
+  .btn-add-cell {
+    flex: 1 1 auto;
+    margin: 0px !important;
   }
 }
 
@@ -1104,8 +2139,30 @@ body:has(.sticky-bar) {
     flex-wrap: wrap;
   }
 
-  .step-nav .btn-main {
-    flex: 1 1 auto;
+  /* NOT flex: 1 1 auto on the buttons. Stretching Next to the full width of a
+     phone made the same button a different size on the two devices, and made
+     Back look like a lesser control next to it. Both keep their desktop width,
+     and the three export links centre on the row below them. */
+  .export-links {
+    justify-content: center;
+    width: 100%;
+    gap: 14px;
+  }
+
+  .field-row,
+  .paddock-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .paddock-row > .field,
+  .paddock-out {
+    flex-basis: 100%;
+  }
+
+  /* The multiplication sign belongs between two boxes, and once they are
+     stacked there is nothing for it to sit between. */
+  .paddock-x {
+    display: none;
   }
 }
 
@@ -1117,22 +2174,25 @@ body:has(.sticky-bar) {
 
 @media print {
   .step[hidden],
-  .steps[hidden] {
+  .steps[hidden],
+  .step-body[hidden] {
     display: block !important;
   }
 
-  .howto[hidden],
-  .howto-row[hidden] {
-    display: none !important;
-  }
-
+  /* A shut section prints open, so its chevron would be pointing the wrong way
+     at a control that is not there on paper. */
+  .step-chev,
   .app-nav,
+  .app-nav-wrap,
   .stepper,
   .step-caption,
   .step-nav,
+  .export-links,
   .howto-row,
   .pv-controls,
+  .pv-pick,
   .saved-actions,
+  .saved-tools,
   .photo-btn {
     display: none !important;
   }
@@ -1146,6 +2206,21 @@ body:has(.sticky-bar) {
   .result-card {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* Every answer in ONE row on paper, equal width and equal height, matching
+     the share image. The screen grid is auto-fit off a 260px minimum, which on
+     a portrait page is only wide enough for two, so three answers would break
+     across a line and the odd one out would read as an afterthought. */
+  .result-row {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .result-card {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .tbl-scroll {

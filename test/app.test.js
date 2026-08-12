@@ -24,6 +24,8 @@ const SHELL = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 let dom
 let boot
+/** The same module instance main.js holds, so this reads the live record. */
+let state
 
 before(async () => {
   dom = new JSDOM(SHELL, { url: 'https://example.test/', pretendToBeVisual: true })
@@ -53,6 +55,7 @@ before(async () => {
   global.alert = dom.window.alert
 
   boot = await import('../src/main.js')
+  state = await import('../src/state.js')
 })
 
 // The tests below run in order and build on each other, the way a session
@@ -92,8 +95,15 @@ const out = (key) => $(`[data-out="${key}"]`)?.textContent ?? null
 test('the app boots to the landing screen', () => {
   assert.ok($('.app-head'), 'header renders')
   assert.ok($('.goal-grid'), 'goals render')
-  assert.equal($$('.forage-card').length, 7, 'all seven forage types are shown at once')
-  assert.ok($('.forage-mixed'), 'the mixed fallback is offered')
+  // Seven chart rows plus the mixed fallback, all in one grid so the row reads
+  // as one set of eight choices rather than two lists with a footnote.
+  assert.equal($$('.forage-card').length, 8, 'all eight forage options are shown at once')
+  assert.ok($('.forage-card--mixed'), 'the mixed fallback is offered')
+  assert.equal(
+    $$('.forage-card .pick-box').length,
+    0,
+    'no control competes with the photo for the same tap'
+  )
 })
 
 test('the start button is disabled until both questions are answered', () => {
@@ -117,6 +127,50 @@ test('the checklist is flat for one goal and sectioned for several', () => {
   assert.ok(groups.length >= 3, 'a shared block plus one section per goal')
   assert.ok($('.needs').textContent.includes('For every calculation'))
   assert.ok($('.needs').textContent.includes('How many days you plan to graze'))
+})
+
+test('a forage type can be chosen from the expanded photo', () => {
+  choose('input[data-action="set-forage"][value="coolSeasonGrass"]')
+
+  // The SECOND card, so the viewer opens on a type that is not already the
+  // chosen one. On the chosen one it says so instead of offering the button,
+  // which is the branch the next assertion would otherwise be testing.
+  $$('.forage-card [data-action="open-photo"]')[1].click()
+
+  const pick = $('[data-pv-pick] [data-action="pick-forage"]')
+  assert.ok(pick, 'the viewer offers the photo it is showing')
+  const wanted = pick.dataset.value
+  assert.notEqual(wanted, 'coolSeasonGrass')
+  pick.click()
+
+  assert.equal(
+    $('input[data-action="set-forage"]:checked').value,
+    wanted,
+    'the type from the photo is the one now selected'
+  )
+})
+
+/**
+ * Types carry a LIST of photos, so a card's index into the flattened viewer set
+ * is not its position in the grid. Getting that wrong opens the viewer on
+ * somebody else's plant, which the photos exist to prevent.
+ */
+test('each card opens the viewer on its own first photo', () => {
+  let checked = 0
+
+  for (const card of $$('.forage-card')) {
+    const button = card.querySelector('[data-action="open-photo"]')
+    if (!button) continue
+
+    const title = card.querySelector('.pick-title').textContent.trim()
+    button.click()
+    assert.equal($('.pv-label').textContent, title, `${title} opened on its own photo`)
+    assert.equal($('.pv-count').textContent, `${Number(button.dataset.photoIndex) + 1} of 11`)
+    click('.modal-close')
+    checked += 1
+  }
+
+  assert.equal(checked, 7, 'every chart row was checked')
 })
 
 test('the whole worksheet runs and reproduces the golden fixture', () => {
@@ -209,17 +263,42 @@ test('hidden steps stay in the DOM and stay correct', () => {
   )
 })
 
-test('show all reveals every step at once', () => {
+test('show all puts every step on the page, collapsed except the current one', () => {
+  const wasOn = Number($('.step-item--active .step-num').textContent) - 1
   click('[data-action="toggle-show-all"]')
+
   const steps = $$('.step')
   assert.equal(steps.length, 5)
   assert.ok(
     steps.every((s) => !s.hidden),
-    'nothing is hidden'
+    'every section is on the page'
   )
   assert.equal($$('.stepper').length, 0, 'the stepper stands down')
+
+  // Five expanded sections is a very long page, and the reason to turn this on
+  // is usually to reach ONE earlier figure.
+  const open = $$('.step-body').filter((b) => !b.hidden)
+  assert.equal(open.length, 1, 'only one body starts open')
+  assert.equal(
+    open[0].closest('.step').dataset.step,
+    String(wasOn),
+    'and it is the step that was being worked on'
+  )
+
+  // A shut body is still in the DOM, so its figures are still refreshed.
+  const shut = $('.step[data-step="1"] .step-body')
+  assert.ok(shut.hidden, 'step 2 is collapsed')
+  assert.equal(
+    shut.querySelector('[data-out="availableForage"]').textContent,
+    '1,125 lbs/ac',
+    'and still up to date'
+  )
+
+  click('.step[data-step="1"] [data-action="toggle-step"]')
+  assert.ok(!$('.step[data-step="1"] .step-body').hidden, 'and opens when asked')
+
   click('[data-action="toggle-show-all"]')
-  assert.ok($('.stepper'), 'and comes back')
+  assert.ok($('.stepper'), 'the stepper comes back')
 })
 
 test('work survives a reload', async () => {
@@ -249,6 +328,19 @@ test('the stepper only unlocks steps already reached', () => {
   assert.ok(buttons[0].disabled, 'the step you are on is not a link to itself')
 })
 
+test('Change and back again returns to the step being worked on', () => {
+  click('[data-action="go-step"][data-step="3"]')
+  click('[data-action="edit-setup"]')
+
+  const start = $('[data-action="start"]')
+  assert.ok(start.textContent.includes('Return'), 'the button says it is a return, not a start')
+
+  click(start)
+  const open = $$('.step').filter((s) => !s.hidden)
+  assert.equal(open.length, 1)
+  assert.equal(open[0].dataset.step, '3', 'the step survived the detour')
+})
+
 test('changing the forage type clears a stage that no longer applies', () => {
   click('[data-action="edit-setup"]')
   choose('input[data-action="set-forage"][value="succulentForb"]')
@@ -275,9 +367,23 @@ test('the mixed fallback offers the whole chart instead of one row', () => {
   assert.ok($('[data-action="open-chart-picker"]'), 'the chart picker is offered')
 })
 
-test('clear all resets the form and returns to setup', () => {
+test('clear all empties the steps and keeps the setup answers', () => {
+  const goals = [...state.getCalculation().goals]
+  const forage = state.getCalculation().forageType
+  assert.ok(goals.length && forage, 'there is something to keep')
+
   click('[data-action="clear-all"]')
-  assert.ok($('.goal-grid'), 'back on the landing screen')
+
+  // Not back on the landing screen. What was wanted is an empty worksheet for
+  // the next pasture, not two questions to answer again that were not asked
+  // about.
+  assert.ok(!$('.goal-grid'), 'still on the steps')
+  assert.deepEqual(state.getCalculation().goals, goals, 'the goals are kept')
+  assert.equal(state.getCalculation().forageType, forage, 'and so is the forage type')
+
+  assert.equal(state.getCalculation().demand.animalWeight, '', 'the figures are gone')
+  assert.equal(state.getCalculation().pasture.totalAcres, '')
+  assert.deepEqual(state.getCalculation().samples, ['', '', '', '', ''])
   assert.equal(localStorage.getItem('sdshc-gc-working'), null, 'and the autosave is gone')
 })
 
@@ -360,11 +466,17 @@ test('the saved list shows the headline figures', () => {
   assert.ok(card.textContent.includes('84 head'), 'animals allowed')
 })
 
-test('a saved calculation can be renamed', () => {
-  click('[data-action="rename-calc"]')
-  $('#rename-name').value = 'North pasture, July'
-  click('[data-rename-confirm]')
-  assert.ok($('.saved-card').textContent.includes('North pasture, July'))
+test('one Edit dialog changes the name, the pasture and the color together', () => {
+  click('[data-action="edit-calc"]')
+  $('#save-name').value = 'North pasture, July'
+  $('#save-pasture').value = 'North half'
+  click('[data-tag="violet"]')
+  click('[data-save-confirm]')
+
+  const card = $('.saved-card')
+  assert.ok(card.textContent.includes('North pasture, July'), 'the name changed')
+  assert.ok(card.textContent.includes('North half'), 'and so did the pasture')
+  assert.ok(card.classList.contains('fld-c-violet'), 'and the color, in one go')
 })
 
 test('a saved calculation can be duplicated and deleted', () => {
@@ -380,14 +492,19 @@ test('a saved calculation can be duplicated and deleted', () => {
   assert.equal($$('.saved-card').length, 1)
 })
 
-test('a colour label can be set and removed', () => {
-  click('[data-action="tag-calc"]')
+test('a color label can be set and removed', () => {
+  click('[data-action="edit-calc"]')
   click('[data-tag="teal"]')
-  assert.ok($('.saved-card').getAttribute('style').includes('--fld-teal'))
+  click('[data-save-confirm]')
+  assert.ok($('.saved-card').classList.contains('fld-c-teal'))
 
-  click('[data-action="tag-calc"]')
+  // '' is "no color, deliberately", which has to survive the write. Grey is
+  // not offered as a swatch because grey is already what untagged looks like.
+  click('[data-action="edit-calc"]')
   click('[data-tag=""]')
-  assert.ok($('.saved-card').getAttribute('style').includes('--fld-grey'), 'falls back to grey')
+  click('[data-save-confirm]')
+  assert.ok($('.saved-card').classList.contains('saved-card--untagged'), 'the color came off')
+  assert.equal($('.fld-c-grey'), null, 'and grey is not on offer as a color')
 })
 
 test('reopening a saved calculation restores every entry', () => {
@@ -398,13 +515,14 @@ test('reopening a saved calculation restores every entry', () => {
   assert.equal(out('grazingDays'), '50.5 days', 'and recomputes to the same answer')
 })
 
-test('a colour survives editing and saving again', () => {
+test('a color survives editing and saving again', () => {
   // Colour the open calculation from the Saved tab, then edit and re-save.
   // The working copy in memory carries no tag, so without the stored value
   // winning, saving strips the colour with nothing on screen to say so.
   click('[data-action="set-tab"][data-tab="saved"]')
-  click('[data-action="tag-calc"]')
+  click('[data-action="edit-calc"]')
   click('[data-tag="orange"]')
+  click('[data-save-confirm]')
 
   click('[data-action="open-calc"]')
   type('[data-path="demand.animalWeight"]', 1250)
@@ -412,10 +530,7 @@ test('a colour survives editing and saving again', () => {
   click('[data-save-confirm]')
 
   click('[data-action="set-tab"][data-tab="saved"]')
-  assert.ok(
-    $('.saved-card').getAttribute('style').includes('--fld-orange'),
-    'the colour is still there'
-  )
+  assert.ok($('.saved-card').classList.contains('fld-c-orange'), 'the color is still there')
   assert.equal($$('.saved-card').length, 1, 'and it updated rather than adding a second card')
 })
 
@@ -433,6 +548,22 @@ test('renaming through the save dialog updates the editor too', async () => {
 
   click('[data-action="set-tab"][data-tab="saved"]')
   assert.ok($('.saved-card').textContent.includes('South pasture, August'))
+})
+
+test('the sticky button edits the record once there is one to edit', () => {
+  click('[data-action="open-calc"]')
+
+  // Already in the list, so the button is not offering to create a second
+  // record and the dialog it opens says Save changes rather than Save.
+  const button = $('.sticky-bar [data-action="save-calc"]')
+  assert.ok(button.textContent.includes('Edit'), 'the button changed with the state')
+
+  click(button)
+  assert.equal($('[data-save-confirm]').textContent.trim(), 'Save changes')
+  assert.ok($('#save-pasture'), 'and the pasture is editable from here too')
+  click('.modal-close')
+
+  click('[data-action="set-tab"][data-tab="saved"]')
 })
 
 test('editing a reopened calculation does not rewrite the saved record', () => {
@@ -467,4 +598,89 @@ test('a blank input shows a dash and names what is still needed', () => {
   type('[data-path="pasture.desiredDays"]', 30)
   assert.equal(out('animalsAllowed'), animalsBefore, 'and it comes back')
   assert.ok($('[data-missing="animals"]').hidden)
+})
+
+/* ─────────────────── the saved list: colour, search, order ─────────────── */
+
+test('a colour can be chosen at the same time as the name', () => {
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  click('.sticky-bar [data-action="save-calc"]')
+
+  $('#save-name').value = 'East draw, July'
+  click('[data-tag="violet"]')
+  assert.equal(
+    $('[data-tag="violet"]').getAttribute('aria-pressed'),
+    'true',
+    'the picker shows what was chosen'
+  )
+  click('[data-save-confirm]')
+
+  click('[data-action="set-tab"][data-tab="saved"]')
+  const card = $$('.saved-card').find((c) => c.textContent.includes('East draw, July'))
+  assert.ok(card, 'the new calculation is listed')
+  assert.ok(card.classList.contains('fld-c-violet'), 'with the colour it was saved under')
+})
+
+test('the search box filters the list and turns reordering off', () => {
+  // Saving an open calculation UPDATES its record, so a second one has to be
+  // made deliberately rather than by saving twice.
+  click('[data-action="duplicate-calc"]')
+  click('[data-action="edit-calc"]')
+  $('#save-name').value = 'West flat, May'
+  click('[data-save-confirm]')
+  assert.equal($$('.saved-card').length, 2, 'two to choose between')
+
+  type('[data-saved-filter]', 'east draw')
+  assert.equal($$('.saved-card').length, 1, 'only the match is listed')
+  assert.ok($('.saved-card').textContent.includes('East draw'))
+
+  // Reordering a list that is hiding half its rows writes an order the user
+  // cannot see and did not mean, so the handle is switched off while filtering.
+  assert.equal($('.saved-grip').getAttribute('draggable'), 'false')
+
+  type('[data-saved-filter]', 'no such pasture')
+  assert.equal($$('.saved-card').length, 0)
+  assert.ok($('.empty-note').textContent.includes('no such pasture'))
+
+  click('[data-action="clear-saved-filter"]')
+  assert.equal($$('.saved-card').length, 2, 'and clearing brings them back')
+  assert.equal($('.saved-grip').getAttribute('draggable'), 'true')
+})
+
+test('a saved calculation can be searched by pasture and by forage', () => {
+  type('[data-saved-filter]', 'cool season')
+  assert.ok($$('.saved-card').length >= 1, 'the forage type is searchable too')
+  click('[data-action="clear-saved-filter"]')
+})
+
+test('the saved list can be dragged into an order that sticks', () => {
+  const before = $$('.saved-card').map((c) => c.querySelector('.saved-name').textContent)
+  assert.equal(before.length, 2, 'two cards to swap')
+
+  // jsdom lays nothing out, so every getBoundingClientRect is zeroes and the
+  // drop target cannot be worked out from coordinates. The drag is exercised
+  // through its two ends instead: the DOM order at drop time is what gets
+  // written, which is the contract commitOrder() actually has.
+  const list = $('[data-saved-list]')
+  const [first, second] = $$('.saved-card')
+  first.dispatchEvent(new dom.window.MouseEvent('dragstart', { bubbles: true }))
+  list.insertBefore(first, second.nextElementSibling)
+  first.dispatchEvent(new dom.window.MouseEvent('dragend', { bubbles: true }))
+
+  const after = $$('.saved-card').map((c) => c.querySelector('.saved-name').textContent)
+  assert.deepEqual(after, [before[1], before[0]], 'the order swapped on screen')
+
+  const stored = JSON.parse(localStorage.getItem('sdshc-gc-calcs'))
+  assert.ok(
+    stored.every((c) => Number.isFinite(Number(c.sortIndex))),
+    'and every record carries its position'
+  )
+
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  click('[data-action="set-tab"][data-tab="saved"]')
+  assert.deepEqual(
+    $$('.saved-card').map((c) => c.querySelector('.saved-name').textContent),
+    after,
+    'the order survives leaving the tab and coming back'
+  )
 })

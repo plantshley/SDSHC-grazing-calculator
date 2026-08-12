@@ -35,9 +35,9 @@ import {
   listCalcs,
   getCalcById,
   saveCalc,
-  renameCalc,
-  tagCalc,
+  updateCalcMeta,
   deleteCalc,
+  reorderCalcs,
   storageAvailable,
 } from './storage.js'
 import {
@@ -47,19 +47,21 @@ import {
   setFont,
   getPref,
   setPref,
-  setPanelOpen,
+  setNeedChecked,
+  setOpenSteps,
+  setStepOpen,
 } from './prefs.js'
 import { downloadCSV, downloadPNG, printResults } from './export.js'
 
 import { esc } from './ui/format.js'
-import { openInfo, openGuide, closeModal } from './ui/modals.js'
+import { openInfo, openGuide, openModal, closeModal } from './ui/modals.js'
 import { openPhoto, releasePhotoViewer } from './ui/photo.js'
 import { openDryMatterTable } from './ui/table.js'
 import { renderSetup, renderChips } from './ui/setup.js'
 import { renderStepper } from './ui/stepper.js'
-import { renderSteps, STEP_LABELS } from './ui/steps.js'
+import { renderSteps, howToPanel, STEP_LABELS } from './ui/steps.js'
 import { renderResults, renderStickyBar, updateOutputs } from './ui/results.js'
-import { renderSaved, openSaveDialog, openTagDialog, openRenameDialog } from './ui/saved.js'
+import { renderSaved, openSaveDialog, openEditDialog } from './ui/saved.js'
 import { renderCoverCrop, wireCoverCrop } from './ui/covercrop.js'
 import { HOW_TO_SECTIONS } from './data/howto.js'
 import { MIXED } from './data/forage.js'
@@ -68,6 +70,15 @@ const app = document.querySelector('#app')
 
 /** True while the landing screen is showing rather than the steps. */
 let setupOpen = true
+
+/**
+ * True once the steps have been opened at least once this session.
+ *
+ * Pressing Change to check which forage type was picked is not starting over,
+ * so coming back lands on the step that was being worked on. Only a genuine
+ * first start resets to step 1.
+ */
+let startedOnce = false
 
 /* ──────────────────────────────── render ───────────────────────────────── */
 
@@ -79,10 +90,32 @@ function render() {
     ${header(tab)}
     ${tab === 'perennial' ? perennial(calc) : ''}
     ${tab === 'covercrop' ? renderCoverCrop() : ''}
-    ${tab === 'saved' ? renderSaved(listCalcs()) : ''}`
+    ${tab === 'saved' ? renderSaved(listCalcs(), savedFilter) : ''}`
 
   if (tab === 'covercrop') wireCoverCrop(app)
+  if (tab === 'saved') restoreFilterFocus()
   refresh()
+}
+
+/**
+ * The Saved tab's search box, held outside the record so typing in it neither
+ * marks a calculation as changed nor survives a reload as if it were data.
+ */
+let savedFilter = ''
+
+/**
+ * Typing re-renders the list, which replaces the box being typed into.
+ *
+ * Rebuilding the input is what keeps its `value` attribute honest for the next
+ * render; putting the caret back is what stops the second character of a search
+ * landing at the start of the string.
+ */
+function restoreFilterFocus() {
+  if (!savedFilter) return
+  const box = app.querySelector('[data-saved-filter]')
+  if (!box) return
+  box.focus()
+  box.setSelectionRange(box.value.length, box.value.length)
 }
 
 function header(tab) {
@@ -91,38 +124,44 @@ function header(tab) {
     ['covercrop', 'Cover crops'],
     ['saved', 'Saved'],
   ]
+  // The `?` sits at the end of the tab strip rather than beside the title. It
+  // is the one control on this row that opens something, and next to the h1 it
+  // read as punctuation on the heading.
   return `
     <div class="app-head">
-      <h1 class="app-title">
-        Grazing Calculator
-        <button type="button" class="help-btn" data-action="how-to"
+      <h1 class="app-title">Grazing Calculator</h1>
+      <div class="app-nav-wrap">
+        <nav class="app-nav" role="tablist" aria-label="Calculators">
+          ${tabs
+            .map(
+              ([key, label]) =>
+                `<button type="button" class="tab${tab === key ? ' active' : ''}" role="tab"
+                  aria-selected="${tab === key}" data-action="set-tab" data-tab="${key}">${esc(
+                  label
+                )}</button>`
+            )
+            .join('')}
+        </nav>
+        <button type="button" class="help-btn help-btn--head" data-action="how-to"
           aria-label="How to use this calculator" title="How to use this calculator">?</button>
-      </h1>
-      <nav class="app-nav" role="tablist" aria-label="Calculators">
-        ${tabs
-          .map(
-            ([key, label]) =>
-              `<button type="button" class="tab${tab === key ? ' active' : ''}" role="tab"
-                aria-selected="${tab === key}" data-action="set-tab" data-tab="${key}">${esc(
-                label
-              )}</button>`
-          )
-          .join('')}
-      </nav>
+      </div>
     </div>`
 }
 
 function perennial(calc) {
-  if (setupOpen) return renderSetup(calc)
+  if (setupOpen) return renderSetup(calc, startedOnce)
 
   const showAll = getPref('showAll')
   const step = clampStep(getPref('step'))
+  // Whether this calculation is already IN the saved list, not whether it has a
+  // name. A duplicate opened and then cleared still carries a name.
+  const saved = listCalcs().some((c) => c.id === calc.id)
 
   return `
     ${renderChips(calc)}
     ${showAll ? '' : renderStepper(STEP_LABELS, step, getPref('maxStep'))}
     ${renderSteps(calc, step, showAll)}
-    ${renderStickyBar(showAll)}`
+    ${renderStickyBar(showAll, calc, saved)}`
 }
 
 function clampStep(n) {
@@ -163,6 +202,12 @@ subscribe(() => {
 /* ─────────────────────── writing by path, one listener ─────────────────── */
 
 app.addEventListener('input', (e) => {
+  if (e.target.hasAttribute?.('data-saved-filter')) {
+    savedFilter = e.target.value
+    render()
+    return
+  }
+
   const path = e.target.dataset?.path
   if (!path) return
   setPath(getCalculation(), path, e.target.value)
@@ -185,6 +230,13 @@ app.addEventListener('change', (e) => {
     return
   }
 
+  // The "what you will need" ticks. A device preference, deliberately not part
+  // of the calculation, so this writes to prefs and does not notify().
+  if (el.dataset?.need !== undefined) {
+    setNeedChecked(el.dataset.need, el.checked)
+    return
+  }
+
   const action = el.dataset?.action
   if (action === 'toggle-goal') {
     const calc = getCalculation()
@@ -197,15 +249,7 @@ app.addEventListener('change', (e) => {
     notify()
     render()
   } else if (action === 'set-forage') {
-    const calc = getCalculation()
-    calc.forageType = el.value
-    // A stage belongs to a row of the chart. Keeping it across a change of row
-    // would leave a forb stage selected on a grass and silently resolve to
-    // nothing, which reads as a dry matter of zero.
-    calc.dm.stageKey = ''
-    calc.dm.stageTypeId = ''
-    notify()
-    render()
+    chooseForage(el.value)
   } else if (action === 'set-stage') {
     const calc = getCalculation()
     calc.dm.stageKey = el.value
@@ -214,11 +258,141 @@ app.addEventListener('change', (e) => {
   }
 })
 
-/** Remember which instructional panels were left open. */
-app.addEventListener('toggle', (e) => {
-  const id = e.target.dataset?.panel
-  if (id) setPanelOpen(id, e.target.open)
-}, true)
+/**
+ * Choose a forage type, from the card or from the photo viewer.
+ *
+ * A stage belongs to a ROW of the chart. Keeping it across a change of row
+ * would leave a forb stage selected on a grass, where it resolves to nothing
+ * and reads on screen as a dry matter of zero.
+ */
+function chooseForage(id) {
+  const calc = getCalculation()
+  calc.forageType = id
+  calc.dm.stageKey = ''
+  calc.dm.stageTypeId = ''
+  notify()
+  render()
+}
+
+/* ─────────────────── reordering the saved list, by drag ────────────────── */
+
+/**
+ * A simplified port of farm-budget's reorder.
+ *
+ * That one has to deal with folders, spring-open sections and FLIP animation.
+ * This list is a flat grid of a handful of cards, so it only needs the two
+ * halves that matter: the native drag for a mouse, and a pointer-driven
+ * equivalent for touch, where HTML5 drag and drop does not exist at all.
+ *
+ * Reordering is refused while the list is filtered. Dropping a card between two
+ * others in a list that is hiding half its rows writes an order the user cannot
+ * see and did not mean.
+ */
+let draggingId = null
+
+/** The card the pointer is over, or the gap at the end of the row. */
+function dropTarget(list, clientX, clientY, dragged) {
+  const cards = [...list.querySelectorAll('.saved-card')].filter((c) => c !== dragged)
+  for (const card of cards) {
+    const box = card.getBoundingClientRect()
+    if (clientY < box.bottom && clientX < box.left + box.width / 2) return card
+    if (clientY < box.bottom && clientX < box.right) return card.nextElementSibling
+  }
+  return null
+}
+
+function moveDragged(list, clientX, clientY) {
+  const dragged = list.querySelector('.saved-card.dragging')
+  if (!dragged) return
+  const target = dropTarget(list, clientX, clientY, dragged)
+  if (target === dragged || dragged.nextElementSibling === target) return
+  list.insertBefore(dragged, target)
+}
+
+function commitOrder(list) {
+  const ids = [...list.querySelectorAll('.saved-card')].map((c) => c.dataset.calcId)
+  reorderCalcs(ids)
+  render()
+}
+
+app.addEventListener('dragstart', (e) => {
+  const card = e.target.closest?.('.saved-card')
+  if (!card || savedFilter.trim()) return
+  draggingId = card.dataset.calcId
+  card.classList.add('dragging')
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    // Firefox refuses to start a drag unless some data is set.
+    e.dataTransfer.setData('text/plain', draggingId)
+  }
+})
+
+app.addEventListener('dragover', (e) => {
+  const list = draggingId && e.target.closest?.('[data-saved-list]')
+  if (!list) return
+  e.preventDefault()
+  moveDragged(list, e.clientX, e.clientY)
+})
+
+app.addEventListener('drop', (e) => {
+  if (draggingId) e.preventDefault()
+})
+
+app.addEventListener('dragend', () => {
+  const card = app.querySelector('.saved-card.dragging')
+  const list = card?.closest('[data-saved-list]')
+  card?.classList.remove('dragging')
+  draggingId = null
+  if (list) commitOrder(list)
+})
+
+/**
+ * The same reorder by finger.
+ *
+ * HTML5 drag and drop does not fire on touch at all, so without this the handle
+ * would be decoration on the device most of these get sorted on. The gesture is
+ * claimed on pointerdown: a touch the browser is allowed to turn into a scroll
+ * is gone for good, which is what `touch-action: none` on .saved-grip prevents.
+ */
+let touchDrag = null
+
+app.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' || e.isPrimary === false || touchDrag) return
+  const grip = e.target.closest?.('.saved-grip')
+  const card = grip?.closest('.saved-card')
+  const list = card?.closest('[data-saved-list]')
+  if (!list || savedFilter.trim()) return
+
+  e.preventDefault()
+  touchDrag = { card, list }
+  card.classList.add('dragging')
+  try {
+    grip.setPointerCapture(e.pointerId)
+  } catch {
+    /* the gesture still works, it just ends early if the finger leaves */
+  }
+})
+
+app.addEventListener('pointermove', (e) => {
+  if (!touchDrag) return
+  // A re-render in another tab can take the card out from under the finger.
+  if (!touchDrag.card.isConnected) {
+    touchDrag = null
+    return
+  }
+  e.preventDefault()
+  moveDragged(touchDrag.list, e.clientX, e.clientY)
+})
+
+const endTouchDrag = () => {
+  if (!touchDrag) return
+  const { card, list } = touchDrag
+  touchDrag = null
+  card.classList.remove('dragging')
+  if (list.isConnected) commitOrder(list)
+}
+app.addEventListener('pointerup', endTouchDrag)
+app.addEventListener('pointercancel', endTouchDrag)
 
 /* ───────────────────────────── click actions ───────────────────────────── */
 
@@ -254,8 +428,13 @@ function handleAction(action, btn) {
     /* setup */
     case 'start':
       setupOpen = false
-      setPref('step', 0)
-      setPref('maxStep', 0)
+      // Only a first start goes to step 1. Coming back from Change picks up
+      // where the user left off, which is what the button now says it does.
+      if (!startedOnce) {
+        setPref('step', 0)
+        setPref('maxStep', 0)
+        startedOnce = true
+      }
       render()
       break
     case 'edit-setup':
@@ -285,10 +464,27 @@ function handleAction(action, btn) {
     case 'toggle-show-all': {
       const now = !getPref('showAll')
       setPref('showAll', now)
-      // Everything reached, so returning to the wizard cannot lock a step the
-      // user has already been reading.
-      if (now) setPref('maxStep', STEP_LABELS.length - 1)
+      if (now) {
+        // Everything reached, so returning to the wizard cannot lock a step the
+        // user has already been reading.
+        setPref('maxStep', STEP_LABELS.length - 1)
+        // Five sections expanded is a very long page. The reason to turn this
+        // on is usually to reach ONE earlier figure, so only the step being
+        // left starts open.
+        setOpenSteps([clampStep(getPref('step'))])
+      }
       render()
+      break
+    }
+    case 'toggle-step': {
+      const i = clampStep(btn.dataset.step)
+      setStepOpen(i, btn.getAttribute('aria-expanded') !== 'true')
+      render()
+      break
+    }
+    case 'open-howto': {
+      const panel = howToPanel(btn.dataset.howto)
+      if (panel) openModal(panel.title, panel.html, { wide: true })
       break
     }
 
@@ -364,6 +560,10 @@ function handleAction(action, btn) {
     case 'open-photo':
       openPhoto(btn.dataset.photoSet, Number(btn.dataset.photoIndex))
       break
+    case 'pick-forage':
+      closeModal()
+      chooseForage(btn.dataset.value)
+      break
 
     /* exports */
     case 'print':
@@ -377,10 +577,17 @@ function handleAction(action, btn) {
       break
 
     /* saving */
-    case 'save-calc':
-      openSaveDialog(calc, (name, pastureName) => {
+    case 'save-calc': {
+      // Already in the list, so this is an edit of that record and the dialog
+      // says so. It still WRITES the figures as they now stand: a button that
+      // only renamed things would silently leave the numbers behind.
+      const existing = listCalcs().some((c) => c.id === calc.id)
+      const apply = (name, pastureName, tag) => {
         calc.name = name
         calc.pastureName = pastureName
+        // Kept on the working copy so re-saving does not drop the colour, the
+        // same reason saveCalc() falls back to the stored record's tag.
+        calc.tag = tag
         persist(calc)
         closeModal()
         // The autosave to the working key only runs off notify(). Without it a
@@ -388,8 +595,11 @@ function handleAction(action, btn) {
         // though the saved record has the new one.
         notify()
         render()
-      })
+      }
+      if (existing) openEditDialog(calc, apply)
+      else openSaveDialog(calc, apply)
       break
+    }
     case 'open-calc': {
       const found = getCalcById(btn.dataset.id)
       if (!found) return
@@ -401,30 +611,35 @@ function handleAction(action, btn) {
       // to whatever was in the working slot before.
       setCalculation(structuredClone(found))
       setupOpen = false
+      startedOnce = true
       setPref('tab', 'perennial')
       setPref('maxStep', STEP_LABELS.length - 1)
       render()
       break
     }
-    case 'rename-calc': {
+    case 'edit-calc': {
       const found = getCalcById(btn.dataset.id)
       if (!found) return
-      openRenameDialog(found, (name) => {
-        renameCalc(found.id, name)
+      openEditDialog(found, (name, pastureName, tag) => {
+        updateCalcMeta(found.id, { name, pastureName, tag })
+        // The open working copy may BE this calculation, so the three fields
+        // follow it. Without that, editing here and then saving from the
+        // sticky bar would put the old name and colour straight back.
+        if (calc.id === found.id) {
+          calc.name = name
+          calc.pastureName = pastureName
+          calc.tag = tag
+          notify()
+        }
         closeModal()
         render()
       })
       break
     }
-    case 'tag-calc': {
-      const found = getCalcById(btn.dataset.id)
-      if (!found) return
-      openTagDialog(found.tag, (tag) => {
-        tagCalc(found.id, tag)
-        render()
-      })
+    case 'clear-saved-filter':
+      savedFilter = ''
+      render()
       break
-    }
     case 'duplicate-calc': {
       const found = getCalcById(btn.dataset.id)
       if (!found) return
@@ -444,17 +659,30 @@ function handleAction(action, btn) {
       render()
       break
     }
-    case 'clear-all':
-      if (!confirm('Clear everything you have entered? Saved calculations are not affected.')) {
+    case 'clear-all': {
+      if (
+        !confirm(
+          'Clear the figures you have entered in the steps? Your goals and forage type are kept, and saved calculations are not affected.'
+        )
+      ) {
         return
       }
+      // The setup answers survive. Clearing them too would drop the user back
+      // on the landing screen to re-answer two questions they did not ask to
+      // change, when what they wanted was an empty worksheet for the next
+      // pasture. The name goes: this is no longer the saved calculation it was
+      // opened from.
+      const fresh = newCalculation()
+      fresh.goals = [...calc.goals]
+      fresh.forageType = calc.forageType
       clearWorking()
-      setCalculation(newCalculation())
-      setupOpen = true
+      setCalculation(fresh)
       setPref('step', 0)
       setPref('maxStep', 0)
       render()
+      scrollToTop()
       break
+    }
 
     default:
       break
@@ -528,6 +756,9 @@ if (restored) {
   // Someone with work in progress goes back to it rather than to the landing
   // screen they already answered.
   setupOpen = !(restored.goals?.length && restored.forageType)
+  // Work in progress means the steps have been seen before, so pressing Change
+  // and coming back must not throw away the step they were on.
+  startedOnce = !setupOpen
 }
 
 overlayWatcher.observe(document.body, {

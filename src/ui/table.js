@@ -125,7 +125,13 @@ export function registerStageSet(typeId) {
       photo: s.photo,
       title: 'Growth stages',
       label: s.label,
-      sublabel: `${s.desc}. ${s.pct}% dry matter.`,
+      // The species is named on every stage, not once at the top, because the
+      // viewer can be entered on any of the five and left again from any of
+      // them. A photo of one grass standing in for another has to say so
+      // wherever it is looked at.
+      sublabel: `${s.desc}. ${s.pct}% dry matter.${
+        s.photo && species ? ` Pictured: ${species.toLowerCase()}.` : ''
+      }`,
       placeholder: `Photo coming soon: ${species || type.label} at ${s.label.toLowerCase()}`,
     }))
   )
@@ -145,21 +151,48 @@ export function stageThumb(typeId, stage) {
 }
 
 /**
- * Register the seven forage identification photos as one set, so the viewer can
- * be walked left and right through the whole chart rather than opening one
- * photo at a time.
+ * Register the forage identification photos as one set, so the viewer can be
+ * walked left and right through the whole chart rather than opening one photo
+ * at a time.
+ *
+ * A type may carry more than one photo, so the set is FLATTENED and the caller
+ * is handed back an `indexOf` rather than being left to assume that card 3 is
+ * item 3. Getting that wrong opens the viewer on somebody else's plant.
+ *
+ * `current` is the type already chosen. It is passed in rather than read from
+ * state here because this module has no business knowing about the working
+ * calculation; it turns the gallery into a picker, which is the whole point of
+ * looking at these photos side by side.
  */
-export function registerForageSet() {
+export function registerForageSet(current = '') {
   const setId = 'forage-types'
-  registerPhotoSet(
-    setId,
-    FORAGE_TYPES.map((t) => ({
-      photo: t.photo,
-      title: 'Forage types',
-      label: t.label,
-      sublabel: t.species.join(', '),
-      placeholder: `Photo coming soon: ${t.label}`,
-    }))
-  )
-  return setId
+  const first = new Map()
+  const items = []
+
+  for (const t of FORAGE_TYPES) {
+    const photos = t.photos?.length ? t.photos : [null]
+    first.set(t.id, items.length)
+    photos.forEach((photo, i) => {
+      items.push({
+        photo,
+        title: 'Forage types',
+        label: t.label,
+        sublabel:
+          photos.length > 1
+            ? `${t.species.join(', ')} (${i + 1} of ${photos.length})`
+            : t.species.join(', '),
+        placeholder: `Photo coming soon: ${t.label}`,
+        pick: {
+          action: 'pick-forage',
+          value: t.id,
+          label: 'Use this type',
+          chosenLabel: 'Your forage type',
+          current: t.id === current,
+        },
+      })
+    })
+  }
+
+  registerPhotoSet(setId, items)
+  return { setId, indexOf: (typeId) => first.get(typeId) ?? 0 }
 }

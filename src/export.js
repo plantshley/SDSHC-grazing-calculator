@@ -156,9 +156,13 @@ const PAD = 56
  * headline answers, the figures they were built from, and enough provenance
  * that the image still means something a season later.
  */
+/** The KPI band: every answer in ONE row, equal width, equal height. */
+const CARD_H = 132
+const CARD_GAP = 20
+
 export function downloadPNG(calc, res) {
   const lines = imageLines(calc, res)
-  const height = PAD * 2 + 150 + lines.headlines.length * 132 + lines.rows.length * 42 + 70
+  const height = PAD * 2 + 150 + (lines.headlines.length ? CARD_H + 26 : 0) + lines.rows.length * 42 + 70
 
   const canvas = document.createElement('canvas')
   const dpr = 2
@@ -204,24 +208,40 @@ export function downloadPNG(calc, res) {
   ctx.stroke()
   y += 42
 
-  for (const h of lines.headlines) {
-    ctx.fillStyle = '#e6f7fd'
-    roundRect(ctx, PAD, y, W - PAD * 2, 106, 10)
-    ctx.fill()
-    ctx.fillStyle = sky
-    ctx.fillRect(PAD, y, W - PAD * 2, 4)
+  // Side by side, equal shares of the same row, whichever answers were asked
+  // for. Stacked full width, two answers read as a list of steps rather than as
+  // two answers to compare, which is the whole reason both were selected.
+  const n = lines.headlines.length
+  if (n) {
+    const cardW = (W - PAD * 2 - CARD_GAP * (n - 1)) / n
+    // Three cards is a third of the width each, so the figure has to come down
+    // with them or fitText spends its budget on an ellipsis.
+    const valueSize = n === 1 ? 46 : n === 2 ? 38 : 32
 
-    ctx.fillStyle = muted
-    ctx.font = '19px system-ui, sans-serif'
-    ctx.fillText(h.label, PAD + 22, y + 38)
+    lines.headlines.forEach((h, i) => {
+      const x = PAD + i * (cardW + CARD_GAP)
+      ctx.fillStyle = '#e6f7fd'
+      roundRect(ctx, x, y, cardW, CARD_H, 10)
+      ctx.fill()
+      ctx.fillStyle = sky
+      ctx.fillRect(x, y, cardW, 4)
 
-    ctx.fillStyle = green
-    ctx.font = 'bold 46px system-ui, sans-serif'
-    fitText(ctx, h.value, PAD + 22, y + 86, W - PAD * 2 - 44)
-    y += 132
+      ctx.fillStyle = muted
+      ctx.font = '19px system-ui, sans-serif'
+      fitText(ctx, h.label, x + 22, y + 40, cardW - 44)
+
+      ctx.fillStyle = green
+      ctx.font = `bold ${valueSize}px system-ui, sans-serif`
+      fitText(ctx, h.value, x + 22, y + 92, cardW - 44)
+
+      if (h.note) {
+        ctx.fillStyle = muted
+        ctx.font = '16px system-ui, sans-serif'
+        fitText(ctx, h.note, x + 22, y + 116, cardW - 44)
+      }
+    })
+    y += CARD_H + 26
   }
-
-  y += 8
   ctx.font = '20px system-ui, sans-serif'
   for (const [label, value] of lines.rows) {
     // The value is drawn first and its width reserved, so a long label is the
@@ -272,11 +292,13 @@ function imageLines(calc, res) {
     headlines.push({ label: 'Grazing days', value: FORMATTERS.days(res.grazingDays) })
   }
   if (calc.goals.includes('acres')) {
+    // The paddock is a NOTE under the figure rather than part of it. Inside the
+    // value it doubled the string's length, and a card sharing a row with two
+    // others has no width to spend on that.
     headlines.push({
       label: 'Acres needed per day',
-      value: `${FORMATTERS.acres(res.acresPerDay)}  (${FORMATTERS.number(
-        res.paddockWidth
-      )} x ${FORMATTERS.number(res.paddockLength)} ft)`,
+      value: FORMATTERS.acres(res.acresPerDay),
+      note: `${FORMATTERS.number(res.paddockWidth)} x ${FORMATTERS.number(res.paddockLength)} ft`,
     })
   }
   if (calc.goals.includes('animals')) {
