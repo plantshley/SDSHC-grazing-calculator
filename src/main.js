@@ -160,7 +160,7 @@ function perennial(calc) {
   return `
     ${renderChips(calc)}
     ${showAll ? '' : renderStepper(STEP_LABELS, step, getPref('maxStep'))}
-    ${renderSteps(calc, step, showAll)}
+    ${renderSteps(calc, step, showAll, warnedSteps)}
     ${renderStickyBar(showAll, calc, saved)}`
 }
 
@@ -179,6 +179,37 @@ function clampStep(n) {
  * which inputs a step COLLECTS, for saying what is still outstanding.
  */
 const STEP_FIELDS = [['samples'], ['frame', 'dm'], ['usable'], ['demand'], ['pasture']]
+
+/**
+ * Steps the user has tried to leave with a required input still blank.
+ *
+ * Only these render a shortfall note. A step is blank when you arrive on it, so
+ * a note on arrival is telling you what you can already see, every time, on
+ * every step: the kind of warning people learn to read past, which is worse
+ * than none at all.
+ *
+ * Session state, not a preference. It is about this run through the worksheet
+ * and has no business surviving a reload or travelling in a saved record.
+ */
+const warnedSteps = new Set()
+
+/**
+ * One speed bump on the way out of an unfinished step.
+ *
+ * The first press stays put and shows what is outstanding. A second press goes
+ * through: a partly filled worksheet still shows every sub-result it can, and
+ * refusing to move would stop someone reading ahead to see what a later step is
+ * going to ask them for.
+ *
+ * @returns {boolean} true to go ahead.
+ */
+function mayLeaveStep(from) {
+  if (!(compute(resolved()).missingByStep?.[from] ?? []).length) return true
+  if (warnedSteps.has(from)) return true
+  warnedSteps.add(from)
+  render()
+  return false
+}
 
 /**
  * Repaint the results block, then every computed figure on the page.
@@ -544,6 +575,8 @@ function handleAction(action, btn) {
       // separates this from a step's Clear. Saved records are untouched.
       if (!confirmLeavingUnsaved('Starting a new calculation')) return
       clearWorking()
+      // A different worksheet has not been warned about anything yet.
+      warnedSteps.clear()
       setCalculation(newCalculation())
       setupOpen = true
       startedOnce = false
@@ -557,6 +590,7 @@ function handleAction(action, btn) {
 
     /* stepping */
     case 'next-step': {
+      if (!mayLeaveStep(clampStep(getPref('step')))) break
       const next = clampStep(getPref('step') + 1)
       setPref('step', next)
       setPref('maxStep', Math.max(getPref('maxStep'), next))
@@ -574,6 +608,10 @@ function handleAction(action, btn) {
       // arriving by circle has to raise the high-water mark the same way Next
       // does. Without it the strip would offer step 3, then refuse step 4.
       const to = clampStep(btn.dataset.step)
+      // Forward only. Going BACK to check a figure is not leaving a step
+      // unfinished, it is the thing the stepper is for.
+      const from = clampStep(getPref('step'))
+      if (to > from && !mayLeaveStep(from)) break
       setPref('step', to)
       setPref('maxStep', Math.max(getPref('maxStep'), to))
       render()
@@ -746,6 +784,7 @@ function handleAction(action, btn) {
       // that, reloading straight after opening a saved calculation would revert
       // to whatever was in the working slot before.
       setCalculation(structuredClone(found))
+      warnedSteps.clear()
       setupOpen = false
       startedOnce = true
       setPref('tab', 'perennial')

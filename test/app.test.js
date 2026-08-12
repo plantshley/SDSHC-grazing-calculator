@@ -822,22 +822,38 @@ test('the stepper offers the next circle, and a step says what it still needs', 
   assert.ok(!nums[1].disabled, 'the next circle is live, so it is another way to press Next')
   assert.ok(nums[2].disabled, 'the one after it is not: the strip still says where the work got to')
 
-  // Nothing clipped yet, so step 1 says so where it is asked rather than
-  // leaving the user to find out from a dash three steps later.
+  // A step is blank when you arrive on it, so saying it is unfinished on arrival
+  // is telling the user what they can already see.
+  assert.equal($('[data-step-missing="0"]'), null, 'nothing is said just for turning up')
+
+  // Trying to leave it is the moment that changes. The first press stays put.
+  click('[data-action="next-step"]')
+  assert.equal($('.step-item--active .step-num').textContent, '1', 'still on step 1')
   const note = $('[data-step-missing="0"]')
-  assert.ok(!note.hidden, 'the step names what it is still waiting for')
+  assert.ok(note && !note.hidden, 'and now it names what it is still waiting for')
   assert.ok(note.textContent.toLowerCase().includes('clipped forage samples'))
 
-  click(nums[1])
-  assert.ok(!$$('.step-num')[2].disabled, 'arriving by circle unlocks the next one in turn')
+  // Once said, it is not said again: a partly filled worksheet still shows every
+  // sub-result it can, and refusing to move would stop someone reading ahead.
+  click('[data-action="next-step"]')
+  assert.equal($('.step-item--active .step-num').textContent, '2', 'a second press goes through')
 
+  click('[data-action="prev-step"]')
   const boxes = $$('[data-path^="samples."]')
   for (const [i, g] of [20, 25, 30, 25, 25].entries()) type(boxes[i], g)
-  assert.ok($('[data-step-missing="0"]').hidden, 'and the note goes as soon as the box is filled')
+  assert.ok($('[data-step-missing="0"]').hidden, 'the note goes as soon as the box is filled')
+
+  click($$('.step-num')[1])
+  assert.ok(!$$('.step-num')[2].disabled, 'arriving by circle unlocks the next one in turn')
 })
 
 test('To Saved writes a calculation that is not in the list yet', () => {
-  for (let i = 0; i < 3; i += 1) click('[data-action="next-step"]')
+  // Steps 2 to 4 are still blank, so each costs one press to be told and one to
+  // go on anyway. Counting presses would make this test pass on a hidden step 5
+  // that was never reached, so it walks until it is actually there.
+  const at = () => $('.step-item--active .step-num').textContent
+  for (let i = 0; i < 12 && at() !== '5'; i += 1) click('[data-action="next-step"]')
+  assert.equal(at(), '5', 'the last step is the one on screen')
 
   const before = JSON.parse(localStorage.getItem('sdshc-gc-calcs')).length
   click('[data-action="go-saved"]')

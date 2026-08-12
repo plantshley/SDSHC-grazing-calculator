@@ -53,7 +53,11 @@ const STEP_HEADS = [
   ['Your results', null],
 ]
 
-export function renderSteps(calc, step, showAll) {
+/**
+ * @param {Set<number>} warned  steps the user has already tried to leave with
+ *   something outstanding. Only those render a shortfall note.
+ */
+export function renderSteps(calc, step, showAll, warned = new Set()) {
   return `
     <div class="steps">
       ${[step1, step2, step3, step4, step5]
@@ -65,7 +69,7 @@ export function renderSteps(calc, step, showAll) {
             ${head(i + 1, title, infoKeys, showAll, open)}
             <div class="step-body"${showAll && !open ? ' hidden' : ''}>
               ${fn(calc, showAll)}
-              ${stepMissing(i)}
+              ${stepMissing(i, warned)}
               ${showAll ? '' : nav(i)}
             </div>
           </section>`
@@ -118,15 +122,21 @@ function head(n, title, infoKeys, collapsible, open) {
 /**
  * What this step still owes, named on the step that asks for it.
  *
- * A [data-out]-style placeholder rather than markup built at render time, so it
- * follows every keystroke like the figures do. updateOutputs() fills it from
- * `missingByStep`, which counts only the goals actually selected.
+ * Rendered only for a step the user has already tried to LEAVE with something
+ * outstanding. A step is blank when you arrive on it, so a note saying it is
+ * unfinished is telling you what you can already see; said on arrival every
+ * time, it is noise, and noise is what people learn to read past.
  *
- * Step 5 has none: the result cards name their own outstanding inputs, and a
- * second note above them saying the same thing reads as two problems.
+ * Once rendered it behaves like a figure: a [data-out]-style placeholder that
+ * updateOutputs() fills from `missingByStep`, so it clears itself on the
+ * keystroke that fills the box rather than waiting for the next render.
+ *
+ * Step 5 never has one. The result cards name their own outstanding inputs, and
+ * a second note above them saying the same thing reads as two problems.
  */
-function stepMissing(i) {
-  return i === 4 ? '' : `<p class="step-missing" data-step-missing="${i}" hidden></p>`
+function stepMissing(i, warned) {
+  if (i === 4 || !warned.has(i)) return ''
+  return `<p class="step-missing" data-step-missing="${i}" hidden></p>`
 }
 
 /* Back and Next are the same control at the same size: same height, same font,

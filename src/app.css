@@ -158,22 +158,32 @@
 }
 
 /* Beside a field label or a readout caption the `?` is an aside on a 13.5px
-   line, not a control in its own right, so it comes down from the shared 22px
-   and centres on the text rather than sitting on its cap height. The 22px
-   version stays where it heads a whole section: a step title, a sub-title, or
-   the tab strip. */
+   line, not a control in its own right, so it comes down from the shared 22px.
+   The 22px version stays where it heads a whole section: a step title, a
+   sub-title, or the tab strip. */
 .field-label > .help-btn,
 .readout-label > .help-btn,
 .hint > .help-btn {
   width: 17px;
   height: 17px;
   font-size: 11px;
-  /* Centred on the LINE, which is what .field-label's align-items already does.
-     Not align-self: center against the container, which is a different box once
-     the label row reserves height for a second line. */
-  align-self: center;
-  vertical-align: middle;
-  
+}
+
+/* The `?` takes the LABEL'S OWN MARGINS, and that is what centres it.
+
+   `align-items: center` centres each flex item's MARGIN box, and styles.css
+   gives `.field-label > label` a 9px top margin and a 1px bottom one. So the
+   label's text sat 4px below the row's centre line while the `?`, which had no
+   margins, sat on it: a `?` floating above the label it explains. Matching the
+   margins makes the two boxes the same shape, so centring them centres the
+   TEXT and the button against each other.
+
+   Neither align-self nor vertical-align can fix this. align-self picks a
+   different edge of the same offset box, and vertical-align does nothing at all
+   to a flex item. If the shared label margins change, change these to match. */
+.field-label > .help-btn {
+  margin-top: 9px;
+  margin-bottom: 1px;
 }
 
 .tab {
@@ -686,21 +696,28 @@
 
 /* Centred on the label rather than aligned to its first line. Most of these run
    to one line and a top-aligned box sits visibly high against it; the few that
-   wrap to two are still read as one item. */
-/* No padding at all. This is a tick list read straight down while gathering
-   kit, so the items want to read as one list rather than as seven separate
-   statements; the 17px box already sets the line's height. */
+   wrap to two are still read as one item.
+
+   The row is as tall as the checkbox in it, so all the height in this list came
+   from the checkbox and none of it from here. */
 .needs-list li {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0;
+  padding: 1px 0;
 }
 
+/* min-height: 0 is the whole rule. styles.css gives every `input` a 44px
+   min-height so a thumb can find a text box, and `min-height` beats `height`:
+   setting 17px here made a 17px WIDE checkbox that was still 44px tall, which
+   is where the gaps down this list were coming from.
+   The 44px target is not lost. The label is `for` this box and is part of the
+   same target, and the row it sits on is the full width of the column. */
 .needs-list input {
   flex: 0 0 auto;
   width: 17px;
-  height: 17px;
+  height: 25px;
+  min-height: 0px;
   margin: 0;
   accent-color: var(--green);
   cursor: pointer;

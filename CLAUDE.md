@@ -68,9 +68,22 @@ in different words reads as two separate problems. `STEP_INPUTS` (which step
 COLLECTS an input) and `STEP_FIELDS` in `main.js` (which branches a step's Clear
 empties) are different questions and are deliberately not merged.
 
-The note is a `[data-step-missing]` placeholder refreshed by `updateOutputs()`,
-not markup built at render time, for the usual reason: it has to clear itself on
-the keystroke that fills the box, not the next time the page is rebuilt.
+The step note is rendered **only for a step the user has already tried to
+leave** with something outstanding — `warnedSteps` in `main.js`, session state,
+not a preference. A step is blank when you arrive on it, so a note on arrival
+tells you what you can already see, on every step, every time. That is the kind
+of warning people learn to read past, which is worse than none.
+
+`mayLeaveStep()` is one speed bump, not a wall: the first press stays put and
+shows the note, a second press goes through. A partly filled worksheet still
+shows every sub-result it can, and refusing to move would stop someone reading
+ahead to see what a later step is going to ask for. Going BACK is never
+blocked — that is what the stepper is for.
+
+Once rendered, the note is a `[data-step-missing]` placeholder refreshed by
+`updateOutputs()`, not markup built at render time, for the usual reason: it has
+to clear itself on the keystroke that fills the box, not the next time the page
+is rebuilt.
 
 ### The worksheet's constants are not "corrected"
 
@@ -269,12 +282,21 @@ is never the only signal.
 `.step-missing`, `.start-warn`, `.warn-list`. `--info-bg` is for something to
 read. A dash where a figure should be is the first kind, not the second.
 
-Two alignment traps worth knowing before touching them again:
+Three traps in `styles.css` worth knowing before fighting the symptom again:
 
+- **`input, select` carries `min-height: 44px`**, for a thumb. `min-height`
+  beats `height`, so shrinking a checkbox with `height: 17px` gives a 17px-wide
+  control that is still 44px tall. `.needs-list input` has to say
+  `min-height: 0`, and any other small control will too. The 44px target is not
+  lost where a `<label for>` sits beside it on a full-width row.
+- **`.field-label > label` carries `margin-top: 9px; margin-bottom: 1px`**, and
+  `align-items: center` centres each item's MARGIN box. So a sibling with no
+  margins sits 4px above the label's text. `.field-label > .help-btn` takes the
+  same two margins; that, not `align-self`, is what centres it. `vertical-align`
+  does nothing at all to a flex item.
 - `.field-label` is a **wrapping** flex container. To move its text down inside
   reserved height, use `align-content`, not `align-items`: `align-items` sets
-  the text on the floor of the box while the `?` stays centred in it, which
-  draws the `?` floating above the label it explains.
+  the text on the floor of the box while the `?` stays centred in it.
 - `.result-row` forces one row above 640px with `grid-auto-flow: column`, not
   `auto-fit`. `auto-fit` off a 260px minimum breaks three answers onto two lines
   in a half-screen window, and the one left underneath reads as an afterthought.
