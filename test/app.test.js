@@ -913,19 +913,34 @@ test('Save as offers the four ways a calculation leaves the app', () => {
   click('.modal-close')
 })
 
-test('Print from a card puts that calculation on screen first', () => {
+test('Print from a card borrows that calculation and gives it back', () => {
   click('[data-action="set-tab"][data-tab="saved"]')
   const card = $$('.saved-card').find((c) => c.dataset.calcId !== state.getCalculation().id)
   assert.ok(card, 'a record that is not the one being worked on')
   const id = card.dataset.calcId
+  const working = state.getCalculation().id
+
+  // Stands in for the print dialog: the browser lays the page out, then fires
+  // afterprint when the dialog goes away, whether it was cancelled or not.
+  let onScreen = null
+  const realPrint = dom.window.print
+  dom.window.print = () => {
+    onScreen = { id: state.getCalculation().id, steps: !!$('.steps') }
+    dom.window.dispatchEvent(new dom.window.Event('afterprint'))
+  }
 
   click(card.querySelector('[data-action="save-as"]'))
   click('[data-action="save-as-print"]')
+  dom.window.print = realPrint
 
-  // Printing prints the page, so the record has to be the one the page is
-  // showing. Printing from the Saved tab would otherwise print the list.
-  assert.equal(state.getCalculation().id, id, 'the record is now the working calculation')
-  assert.ok($('.steps'), 'and the steps are what is on screen, not the list')
+  // Printing prints the page, so the record has to BE the page while the dialog
+  // is up. From the Saved tab it would otherwise print the list.
+  assert.deepEqual(onScreen, { id, steps: true }, 'the record is what went to the printer')
+
+  // And then it is handed straight back. Cancelling the dialog was leaving
+  // somebody standing in a calculation they never asked to open.
+  assert.equal(state.getCalculation().id, working, 'the working calculation is back')
+  assert.ok($('.saved-list'), 'on the tab the button was pressed from')
 })
 
 test('a backup carries the whole list, and the two file kinds are told apart', async () => {

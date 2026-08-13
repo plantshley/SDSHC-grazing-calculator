@@ -239,9 +239,9 @@ function cardFor(calc, filtering) {
       <div class="saved-actions">
         <button type="button" class="tip" data-action="open-calc" data-id="${esc(calc.id)}">Open</button>
         <button type="button" class="tip" data-action="edit-calc" data-id="${esc(calc.id)}">Edit</button>
+        <button type="button" class="tip" data-action="save-as" data-id="${esc(calc.id)}">Save as</button>
         <button type="button" class="tip alt" data-action="duplicate-calc" data-id="${esc(calc.id)}">Duplicate</button>
         <button type="button" class="tip danger" data-action="delete-calc" data-id="${esc(calc.id)}">Delete</button>
-        <button type="button" class="tip" data-action="save-as" data-id="${esc(calc.id)}">Save as</button>
       </div>
     </div>`
 }

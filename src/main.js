@@ -854,15 +854,7 @@ function handleAction(action, btn) {
       const found = getCalcById(btn.dataset.id)
       if (!found) return
       closeModal()
-      // Printing prints the PAGE, and the page shows the working calculation.
-      // So this one has to open the record first, which is the same question
-      // Open already asks. Skipped when the record is the one already on
-      // screen: reopening it there would throw away edits made since, and what
-      // is in front of the user is what they expect to come out of the printer.
-      if (found.id !== calc.id && !openSavedCalc(found)) return
-      setPref('tab', 'perennial')
-      render()
-      printResults()
+      printSavedCalc(found)
       break
     }
     case 'backup-all':
@@ -944,6 +936,58 @@ function openSavedCalc(found) {
   setPref('tab', 'perennial')
   setPref('maxStep', STEP_LABELS.length - 1)
   return true
+}
+
+/**
+ * Print a saved calculation without adopting it.
+ *
+ * Printing prints the PAGE, so the record has to be on screen for the print
+ * stylesheet to have anything to lay out. It goes back afterwards, because
+ * printing is a read-only act and cancelling the print dialog was leaving
+ * somebody standing in a calculation they never asked to open.
+ *
+ * Nothing is asked and nothing is lost, which is why this does not go through
+ * openSavedCalc(): the working calculation is not replaced, it is borrowed for
+ * as long as the dialog is up and then put back exactly as it was.
+ *
+ * The swap back runs on `afterprint`. Reading it off print() returning instead
+ * would be wrong on a phone, where print() can hand back before the sheet has
+ * even appeared and the page would be swapped out from under it. Browsers
+ * without the event get the synchronous version, which is what they behave like.
+ */
+function printSavedCalc(found) {
+  const before = {
+    calc: getCalculation(),
+    tab: getPref('tab'),
+    setup: setupOpen,
+    started: startedOnce,
+  }
+
+  // The step and maxStep prefs are left alone. Print forces every step visible
+  // whatever the wizard is showing, so moving them would only disturb the place
+  // the user is coming back to.
+  setCalculation(structuredClone(found))
+  setupOpen = false
+  startedOnce = true
+  setPref('tab', 'perennial')
+  render()
+
+  const restore = () => {
+    window.removeEventListener('afterprint', restore)
+    setCalculation(before.calc)
+    setupOpen = before.setup
+    startedOnce = before.started
+    setPref('tab', before.tab)
+    render()
+  }
+
+  if ('onafterprint' in window) {
+    window.addEventListener('afterprint', restore, { once: true })
+    printResults()
+  } else {
+    printResults()
+    restore()
+  }
 }
 
 /* ──────────────────────── files off the user's device ──────────────────── */

@@ -199,10 +199,17 @@ nothing else is using — not on screen. A fresh id is what stops a file exporte
 from this device overwriting the record it came out of.
 
 `Save as` on a card offers image, spreadsheet, print, and calculation file. The
-first, second, and fourth read the record directly. **Print has to open it
-first**: printing prints the page, and the page shows the working calculation, so
-from the Saved tab it would print the list. Skipped when the record already is
-the working calculation, so unsaved edits are not thrown away to print them.
+first, second, and fourth read the record directly. **Print has to put it on
+screen**: printing prints the page, and the page shows the working calculation,
+so from the Saved tab it would print the list.
+
+`printSavedCalc()` **borrows** the record and gives it back — it does not go
+through `openSavedCalc()`, asks nothing, and restores the working calculation,
+the tab and `setupOpen`. Cancelling the print dialog otherwise left the user
+standing in a calculation they never opened. The swap back runs on `afterprint`,
+**not** off `print()` returning: on a phone `print()` can hand back before the
+sheet appears, and the page would be swapped out from under it. `step` and
+`maxStep` are left alone, since print forces every step visible anyway.
 
 Figures for an exported image or spreadsheet are **recomputed** with
 `compute(resolved(record))`, never read from the record's stored `results`. Same

@@ -2194,6 +2194,7 @@ body:has(.sticky-bar) {
    this the four buttons sit at a different height on every card in the row. */
 .saved-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: auto;
   padding-top: 10px;
