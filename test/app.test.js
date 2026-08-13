@@ -784,6 +784,29 @@ test('a saved calculation can be filtered by the date on its card', () => {
   click('[data-action="clear-saved-filter"]')
 })
 
+test('the filter takes several words at once, separated by commas', () => {
+  // The two cards are "East draw, July" and "West flat, May".
+  type('[data-saved-filter]', 'east')
+  assert.equal($$('.saved-card').length, 1, 'one word, one card')
+
+  // OR, not AND. Typing already narrows; the comma is for pulling two pastures
+  // up beside each other, which nothing else on this tab does.
+  type('[data-saved-filter]', 'east, may')
+  assert.equal($$('.saved-card').length, 2, 'either word matching is enough')
+
+  type('[data-saved-filter]', 'east, no such pasture')
+  assert.equal($$('.saved-card').length, 1, 'a word that matches nothing adds nothing')
+
+  // A stray comma is not a filter. Left as one it would hide nothing and still
+  // switch reordering off, which reads as the handle having broken.
+  type('[data-saved-filter]', ' , ')
+  assert.equal($$('.saved-card').length, 2, 'punctuation on its own filters nothing')
+  assert.equal($('.saved-grip').getAttribute('draggable'), 'true', 'and reordering stays on')
+  assert.equal($('[data-action="clear-saved-filter"]'), null, 'nothing to clear, so no Clear')
+
+  type('[data-saved-filter]', '')
+})
+
 test('New calculation puts the work down and starts again', () => {
   click('[data-action="set-tab"][data-tab="perennial"]')
   const before = state.getCalculation().id
@@ -867,4 +890,90 @@ test('To Saved writes a calculation that is not in the list yet', () => {
     'and the record is this calculation rather than a copy of another'
   )
   assert.equal($$('.saved-card').length, before + 1, 'the tab it lands on is showing it')
+})
+
+test('Save as offers the four ways a calculation leaves the app', () => {
+  const card = $$('.saved-card')[0]
+  const id = card.dataset.calcId
+  click(card.querySelector('[data-action="save-as"]'))
+
+  const items = $$('.save-as-item')
+  assert.deepEqual(
+    items.map((b) => b.dataset.action),
+    ['save-as-png', 'save-as-csv', 'save-as-print', 'save-as-json'],
+    'the image first, the file last'
+  )
+  // Every choice carries the id of the card it was opened from. The dialog is
+  // a sibling of the list, not a child of the card, so nothing else says which
+  // calculation is being written out.
+  assert.ok(
+    items.every((b) => b.dataset.id === id),
+    'and all four name the same calculation'
+  )
+  click('.modal-close')
+})
+
+test('Print from a card puts that calculation on screen first', () => {
+  click('[data-action="set-tab"][data-tab="saved"]')
+  const card = $$('.saved-card').find((c) => c.dataset.calcId !== state.getCalculation().id)
+  assert.ok(card, 'a record that is not the one being worked on')
+  const id = card.dataset.calcId
+
+  click(card.querySelector('[data-action="save-as"]'))
+  click('[data-action="save-as-print"]')
+
+  // Printing prints the page, so the record has to be the one the page is
+  // showing. Printing from the Saved tab would otherwise print the list.
+  assert.equal(state.getCalculation().id, id, 'the record is now the working calculation')
+  assert.ok($('.steps'), 'and the steps are what is on screen, not the list')
+})
+
+test('a backup carries the whole list, and the two file kinds are told apart', async () => {
+  const storage = await import('../src/storage.js')
+  const list = storage.listCalcs()
+  assert.ok(list.length >= 2, 'more than one to back up')
+
+  const backup = storage.exportBackupJSON()
+  const tagged = list.find((c) => c.tag)
+  assert.ok(tagged, 'one of them carries a colour')
+
+  // A colour and a list position describe THIS device's list. They travel in a
+  // backup, which restores a list onto itself, and are stripped from a single
+  // calculation, which lands in somebody else's.
+  const single = JSON.parse(storage.exportCalcJSON(tagged))
+  assert.equal(single.tag, undefined)
+  assert.equal(single.sortIndex, undefined)
+  assert.ok(
+    JSON.parse(backup).calculations.find((c) => c.id === tagged.id).tag,
+    'but the backup keeps it'
+  )
+
+  // Both files are .json and both came out of this app, so each control has to
+  // name the other rather than refuse the file as unreadable.
+  const asCalc = storage.importCalcJSON(backup)
+  assert.equal(asCalc.ok, false)
+  assert.match(asCalc.error, /Restore backup/)
+
+  const asBackup = storage.importBackupJSON(JSON.stringify(single))
+  assert.equal(asBackup.ok, false)
+  assert.match(asBackup.error, /Upload a calculation/)
+
+  // An empty backup is refused. Restoring one would be a way to delete every
+  // calculation on the device by agreeing to a dialog about a file that turned
+  // out to hold nothing.
+  const empty = storage.importBackupJSON(
+    JSON.stringify({ kind: JSON.parse(backup).kind, calculations: [] })
+  )
+  assert.equal(empty.ok, false)
+
+  const read = storage.importBackupJSON(backup)
+  assert.equal(read.ok, true)
+  assert.equal(read.calcs.length, list.length)
+
+  // Restore REPLACES. A merge would leave a device that was restored to clear
+  // out a mistake still holding the mistake.
+  storage.replaceAll(read.calcs.slice(0, 1))
+  assert.equal(storage.listCalcs().length, 1)
+  storage.replaceAll(read.calcs)
+  assert.equal(storage.listCalcs().length, list.length, 'and the list comes back whole')
 })

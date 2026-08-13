@@ -238,4 +238,17 @@ export const DEFINITIONS = {
       'Every pound you can plan to graze in the whole pasture. Grazeable acres times usable forage per acre.',
     ],
   },
+
+  /* ─────────────────────────── the saved tab ───────────────────────────── */
+
+  backupFile: {
+    title: 'Backups and calculation files',
+    body: [
+      'A backup is a .json file holding everything on the Saved tab at once: every saved calculation, its colour, and the order you dragged them into. "Export backup" downloads it.',
+      'A calculation file is a .json file holding one calculation. "Save as" on a card writes one, and "Upload a calculation" reads one back in alongside what you already have. Use it to move one calculation to another device or to hand it to somebody else.',
+      'Your calculations live in this browser, so clearing your browsing data deletes them, and so does replacing the device. A backup is how you get them back.',
+      '"Restore backup" replaces everything on the Saved tab with what is in the file. Calculations saved on this device that are not in the file are deleted, and there is no undo. The calculator states how many are arriving and how many are going before it does anything.',
+      'The backup file is dated, so backups taken on different days sit beside each other in your downloads folder rather than overwriting one another.',
+    ],
+  },
 }

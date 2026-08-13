@@ -39,6 +39,9 @@ import {
   deleteCalc,
   reorderCalcs,
   storageAvailable,
+  importCalcJSON,
+  importBackupJSON,
+  replaceAll,
 } from './storage.js'
 import {
   applyTheme,
@@ -51,7 +54,13 @@ import {
   setOpenSteps,
   setStepOpen,
 } from './prefs.js'
-import { downloadCSV, downloadPNG, printResults } from './export.js'
+import {
+  downloadCSV,
+  downloadPNG,
+  printResults,
+  downloadCalcJSON,
+  downloadBackup,
+} from './export.js'
 
 import { esc } from './ui/format.js'
 import { openInfo, openGuide, openModal, closeModal } from './ui/modals.js'
@@ -61,7 +70,7 @@ import { renderSetup, renderChips } from './ui/setup.js'
 import { renderStepper } from './ui/stepper.js'
 import { renderSteps, howToPanel, STEP_LABELS } from './ui/steps.js'
 import { renderResults, renderStickyBar, updateOutputs } from './ui/results.js'
-import { renderSaved, openSaveDialog, openEditDialog } from './ui/saved.js'
+import { renderSaved, openSaveDialog, openEditDialog, openSaveAsDialog } from './ui/saved.js'
 import { renderCoverCrop, wireCoverCrop } from './ui/covercrop.js'
 import { HOW_TO_SECTIONS } from './data/howto.js'
 import { MIXED } from './data/forage.js'
@@ -773,22 +782,7 @@ function handleAction(action, btn) {
     case 'open-calc': {
       const found = getCalcById(btn.dataset.id)
       if (!found) return
-      // Opening REPLACES the working calculation, so an unsaved one on screen
-      // goes with it. Skipped when the open calculation is already in the list,
-      // including when it is the very record being reopened.
-      if (!confirmLeavingUnsaved('Opening a saved calculation')) return
-      // Open a COPY. Editing a saved calculation in place would rewrite a record
-      // the user may only have wanted to look at.
-      //
-      // setCalculation notifies, which is what schedules the autosave. Without
-      // that, reloading straight after opening a saved calculation would revert
-      // to whatever was in the working slot before.
-      setCalculation(structuredClone(found))
-      warnedSteps.clear()
-      setupOpen = false
-      startedOnce = true
-      setPref('tab', 'perennial')
-      setPref('maxStep', STEP_LABELS.length - 1)
+      if (!openSavedCalc(found)) return
       render()
       break
     }
@@ -828,6 +822,61 @@ function handleAction(action, btn) {
     case 'clear-saved-filter':
       savedFilter = ''
       render()
+      break
+
+    /* files in and out of the saved list */
+    case 'save-as': {
+      const found = getCalcById(btn.dataset.id)
+      if (!found) return
+      openSaveAsDialog(found)
+      break
+    }
+    case 'save-as-png':
+    case 'save-as-csv':
+    case 'save-as-json': {
+      const found = getCalcById(btn.dataset.id)
+      if (!found) return
+      closeModal()
+      if (action === 'save-as-json') {
+        downloadCalcJSON(found)
+        break
+      }
+      // Recomputed from the inputs rather than read off the record's stored
+      // `results`. A record written before a correction to the model still
+      // carries the figures it was saved with, and a file leaving the app has
+      // to carry the right ones. Same rule as reopening one.
+      const res = compute(resolved(found))
+      if (action === 'save-as-png') downloadPNG(found, res)
+      else downloadCSV(found, res)
+      break
+    }
+    case 'save-as-print': {
+      const found = getCalcById(btn.dataset.id)
+      if (!found) return
+      closeModal()
+      // Printing prints the PAGE, and the page shows the working calculation.
+      // So this one has to open the record first, which is the same question
+      // Open already asks. Skipped when the record is the one already on
+      // screen: reopening it there would throw away edits made since, and what
+      // is in front of the user is what they expect to come out of the printer.
+      if (found.id !== calc.id && !openSavedCalc(found)) return
+      setPref('tab', 'perennial')
+      render()
+      printResults()
+      break
+    }
+    case 'backup-all':
+      if (!listCalcs().length) {
+        alert('There is nothing saved on this device to back up yet.')
+        break
+      }
+      downloadBackup()
+      break
+    case 'restore-all':
+      restoreFromFile()
+      break
+    case 'upload-calc':
+      uploadCalcFile()
       break
     case 'duplicate-calc': {
       const found = getCalcById(btn.dataset.id)
@@ -869,6 +918,136 @@ function handleAction(action, btn) {
     default:
       break
   }
+}
+
+/**
+ * Put a saved record on screen, replacing the working calculation.
+ *
+ * Opening REPLACES what is being worked on, so an unsaved calculation goes with
+ * it. The record is opened as a COPY: editing a saved calculation in place
+ * would rewrite something the user may only have wanted to look at.
+ *
+ * setCalculation notifies, which is what schedules the autosave. Without it,
+ * reloading straight after opening would revert to whatever was in the working
+ * slot before.
+ *
+ * Does not render. The caller decides what else has to change first.
+ *
+ * @returns {boolean} true if the record is now the working calculation.
+ */
+function openSavedCalc(found) {
+  if (!confirmLeavingUnsaved('Opening a saved calculation')) return false
+  setCalculation(structuredClone(found))
+  warnedSteps.clear()
+  setupOpen = false
+  startedOnce = true
+  setPref('tab', 'perennial')
+  setPref('maxStep', STEP_LABELS.length - 1)
+  return true
+}
+
+/* ──────────────────────── files off the user's device ──────────────────── */
+
+/**
+ * Read a .json the user picks.
+ *
+ * The input is never added to the document. A detached one still opens the
+ * picker, and one left in the page would print, be tabbed into, and have to be
+ * cleaned up afterwards.
+ */
+function pickJSONFile(onText) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'application/json,.json'
+  input.addEventListener('change', async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    onText(await file.text())
+  })
+  input.click()
+}
+
+/** "1 calculation", "3 calculations", for a dialog where the count is the point. */
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/** A name nothing already in the list is using. */
+function nameForUpload(name, taken) {
+  const base = String(name || '').trim() || 'Uploaded calculation'
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base} (${n})`)) n += 1
+  return `${base} (${n})`
+}
+
+/**
+ * Add one calculation from a file to the saved list.
+ *
+ * It lands in the LIST rather than on screen, and the calculation being worked
+ * on is left alone. A file somebody was sent is something to keep, not something
+ * to drop into the middle of what they were doing.
+ *
+ * A fresh id is what stops a file exported from this device overwriting the very
+ * record it came out of, and the name is made unique so the list does not end up
+ * with two cards nothing tells apart.
+ */
+function uploadCalcFile() {
+  pickJSONFile((text) => {
+    const result = importCalcJSON(text)
+    if (!result.ok) {
+      alert(result.error)
+      return
+    }
+    const copy = result.calc
+    copy.id = makeId('calc')
+    copy.name = nameForUpload(copy.name, new Set(listCalcs().map((c) => c.name)))
+    if (!saveCalc(copy).ok) {
+      alert('That calculation could not be saved. This browser may be out of storage space.')
+      return
+    }
+    // The list just grew. A filter hiding the card that has arrived reads as the
+    // upload having failed.
+    savedFilter = ''
+    setPref('tab', 'saved')
+    render()
+  })
+}
+
+/**
+ * Replace the whole saved list from a backup file.
+ *
+ * The one action in this app that can take away work the user never opened, so
+ * the dialog states BOTH counts: what is arriving and what is going. "Are you
+ * sure?" cannot be answered without them, and the dangerous case is the file
+ * that holds two calculations on a device holding twenty. The file is parsed
+ * BEFORE the dialog is raised, so one that turns out to be unreadable never gets
+ * as far as asking.
+ *
+ * The calculation on screen is left exactly as it is, unsaved edits included.
+ * It is not part of the saved list, so a restore has no business touching it.
+ */
+function restoreFromFile() {
+  pickJSONFile((text) => {
+    const result = importBackupJSON(text)
+    if (!result.ok) {
+      alert(result.error)
+      return
+    }
+
+    const have = listCalcs().length
+    const arriving = `This backup holds ${plural(result.calcs.length, 'calculation')}.`
+    const losing = have
+      ? `Restoring it deletes the ${plural(have, 'calculation')} saved on this device now.`
+      : 'There is nothing saved on this device now, so nothing is lost.'
+    if (!confirm(`${arriving}\n\n${losing}\n\nThis cannot be undone. Restore anyway?`)) return
+
+    if (!replaceAll(result.calcs).ok) {
+      alert('Nothing was changed. This browser is out of storage space.')
+      return
+    }
+    savedFilter = ''
+    setPref('tab', 'saved')
+    render()
+  })
 }
 
 /**

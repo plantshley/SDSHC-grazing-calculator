@@ -132,6 +132,14 @@ colour dialog.
 colouring a card is filing, not editing. Grey is not one of the eleven swatches —
 it is already what an untagged card looks like.
 
+The filter splits on commas and **any** term matching is enough (`filterTerms()`
+in `saved.js`). Typing already narrows, so an AND would be a second way to do
+what every keystroke does; the comma is for listing two pastures side by side.
+`filtering` is `terms.length > 0`, **not** `filter.trim()` — a lone comma is not
+a filter, and treating it as one would hide nothing while switching reordering
+off, which reads as the drag handle having broken. The date is matched as
+**displayed**, not as stored.
+
 ### Clearing is per step, and it names its own scope
 
 Each step head carries a **Clear** that empties that step and nothing else, from
@@ -165,6 +173,40 @@ autosave must not take the saved calculations with it.
 two owners, so the stored value is only a **fallback**, used when the incoming
 `tag` is `undefined`. `undefined` is "not mentioned", `''` is "no colour,
 deliberately" — collapsing the two puts a removed colour back.
+
+### A calculation file and a backup are different kinds of file
+
+Both are `.json` and both came out of this app, so nothing about the extension
+tells them apart. `kind: 'sdshc-grazing-calculator-backup'` does, and it is
+checked on the way in by **both** readers: `importCalcJSON()` refuses a backup by
+name and `importBackupJSON()` refuses a single calculation by name. Restoring one
+calculation over a list of twelve is the mistake this format has to make
+impossible, so **do not relax either check to "whatever parses"**.
+
+`tag` and `sortIndex` describe one device's list. `exportCalcJSON()` strips them;
+`exportBackupJSON()` keeps them, because a backup restores a list onto itself and
+the arrangement is most of what people back up for.
+
+`replaceAll()` is the only destructive write in the module and it clears
+`lastKnownUpdatedAt` — every entry there now describes a record this tab has not
+read, and a stale one lets the next save overwrite a restored record silently.
+
+Restore never touches the working calculation. It is in another key and is not
+part of the saved list.
+
+An uploaded calculation lands in the **list**, under a fresh id and a name
+nothing else is using — not on screen. A fresh id is what stops a file exported
+from this device overwriting the record it came out of.
+
+`Save as` on a card offers image, spreadsheet, print, and calculation file. The
+first, second, and fourth read the record directly. **Print has to open it
+first**: printing prints the page, and the page shows the working calculation, so
+from the Saved tab it would print the list. Skipped when the record already is
+the working calculation, so unsaved edits are not thrown away to print them.
+
+Figures for an exported image or spreadsheet are **recomputed** with
+`compute(resolved(record))`, never read from the record's stored `results`. Same
+rule as reopening one.
 
 ### The shared design system does not drift
 

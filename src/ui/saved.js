@@ -12,6 +12,7 @@
  */
 
 import { esc, FORMATTERS } from './format.js'
+import { infoButton } from './fields.js'
 import { openModal, modalError } from './modals.js'
 import { GOALS } from '../calc.js'
 import { forageById, MIXED } from '../data/forage.js'
@@ -76,8 +77,9 @@ export function swatchGrid(current, { name = 'Color' } = {}) {
 }
 
 export function renderSaved(list, filter = '') {
-  const filtering = filter.trim().length > 0
-  const shown = filtering ? list.filter((c) => matches(c, filter)) : list
+  const terms = filterTerms(filter)
+  const filtering = terms.length > 0
+  const shown = filtering ? list.filter((c) => matches(c, terms)) : list
 
   if (!list.length) {
     return `
@@ -109,13 +111,15 @@ export function renderSaved(list, filter = '') {
             : ''
         }
       </div>
+      <p class="hint saved-filter-hint">Separate words with a comma to list several at once.
+        "north, south" shows every card carrying either one.</p>
 
       ${
         shown.length
           ? `<div class="saved-list" data-saved-list>
                ${shown.map((c) => cardFor(c, filtering)).join('')}
              </div>`
-          : `<p class="empty-note">No saved calculation matches ${esc(filter.trim())}.</p>`
+          : `<p class="empty-note">No saved calculation matches ${esc(terms.join(', '))}.</p>`
       }
     </div>`
 }
@@ -134,10 +138,43 @@ function savedHead(hint) {
         <div class="title">Saved calculations</div>
         ${hint ? `<p class="hint">${esc(hint.replace(/\s+/g, ' ').trim())}</p>` : ''}
       </div>
-      <button type="button" class="btn-add btn-add-inline" data-action="new-calc">
+      <!-- Text links, and to the LEFT of the button. Starting a calculation is
+           what somebody comes to this tab to do; a backup is housekeeping they
+           do a few times a year, and weight on the page follows that.
+
+           Restore is the one control in the app that can take away work the
+           user never opened, so it deliberately does not sit inside the row of
+           things that create. Everything it does is behind a confirm naming the
+           counts on both sides. -->
+      <span class="head-tools">
+        <button type="button" class="tip" data-action="backup-all">Export backup</button>
+        <button type="button" class="tip" data-action="restore-all">Restore backup</button>
+        <button type="button" class="tip" data-action="upload-calc">Upload a calculation</button>
+        ${infoButton('backupFile', 'a backup')}
+      </span>
+      <button type="button" class="btn-add btn-add-inline saved-new" data-action="new-calc">
         + New calculation
       </button>
     </div>`
+}
+
+/**
+ * The filter's words. A comma separates them and ANY one of them matching is
+ * enough.
+ *
+ * The box already narrows: every character typed hides more cards. The comma is
+ * for the other job, pulling two pastures up beside each other to compare them,
+ * which nothing else on this tab does. Requiring all of the words instead would
+ * be a second way to do the thing typing already does.
+ *
+ * Exported so the tests can state the rule directly rather than through markup.
+ */
+export function filterTerms(filter) {
+  return String(filter ?? '')
+    .toLowerCase()
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
 }
 
 /**
@@ -147,14 +184,14 @@ function savedHead(hint) {
  * "2026" or "8/12" is reading the line on the card, and the ISO timestamp
  * underneath it would match neither of those the way they expect.
  */
-function matches(calc, filter) {
+function matches(calc, terms) {
   const forage =
     calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label ?? ''
-  return [calc.name, calc.pastureName, forage, shortDate(calc.updatedAt)]
+  const hay = [calc.name, calc.pastureName, forage, shortDate(calc.updatedAt)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
-    .includes(filter.trim().toLowerCase())
+  return terms.some((t) => hay.includes(t))
 }
 
 function cardFor(calc, filtering) {
@@ -204,6 +241,7 @@ function cardFor(calc, filtering) {
         <button type="button" class="tip" data-action="edit-calc" data-id="${esc(calc.id)}">Edit</button>
         <button type="button" class="tip alt" data-action="duplicate-calc" data-id="${esc(calc.id)}">Duplicate</button>
         <button type="button" class="tip danger" data-action="delete-calc" data-id="${esc(calc.id)}">Delete</button>
+        <button type="button" class="tip" data-action="save-as" data-id="${esc(calc.id)}">Save as</button>
       </div>
     </div>`
 }
@@ -291,4 +329,40 @@ export function openSaveDialog(calc, onSave, { title = 'Save calculation', confi
 /** Edit a record in the list. Same dialog, different words on the button. */
 export function openEditDialog(calc, onSave) {
   openSaveDialog(calc, onSave, { title: 'Edit calculation', confirm: 'Save changes' })
+}
+
+/**
+ * The four ways a saved calculation leaves the app.
+ *
+ * A menu rather than four more buttons on the card. The card already carries
+ * five, and these are all one answer to one question, which is what a menu is
+ * for. It is the shared modal rather than a dropdown, so it gets the focus trap
+ * and the Escape handling for nothing and does not have to be positioned inside
+ * a grid of cards that reflows at every width.
+ *
+ * Each choice says what the file is FOR. "PNG, CSV, JSON" names three formats,
+ * and somebody who wants to text a picture of the answer to their neighbour is
+ * not choosing between formats.
+ *
+ * No listeners are wired here. Every button carries a `data-action` and the
+ * delegated handler in main.js is on `document`, which the overlay is part of.
+ */
+export function openSaveAsDialog(calc) {
+  openModal(
+    `Save "${calc.name || 'Untitled'}" as`,
+    `<div class="save-as">
+      ${saveAsItem(calc.id, 'save-as-png', 'Image', 'A picture of the calculation answers and the figures behind them.')}
+      ${saveAsItem(calc.id, 'save-as-csv', 'Spreadsheet', 'Every figure entered and every figure worked out, as a CSV. Opens in Excel.')}
+      ${saveAsItem(calc.id, 'save-as-print', 'Print or PDF', 'Opens this calculation where you can sent it to your printer or save it as a PDF.')}
+      ${saveAsItem(calc.id, 'save-as-json', 'Calculation file', 'The calculation itself, to move to another device or give to somebody else. Bring it back to the saved list with "Upload a calculation".')}
+    </div>`
+  )
+}
+
+function saveAsItem(id, action, title, body) {
+  return `
+    <button type="button" class="save-as-item" data-action="${esc(action)}" data-id="${esc(id)}">
+      <span class="save-as-title">${esc(title)}</span>
+      <span class="save-as-body">${esc(body)}</span>
+    </button>`
 }

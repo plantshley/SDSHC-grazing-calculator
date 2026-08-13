@@ -59,7 +59,9 @@ export const HOW_TO_SECTIONS = [
       'Your entries save on this device as you type, so closing the page will not lose them.',
       'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season. Once a calculation is saved, that button becomes Edit saved and writes your changes back to the same copy.',
       'Clear empties the boxes in the steps and keeps your goals and forage type, for the next pasture. New calculation starts over from the setup screen. Neither touches anything you have saved.',
-      'Nothing is uploaded anywhere. Everything stays in this browser, which also means clearing your browser data will remove it.',
+      'Save as, on a card in the Saved tab, writes one calculation out as an image, a spreadsheet, a printout, or a file. Upload a calculation reads a file back in alongside what you already have.',
+      'Export backup, on the Saved tab, downloads every saved calculation as one file. Restore backup reads it back and replaces everything on the tab, so the calculator says how many are arriving and how many are going before it does anything.',
+      'Nothing is uploaded anywhere. Everything stays in this browser, which also means clearing your browser data will remove it. Export a backup for anything you want to keep.',
     ],
   },
 ]

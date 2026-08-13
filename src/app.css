@@ -2059,6 +2059,30 @@ body:has(.sticky-bar) {
   margin-bottom: 0;
 }
 
+/* The file controls, immediately left of "+ New calculation".
+
+   Both carry align-self:center so they are centred against EACH OTHER, not
+   against the heading. .saved-head is align-items:flex-start, which is right for
+   the title block (a two-line hint must not drag the button down the row with
+   it) and wrong for these two, which read as one control group and have to sit
+   on one line.
+
+   nowrap because the group either fits beside the button or moves below it as a
+   whole. Wrapping inside it puts "Upload a calculation" on a line of its own,
+   under two links it has nothing to do with. */
+.head-tools {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-left: auto;
+}
+
+.saved-head .saved-new {
+  align-self: center;
+}
+
 .saved-tools {
   display: flex;
   align-items: center;
@@ -2069,6 +2093,13 @@ body:has(.sticky-bar) {
 .saved-filter {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Sits under the box it describes, not in the hint at the top of the tab. The
+   comma rule is only worth reading while looking at the thing it applies to. */
+.saved-filter-hint {
+  margin: -6px 0 12px;
+  font-size: 12.5px;
 }
 
 .saved-list {
@@ -2174,6 +2205,49 @@ body:has(.sticky-bar) {
   font-size: 14px;
   padding: 18px 0;
   text-align: center;
+}
+
+/* ---- the "save as" menu ------------------------------------------------- */
+
+/* Four choices, one per row, each a full-width target. None of them is the
+   thing to press, so none of them is the loud button: this is a menu, and a
+   --sky fill on one of four would be picking for the user. */
+.save-as {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.save-as-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  text-align: left;
+  cursor: pointer;
+}
+
+.save-as-item:hover,
+.save-as-item:focus-visible {
+  border-color: var(--sky);
+  background: var(--info-bg);
+}
+
+.save-as-title {
+  font-weight: bold;
+  color: var(--brand-ink);
+}
+
+/* What the file is FOR, not what it is. Somebody choosing here wants to send a
+   picture or keep a copy; the extension is not the decision they are making. */
+.save-as-body {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 /* ---- responsive --------------------------------------------------------- */
@@ -2382,9 +2456,44 @@ body:has(.sticky-bar) {
   /* Full width, and still reading "+ New calculation" rather than "+ New". A
      button sized to its own label is a small target in a lot of empty row, and
      this row is stacked one item per line anyway. */
-  .chip-new {
+  .chip-new,
+  .saved-new {
     width: 100%;
     margin-left: 0;
+  }
+
+  /* A row of their own BELOW the button, for the same reason they sit left of
+     it on a desktop: starting a calculation is what somebody came here to do,
+     and file housekeeping is not.
+
+     One row, three links and the `?`, spread to the full width. The type comes
+     down rather than the row breaking: three controls on two lines with no rule
+     between them reads as four unrelated links, and the `?` stranded on a line
+     of its own explains nothing. 320px is what the size is set against. */
+  .head-tools {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 11.5px;
+  }
+
+  /* .tip sets its own 12px, so it has to be told, and each label holds together
+     as one word: a link broken across two lines defeats the point of nowrap on
+     the container. */
+  .head-tools .tip {
+    font-size: inherit;
+    white-space: nowrap;
+  }
+
+  /* The `?` beside them comes down with the labels, or it is the widest thing
+     on a row of text links. */
+  .head-tools .help-btn {
+    width: 15px;
+    height: 15px;
+    font-size: 10px;
+    flex: 0 0 auto;
   }
 
   /* Full width beneath the weights, which is what it was before it moved into
@@ -2403,6 +2512,15 @@ body:has(.sticky-bar) {
 }
 
 @media (max-width: 480px) {
+  /* The last squeeze that keeps the three file links and the `?` on one row.
+     "Upload a calculation" is the long one and it is not shortened: "Upload"
+     alone does not say upload WHAT, on a row where the other two are about a
+     backup file. */
+  .head-tools {
+    gap: 4px;
+    font-size: 11px;
+  }
+
   /* Five labels cannot sit side by side on a phone without wrapping into a
      block of text. The circles stay, at full size and full tap target, and the
      current step is named once underneath instead. */
@@ -2496,7 +2614,10 @@ body:has(.sticky-bar) {
   .sample--actions,
   .btn-add-cell,
   .start-warn,
-  .chip-new {
+  .chip-new,
+  .head-tools,
+  .saved-new,
+  .saved-filter-hint {
     display: none !important;
   }
 

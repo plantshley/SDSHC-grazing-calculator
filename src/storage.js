@@ -357,10 +357,128 @@ export function importCalcJSON(text) {
   } catch {
     return { ok: false, error: 'That file is not a saved calculation.' }
   }
+  // The near miss in one direction: a backup handed to the single-file control.
+  // Both files are .json and both came out of this app, so this says which
+  // control the file belongs to rather than refusing it as unreadable.
+  if (parsed?.kind === BACKUP_KIND) {
+    return {
+      ok: false,
+      error:
+        'That file is a backup of your whole saved list, not one calculation. Use "Restore backup" to bring it in.',
+    }
+  }
   if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.samples)) {
     return { ok: false, error: 'That file is not a saved calculation.' }
   }
   delete parsed.tag
   delete parsed.sortIndex
   return { ok: true, calc: migrate(parsed) }
+}
+
+/* ─────────────────────────── backup / restore ──────────────────────────── */
+
+/**
+ * A backup is the whole saved list in one file, and it is a DIFFERENT kind of
+ * thing from a calculation file.
+ *
+ * A calculation file is one calculation, handed to somebody else or carried to
+ * another device, which is why exportCalcJSON() strips `tag` and `sortIndex`.
+ *
+ * A backup restores a list onto ITSELF, so the colours and the arrangement
+ * travel with it. Stripping them would throw away most of what someone keeps a
+ * backup for.
+ *
+ * `kind` is checked on the way back in. Both files are .json and both came out
+ * of this app, so nothing about the extension tells them apart, and restoring
+ * one calculation over a list of twelve is the one mistake this file format has
+ * to make impossible.
+ */
+const BACKUP_KIND = 'sdshc-grazing-calculator-backup'
+
+export function exportBackupJSON() {
+  try {
+    return JSON.stringify(
+      {
+        kind: BACKUP_KIND,
+        backupVersion: 1,
+        schemaVersion: SCHEMA_VERSION,
+        exportedAt: new Date().toISOString(),
+        calculations: listCalcs(),
+      },
+      null,
+      2
+    )
+  } catch {
+    // This module promises never to throw, and that has to hold here too.
+    return null
+  }
+}
+
+/**
+ * Parse a backup file. Returns `{ok, calcs}` or `{ok: false, error}`.
+ *
+ * A single-calculation file gets its own message rather than the generic
+ * refusal. It is the near miss somebody will actually hit, and "that is not a
+ * backup" leaves them with no idea that the control they wanted is sitting one
+ * link away on the same row.
+ *
+ * An empty backup is refused. Restoring one would be a way to delete every
+ * calculation on the device by answering a confirm dialog about a file that
+ * turned out to hold nothing.
+ */
+export function importBackupJSON(text) {
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { ok: false, error: 'That file is not a backup of your saved calculations.' }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, error: 'That file is not a backup of your saved calculations.' }
+  }
+  if (parsed.kind !== BACKUP_KIND) {
+    return {
+      ok: false,
+      error: Array.isArray(parsed.samples)
+        ? 'That file holds one calculation, not a backup. Use "Upload a calculation" to bring it in alongside what you already have.'
+        : 'That file is not a backup of your saved calculations.',
+    }
+  }
+  if (!Array.isArray(parsed.calculations)) {
+    return { ok: false, error: 'That backup file is damaged and cannot be read.' }
+  }
+
+  // Same rule as listCalcs(): one unreadable record is skipped, never fatal to
+  // the rest of the file.
+  const calcs = []
+  for (const record of parsed.calculations) {
+    try {
+      if (record && typeof record === 'object' && record.id) calcs.push(migrate(record))
+    } catch {
+      /* skip this one, keep the rest */
+    }
+  }
+
+  if (!calcs.length) {
+    return { ok: false, error: 'That backup file has no calculations in it.' }
+  }
+  return { ok: true, calcs }
+}
+
+/**
+ * Replace the whole saved list. The one destructive write in this module.
+ *
+ * `lastKnownUpdatedAt` is cleared because every entry in it now describes a
+ * record this tab has not read. Left standing, a restored record older than the
+ * timestamp remembered for its id reads as "nobody has touched this since I
+ * last looked", and the next save overwrites it without asking.
+ *
+ * The working calculation is in another key and is not touched. It is not part
+ * of the saved list, so a restore has no business replacing what somebody has
+ * on screen.
+ */
+export function replaceAll(calcs) {
+  const result = writeKey(KEY, JSON.stringify(calcs))
+  if (result.ok) lastKnownUpdatedAt.clear()
+  return result
 }

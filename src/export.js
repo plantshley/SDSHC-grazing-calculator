@@ -13,6 +13,7 @@
 
 import { FORMATTERS } from './ui/format.js'
 import { GOALS } from './calc.js'
+import { exportCalcJSON, exportBackupJSON } from './storage.js'
 import { forageById, MIXED, stagesFor } from './data/forage.js'
 
 /* ────────────────────────────── plumbing ───────────────────────────────── */
@@ -142,6 +143,41 @@ export function downloadCSV(calc, res) {
 
 export function printResults() {
   window.print()
+}
+
+/* ─────────────────────────────── JSON files ────────────────────────────── */
+
+/**
+ * One calculation as a file, to carry to another device or hand to somebody
+ * else who uses this calculator. It comes back in through "Upload a
+ * calculation" on the Saved tab.
+ */
+export function downloadCalcJSON(calc) {
+  const text = exportCalcJSON(calc)
+  if (!text) {
+    alert('That calculation could not be written to a file.')
+    return
+  }
+  download(safeFilename(calc.name, 'json'), new Blob([text], { type: 'application/json' }))
+}
+
+/**
+ * The whole saved list as one file.
+ *
+ * Dated rather than named, so backups taken on different days sit beside each
+ * other in the downloads folder instead of overwriting one another.
+ */
+export function downloadBackup() {
+  const text = exportBackupJSON()
+  if (!text) {
+    alert('The backup could not be written.')
+    return
+  }
+  const day = new Date().toISOString().slice(0, 10)
+  download(
+    `sdshc-grazing-calculations-${day}.json`,
+    new Blob([text], { type: 'application/json' })
+  )
 }
 
 /* ────────────────────────────── PNG image ──────────────────────────────── */
