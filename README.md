@@ -57,14 +57,16 @@ design system in `src/styles.css` is shared with
 app-specific styles live in `src/app.css`.
 
 See [CLAUDE.md](CLAUDE.md) for the contracts worth knowing before changing the
-model, the storage layer, or the design tokens.
+model, the storage layer, or the design tokens, and
+[DESIGN-NOTES.md](DESIGN-NOTES.md) for the reasoning behind each one.
 
 ## Photography still wanted
 
 The forage type picker and the growth stage picker have photo slots that
 currently render labelled placeholders. Filling them is a data-file edit with no
-code change. See the table in [CLAUDE.md](CLAUDE.md#photo-and-media-slots) for
-exactly which images are needed.
+code change. See the table in
+[DESIGN-NOTES.md](DESIGN-NOTES.md#still-wanted) for exactly which images are
+needed.
 
 ## Not yet built
 
