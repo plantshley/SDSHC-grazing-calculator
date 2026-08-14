@@ -25,7 +25,12 @@ export default defineConfig({
         short_name: 'Grazing Calc',
         description:
           'Work out grazing days, acres needed, or animals allowed from clipped forage samples. South Dakota Soil Health Coalition.',
-        theme_color: '#2E7D32',
+        // Must match <meta name="theme-color"> in index.html and BAR_COLOR in
+        // prefs.js. The meta is what a browser tab reads; this is what an
+        // installed copy reads, and on Android it is baked into the WebAPK at
+        // install time — changing it here does nothing to an already-installed
+        // copy until Chrome refreshes the APK or the user reinstalls.
+        theme_color: '#afbf42',
         background_color: '#f7f9f7',
         display: 'standalone',
         orientation: 'portrait-primary',

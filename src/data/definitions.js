@@ -48,7 +48,7 @@ export const DEFINITIONS = {
     title: 'Spread between samples',
     body: [
       'The gap between your lightest and heaviest sample, next to the average.',
-      'A wide spread means the stand is patchy and the average is resting on very little. Clip a few more spots. It costs a few minutes and it is the cheapest accuracy in the whole worksheet.',
+      'A wide spread means the stand is patchy and the average is resting on very little. It is recommended to clip a few more spots to improve the estimate accuracy.',
     ],
   },
 

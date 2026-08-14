@@ -110,6 +110,20 @@ pill to Other frame, in place, without a re-render: `syncFramePill()` in
 `main.js` updates `aria-pressed` directly, because rendering would take the
 caret out of the box mid-number.
 
+Going the other way, from a preset back to Other frame, empties the box. The
+first build left the figure there, on the reasoning that starting from something
+beats starting from blank. That was wrong for a reason the frame question makes
+specific: 0.96 sq ft is a perfectly plausible size for somebody's own frame, so
+a producer who pressed "Other frame" because they do not own either hoop was
+shown a number that looked like an answer, with nothing on screen to say it was
+the small hoop's. Blank is this app's way of saying a question is outstanding,
+and that is exactly what the question now is.
+
+Only when LEAVING a preset, though. Pressing "Other frame" while already on it
+is not a change of mind about the frame, and wiping a measurement somebody
+typed would be the worse failure of the two — which is why the handler reads the
+old key before overwriting it rather than testing the new one alone.
+
 ---
 
 ## Exhibit 4-2 lives in one file
@@ -161,6 +175,43 @@ expanding it.
 The same rule is why `renderResults()` is called on a full render only and
 `updateOutputs()` on every keystroke: re-rendering the cards to refresh a figure
 would tear the focus out of the paddock width box on every character typed.
+
+### The autosave says so
+
+The working calculation has always been written on every keystroke, and until
+now the only evidence of it was that a reload did not lose anything. That is
+evidence you get by risking the thing you are worried about. `[data-autosave]`
+in the sticky bar says "Saving…" while the 400ms debounce is pending and
+"✓ Saved" once `saveWorking()` has returned, painted by `paintAutosave()` from
+`refresh()` for the same reason the figures beside it are placeholders.
+
+Four decisions in it are not obvious.
+
+It renders only when the calculation is already in the saved list, off the same
+`saved` flag the button beside it reads. The first build showed it always, which
+put "✓ Saved" immediately next to a button reading "Save calculation" — two
+statements about saving, disagreeing, six pixels apart. Of the two the button is
+the one that matters, because it is the difference between work that survives
+this browser being cleared and work that does not. Once the record is in the
+list the button reads "Edit saved" and there is nothing left to contradict.
+
+It is **not** an `aria-live` region. Polite live text is the reflex for a status
+that changes, and here it would announce "Saving, Saved" after every character
+typed, over the top of the field being filled in. A screen reader user gets a
+plain readable label instead, in a bar they can reach whenever they want it.
+
+Its resting state before anything is typed is **empty**, not "Saved". A bar
+claiming the work is safe over a form nobody has touched is reassurance about
+nothing, and it spends the credibility that makes the real "Saved" worth
+reading.
+
+And the failure state is the reason the whole thing earns its place. `storage.js`
+never throws and the autosave is silent by design, so a full quota or a
+locked-down Safari lost every keystroke with nothing anywhere to say so. "✕ Not
+saved" in `--cost` is the first thing in the app that reports it. The bar has
+room for two words, so the sentence behind them is a `title`; nothing that
+matters is only said there, because an explicit save that cannot be written
+still raises its own alert.
 
 ---
 
@@ -217,6 +268,44 @@ and a list that reorders itself because somebody pressed a swatch is surprising.
 Grey is not one of the eleven swatches. Grey is already what an untagged card
 looks like (`.saved-card--untagged`), and offering it gives two ways to say the
 same thing with no way to see which was meant.
+
+### The head is one flex container, and the card lost a line
+
+The file controls belong beside "+ New calculation" on a desktop and below the
+filter's hint on a phone. `order` is the only mechanism that moves a box between
+those two places without rendering it twice, and `order` works between siblings
+only — so the filter box and its hint are rendered inside `.saved-head` rather
+than under it, taking a full row of it each. Splitting them back out into the
+box is the change that would break the phone layout with nothing failing.
+
+The card itself carried the goals twice: once as a comma list on the meta line
+("Grazing days, Acres needed, Animals allowed") and again immediately underneath
+as the labelled figures for those same three goals. The list went. It was the
+line that cost the most height and said the least, on a card that is one per row
+on a phone and therefore the whole reason the Saved tab scrolls.
+
+The sizes came down at every width, not only on a phone. A saved list is
+somebody looking for one pasture among eight, so the cards are built to be
+scanned rather than read, and the desktop grid puts three or four of them across
+a row where the height of each one decides how much of the list is on screen at
+once. Only the name holds its weight: everything under it answers "is this the
+one", and a list stops being skimmable the moment every line on a card is as
+loud as every other. So the name comes down least and the meta line comes down
+most, and the phone takes one further step from there rather than being a
+separate set of sizes.
+
+This is also the one place mono reduces a FIGURE, against the rule in the block
+above it. The saved-card figures are three short labelled lines on a card that is
+already the tightest thing in the app, not a column anybody reads down. The
+figures the face was chosen for are the readouts and the chart, and those keep
+their sizes.
+
+That left `.saved-figs` starting at the card's padding while the name and meta
+above it start past the drag handle, which read as two blocks rather than one
+card. `--grip` on `.saved-card` is the handle's width less its negative margin
+plus the gap after it, and it indents the figures by the same amount. A variable
+rather than a repeated 26px, because three rules have to agree about it and the
+handle keeps its size on a phone while everything around it comes down.
 
 ---
 
@@ -297,6 +386,42 @@ other out of the accessibility tree, so the page still has one `h1`. **Adding a
 third copy, or dropping either breakpoint, gives it two.** The topbar one is
 absolutely centred rather than made a third flex child, because the logo and the
 controls are nowhere near the same width.
+
+That divergence is what makes the third font choice a layout question. At 320px
+the row is a logo, three pills and a theme toggle inside 288px, and it does not
+fit: the wordmark alone is 168px at its natural height. Four things were on the
+table. Letting the topbar wrap below 420px was rejected because it undoes the
+divergence above for the one width it was written for. Shortening the labels to
+"Br / Cl / Mo" was rejected because a font control nobody can read is worse than
+no font control. Squeezing the wordmark to 80px was tried and is an illegible
+smudge, which is the same objection. What ships instead is a second image: the
+square mark, already in `public/` as the PWA icon so it costs nothing in the
+precache, swapped in below 440px with `display: none` on the wordmark. Same
+rule as the two titles — exactly one is in the page at any width.
+
+Mono is the third face, and it is the one that changes sizes. A monospaced stack
+sets every glyph on the same advance, so at a given px size it reads bigger than
+the proportional stack. On the figures that is the point: a column of sample
+weights and a row of dry matter percentages line up without asking for
+`tabular-nums`. On the prose it is not. The hints, notices and card sub-labels
+are deliberately quieter than the thing they are about, and in mono they stopped
+being quieter, so the small prose comes down one step and nothing else moves.
+
+Two ways to do that were considered. A scale factor on a container is one rule
+instead of thirty, and it was rejected because `font-size` on an ancestor takes
+the inputs and the readouts with it — including the 16px on `input, select`,
+which exists to stop iOS Safari zooming the page on focus and not zooming back
+out. So the reduction is written per selector. The box sizes themselves come
+down only under `@media (hover: hover)`, which is the media feature that names
+desktop; iOS Safari reports `hover: none` and keeps its 16px. Placeholders use
+`1em` rather than a px figure so one rule scales every box proportionally
+without knowing which boxes are narrow.
+
+Both mono blocks sit last in their file, and that is load-bearing rather than
+tidy: the rules are one selector deep, so any `.something .hint { font-size }`
+added later anywhere in either sheet beats them. Where something already is two
+deep — `.forage-card .pick-sub`, `.sticky-links .tip` — it is matched at that
+depth rather than written short and left silently not working.
 
 Rules that outlive any one app: `--green` means a positive number, not an
 action. `--sky` is the one loud button per screen and the KPI card edge. Colour
@@ -407,6 +532,31 @@ site root.
 
 `.github/workflows/deploy.yml` runs `npm test` before `npm run build`, so a
 broken model blocks the deploy. Keep it that way.
+
+### The browser bar colour is in three places
+
+Changing `<meta name="theme-color">` on its own looks like it does nothing, and
+there are two separate reasons for that, either of which is enough on its own.
+
+The manifest carries its own `theme_color`, and it was left at the old value
+while the meta was changed. An installed copy reads the manifest, not the meta,
+so on a phone that had added the app to its home screen the old colour was still
+the correct answer. On Android it is worse than stale: the colour is baked into
+the generated WebAPK when the app is installed, so it survives a manifest change
+until Chrome refreshes the APK on its own schedule or the user reinstalls.
+
+And `index.html` is precached. The reload that fetches the new service worker is
+still served the old document out of the cache, because the navigation is
+answered before the new worker takes over. The second reload gets the new one.
+Every "I changed it and deployed and nothing happened" in this app has this
+shape; it is not specific to the meta tag.
+
+A third copy exists on purpose. `BAR_COLOR` in `prefs.js` rewrites the meta from
+`applyTheme()`, so the bar follows the in-app light/dark toggle. The obvious
+alternative, two metas with `media="(prefers-color-scheme: dark)"`, was rejected
+because the theme here is a stored choice that is allowed to disagree with the
+system setting: a producer on a dark phone who picked light would get a dark bar
+over a light page, and the media query has no way to know.
 
 ---
 

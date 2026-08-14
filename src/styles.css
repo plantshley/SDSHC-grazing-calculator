@@ -203,6 +203,20 @@
   --font: Arial, Helvetica, sans-serif;
 }
 
+/* "Mono" = a fixed-pitch stack, for a page whose whole output is columns of
+   figures. Every digit is the same width in it, so the sample weights, the dry
+   matter chart and the result figures line up without the
+   `font-variant-numeric: tabular-nums` the rest of the sheet has to ask for.
+
+   No webfont is loaded. This app is a PWA that has to work in a pasture with no
+   signal, and a font fetched over the network is a font that is not there when
+   it matters. JetBrains Mono is named first for the producer who already has it
+   installed, and everything after it is a font the device ships with. */
+[data-font="mono"] {
+  --font: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1073,6 +1087,108 @@ body.modal-open {
 @media (max-width: 420px) {
   .toplogo {
     max-height: 36px;
+  }
+}
+
+
+/* ---- mono: the prose comes down a step -----------------------------------
+
+   A monospaced face sets every glyph on the same advance, so at a given px size
+   it runs 5-10% wider and reads BIGGER than the proportional stack beside it.
+   That is the point of it on the figures, where a column of sample weights and
+   a row of dry matter percentages line up. It is not the point of it on the
+   prose: the hints, the notes and the footer are all deliberately quieter than
+   the thing they are about, and in mono they stopped being quieter.
+
+   So the small prose comes down one step and nothing else moves. Field labels,
+   readouts, headings and every figure keep their size — the figures are what
+   somebody chose this face FOR, and shrinking them would undo the choice.
+
+   Scoped by selector rather than by a scale factor on a container, because
+   `font-size` on an ancestor would take the inputs and the readouts with it.
+
+   THIS BLOCK SITS LAST ON PURPOSE, and app.css's half of it sits last in that
+   file for the same reason. A rule here is one selector deep, so a
+   `.something .hint { font-size }` added later anywhere in either sheet beats
+   it. If a size stops taking effect in mono, that is why: match the depth of
+   whatever is winning.
+   -------------------------------------------------------------------------- */
+[data-font="mono"] .hint,
+[data-font="mono"] .modal-unit,
+[data-font="mono"] .modal-note,
+[data-font="mono"] .modal-warn {
+  font-size: 10px;
+}
+
+[data-font="mono"] .tip,
+[data-font="mono"] .footer,
+[data-font="mono"] .footer .tip {
+  font-size: 11px;
+}
+
+[data-font="mono"] .line-tip,
+[data-font="mono"] .field-label .line-tip,
+[data-font="mono"] .sub-note,
+[data-font="mono"] .modal-source,
+[data-font="mono"] .sticky-figs small,
+[data-font="mono"] .btn-remove {
+  font-size: 10px;
+}
+
+/* The modal body is the longest continuous prose in the app — a definition runs
+   to five paragraphs and the guide runs to several screens. It is the place a
+   fixed-pitch face costs the most, because there is nothing beside it to be
+   quieter than: the whole panel is text, and at the proportional size it reads
+   as a wall.
+
+   The fold summaries come with it, at the same size as the prose — which is the
+   relationship they already have, their weight rather than their size being
+   what makes a list of terms read as a list. The heading keeps its half a pixel
+   over the paragraphs for the same reason: these are the sizes the modal
+   already had, moved down together, not a new hierarchy. */
+[data-font="mono"] .def p,
+[data-font="mono"] .def li,
+[data-font="mono"] .def-fold > summary,
+[data-font="mono"] .typ-fold > summary {
+  font-size: 13px;
+}
+
+[data-font="mono"] .def h3 {
+  font-size: 13.5px;
+}
+
+/* PLACEHOLDERS come down; the input's own text is a separate question, below.
+
+   `em`, not a px figure, and that is the whole trick: a placeholder's `em`
+   resolves against the input it sits in, so one rule scales every box
+   proportionally without this block having to know which boxes are narrow.
+   A blanket px value would have made the narrow ones BIGGER.
+
+   iOS Safari's zoom-on-focus is keyed to the INPUT's font-size and not the
+   placeholder's, so this half is free. */
+[data-font="mono"] ::placeholder {
+  font-size: 1em;
+}
+
+/* And the boxes themselves, which are the hard case.
+   -------------------------------------------------
+   `input, select` is 16px for one reason, written beside it: iOS Safari ZOOMS
+   THE PAGE when a field under 16px takes focus, and it does not zoom back out.
+   A producer entering a sample weight in a pasture would be left scrolled
+   sideways in a magnified page, having to pinch out before the next weight. Any
+   reduction triggers it — 15px is as bad as 12px, the threshold is a cliff.
+
+   So the reduction is scoped to pointers that hover, which is desktop. iOS
+   Safari reports `hover: none` and keeps its 16px; the trap is a phone-browser
+   behaviour and this is the media feature that names phone browsers.
+
+   If a box should read smaller on a phone too, that is a decision to accept the
+   zoom, and it is made by deleting this media wrapper — not by nudging the
+   16px, which does the same thing without saying so. */
+@media (hover: hover) {
+  [data-font="mono"] input,
+  [data-font="mono"] select {
+    font-size: 14px;
   }
 }
 

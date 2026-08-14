@@ -67,6 +67,11 @@ The form defaults to **Other frame with an empty box** — blank means the frame
 still an outstanding question. Typing over a preset moves the pill to Other
 frame in place via `syncFramePill()`, without a re-render, to keep the caret.
 
+Leaving a preset for Other frame **empties the box**, and only then: pressing
+Other frame while already on it must not wipe a measurement that was typed in.
+The state that leaves behind is the app's own starting state, so every answer
+goes back to a dash until a real measurement arrives.
+
 ### Exhibit 4-2 lives in one file
 
 `src/data/forage.js` is the only copy of the NRPH dry matter table. **A
@@ -100,6 +105,17 @@ anything inside a `button`.
 
 `renderResults()` runs on a full render only, `updateOutputs()` on every
 keystroke — re-rendering cards to refresh a figure tears out focus.
+
+The autosave's state in the sticky bar is a `[data-autosave]` placeholder under
+the same rule, painted by `paintAutosave()` from `refresh()`. It is **not**
+`aria-live`: it changes on every keystroke, and announcing "Saving, Saved" over
+the field being filled in is not reassurance. Its resting state before anything
+is typed is empty, because a bar claiming "Saved" over a blank form is telling
+somebody their work is safe before there is any.
+
+It renders **only when the calculation is in the saved list** (the same `saved`
+flag the button reads). Beside a button offering to "Save calculation" a line
+reading "Saved" contradicts it, and the button is the one that matters.
 
 ### `openModal()` hands back a NEW body element every time
 
@@ -139,6 +155,17 @@ what every keystroke does; the comma is for listing two pastures side by side.
 a filter, and treating it as one would hide nothing while switching reordering
 off, which reads as the drag handle having broken. The date is matched as
 **displayed**, not as stored.
+
+The filter box and its hint are rendered **inside** `.saved-head`, not under it,
+so they are siblings of `.head-tools` and CSS `order` can put the file controls
+below the hint on a phone and beside "+ New calculation" on a desktop. `order`
+only works between siblings; splitting them back out breaks the phone layout
+with nothing failing.
+
+A card's meta line is pasture, forage and date. It does **not** list the goals:
+every goal is a labelled figure two lines below it. `.saved-figs` is indented by
+`--grip` on `.saved-card`, the width the drag handle takes out of the row above,
+so the figures start on the name's left edge.
 
 ### Clearing is per step, and it names its own scope
 
@@ -224,7 +251,19 @@ wraps here.
 
 The tool's name is in the page twice, `.topbar-title` (900px up) and `.app-title`
 (below), with `display: none` on the other so the page has one `h1`. **Adding a
-third copy, or dropping either breakpoint, gives it two.**
+third copy, or dropping either breakpoint, gives it two.** The logo is in the
+page twice for the same reason and under the same rule: `.toplogo-wide` and,
+below 440px where three font choices have to fit on a row that cannot wrap,
+`.toplogo-mark`.
+
+Three font choices, `browser` / `classic` / `mono`, and `FONTS` in `prefs.js` is
+the list. Anything else stored falls back to `browser`, so a page can never end
+up with no `--font`. Mono brings the small **prose** down a step and leaves every
+**figure** alone — the columns are what somebody picks that face for. The rules
+are split across both sheets under the same heading, shared classes in
+`styles.css` and this app's in `app.css`, and **both blocks sit last in their
+file**: they are one selector deep, so any `.something .hint { font-size }` added
+later beats them. Match the depth of whatever is winning.
 
 `--green` means a positive number, not an action. `--sky` is the one loud button
 per screen and the KPI card edge. Colour is never the only signal. `--cost` /
@@ -271,6 +310,19 @@ page, which breaks on any path but the site root.
 
 `.github/workflows/deploy.yml` runs `npm test` before `npm run build`, so a
 broken model blocks the deploy. Keep it that way.
+
+The phone's browser bar colour is in **three** places and they must agree:
+`<meta name="theme-color">` (what a browser tab reads), `theme_color` in
+`vite.config.js`'s manifest (what an installed copy reads), and `BAR_COLOR` in
+`prefs.js`, which rewrites the meta so the bar follows the in-app theme toggle.
+A `media="(prefers-color-scheme: dark)"` meta would not do that job — the theme
+is a stored choice that is allowed to disagree with the system setting.
+
+Changing it does not show up on the next refresh. `index.html` is precached, so
+the reload that fetches the new service worker is still served the old document;
+it takes a second reload. On Android the manifest colour is baked into the
+WebAPK at install time, so an installed copy keeps the old one until Chrome
+refreshes the APK or the user reinstalls.
 
 ## Known limits
 

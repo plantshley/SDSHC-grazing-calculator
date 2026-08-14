@@ -258,6 +258,23 @@ test('a frame preset fills the area box, and typing over it is Other frame', () 
   assert.equal($('[data-path="frame.customArea"]').value, '0.96', 'and the preset comes back')
   assert.equal(out('totalProduction'), '2,500 lbs/ac', 'on the worksheet constant, not 100.03')
 
+  // Leaving a preset for Other frame empties the box. 0.96 left sitting there
+  // is the hoop's figure, not the user's, and it is plausible enough as
+  // somebody's own frame that nothing on screen would say otherwise.
+  click('[data-action="set-frame"][data-mode="custom"]')
+  assert.equal($('[data-path="frame.customArea"]').value, '', 'the preset does not follow you out')
+  // Which puts the app back in exactly the state it starts in: Other frame with
+  // an empty box is the app's way of saying the frame is still outstanding, so
+  // every answer goes back to a dash until a measurement is typed.
+  assert.equal($('[data-headline="days"]').textContent, '—')
+
+  // But pressing Other frame while already on it is not a change of mind, and
+  // must not wipe a measurement that was typed in.
+  type('[data-path="frame.customArea"]', '2')
+  click('[data-action="set-frame"][data-mode="custom"]')
+  assert.equal($('[data-path="frame.customArea"]').value, '2')
+
+  click('[data-action="set-frame"][data-mode="small"]')
   click('[data-action="go-step"][data-step="4"]')
 })
 
@@ -991,4 +1008,138 @@ test('a backup carries the whole list, and the two file kinds are told apart', a
   assert.equal(storage.listCalcs().length, 1)
   storage.replaceAll(read.calcs)
   assert.equal(storage.listCalcs().length, list.length, 'and the list comes back whole')
+})
+
+test('a definition does not say its own name twice', () => {
+  // The `?` beside the file controls opens one definition, so the modal head
+  // already carries the term. An <h3> repeating it was the first line of the
+  // panel every time.
+  click('[data-info="backupFile"]')
+  assert.equal($('.modal-title').textContent, 'Backups and calculation files')
+  assert.equal($('.modal-body h3'), null, 'and the body starts on the prose')
+  assert.ok($('.def p'), 'which is there')
+  click('.modal-close')
+
+  // Several definitions at once still need their own headings, because the
+  // modal head names the section rather than any one term.
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  const section = $('.help-btn[data-info-title]')
+  assert.ok(section, 'a section `?` covering more than one term')
+  click(section)
+  assert.equal($('.modal-title').textContent, section.dataset.infoTitle)
+  assert.ok($$('.def-fold > summary').length > 1, 'one fold per term')
+  click('.modal-close')
+})
+
+test('Mono is a third font choice and a bad stored value is not', async () => {
+  const prefs = await import('../src/prefs.js')
+  const seg = (choice) => $(`[data-font-choice="${choice}"]`)
+
+  assert.deepEqual(
+    $$('[data-font-choice]').map((b) => b.dataset.fontChoice),
+    ['browser', 'classic', 'mono']
+  )
+
+  click(seg('mono'))
+  assert.equal(document.documentElement.dataset.font, 'mono')
+  assert.equal(seg('mono').getAttribute('aria-pressed'), 'true')
+  assert.equal(seg('browser').getAttribute('aria-pressed'), 'false')
+  assert.equal(prefs.getPref('font'), 'mono', 'and it is remembered')
+
+  // A value from an older build, or a hand-edited key. The page must not end up
+  // with no --font at all.
+  prefs.setPref('font', 'comic')
+  assert.equal(prefs.applyFont(), 'browser')
+  assert.equal(document.documentElement.dataset.font, 'browser')
+
+  prefs.setFont('browser')
+})
+
+test('the browser bar colour follows the theme toggle', async () => {
+  const prefs = await import('../src/prefs.js')
+  const meta = () => $('meta[name="theme-color"]').getAttribute('content')
+
+  prefs.setPref('theme', 'light')
+  prefs.applyTheme()
+  const light = meta()
+
+  prefs.setPref('theme', 'dark')
+  prefs.applyTheme()
+  assert.notEqual(meta(), light, 'a dark page does not keep a light browser bar')
+
+  prefs.setPref('theme', 'light')
+  prefs.applyTheme()
+  assert.equal(meta(), light)
+})
+
+test('the sticky bar says whether the autosave has landed', async () => {
+  const storage = await import('../src/storage.js')
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  const bar = () => $('[data-autosave]')
+
+  // Only for a calculation that is in the saved list. Beside a button reading
+  // "Save calculation" a line reading "Saved" contradicts it, and the button is
+  // the one that decides whether the work survives the browser being cleared.
+  assert.ok(
+    storage.listCalcs().some((c) => c.id === state.getCalculation().id),
+    'this test is standing on a calculation that IS in the list'
+  )
+  assert.ok($('[data-action="save-calc"]').textContent.includes('Edit'), 'so the button edits')
+
+  type('[data-path="demand.animalWeight"]', '1201')
+  assert.equal(bar().hidden, false)
+  assert.match(bar().textContent, /Saving/, 'while the debounce is still pending')
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      assert.match(bar().textContent, /Saved/, 'and once it is written')
+      assert.ok(bar().classList.contains('is-saved'))
+      // The state survives a full render, which rebuilds the bar. It is a
+      // [data-autosave] placeholder for the same reason every figure on the bar
+      // is a [data-out] one.
+      click('[data-action="toggle-show-all"]')
+      assert.match($('[data-autosave]').textContent, /Saved/)
+      click('[data-action="toggle-show-all"]')
+      type('[data-path="demand.animalWeight"]', '1200')
+
+      // And it is not in the page at all for work that is not in the list yet.
+      // Started, not merely blank: the sticky bar has to be on screen for the
+      // absence to mean anything.
+      click('[data-action="new-calc"]')
+      choose('input[data-action="toggle-goal"][value="days"]')
+      choose('input[data-action="set-forage"][value="coolSeasonGrass"]')
+      click('[data-action="start"]')
+      assert.ok($('.sticky-bar'), 'the bar is there')
+      assert.ok(
+        $('[data-action="save-calc"]').textContent.includes('Save'),
+        'and the button still offers to save'
+      )
+      assert.equal($('[data-autosave]'), null, 'so nothing beside it says it already is')
+      resolve()
+    }, 500)
+  })
+})
+
+test('a saved card names the pasture and the date, and not the goals again', () => {
+  click('[data-action="set-tab"][data-tab="saved"]')
+  const card = $('.saved-card')
+  const meta = card.querySelector('.saved-meta').textContent
+
+  assert.match(meta, /saved /, 'the date is on the meta line')
+  assert.doesNotMatch(meta, /Grazing days|Acres|Animals/, 'the goals are not')
+  // Because every one of them is a labelled figure two lines down.
+  assert.match(card.querySelector('.saved-figs').textContent, /Grazing days|Acres|Animals/)
+})
+
+test('on the Saved tab the file controls sit after the filter hint in the DOM', () => {
+  // They move below the hint on a phone with `order`, which only works between
+  // siblings. Nothing here can assert the phone layout — jsdom loads no CSS —
+  // so what is asserted is the arrangement `order` needs to exist.
+  const head = $('.saved-head')
+  const kids = [...head.children]
+  const at = (sel) => kids.findIndex((el) => el.matches(sel))
+
+  assert.ok(at('.head-tools') > -1, 'the file controls are in the head')
+  assert.ok(at('.saved-tools') > at('.head-tools'), 'and the filter is a sibling after them')
+  assert.ok(at('.saved-filter-hint') > at('.saved-tools'))
 })

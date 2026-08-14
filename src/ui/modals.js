@@ -170,24 +170,29 @@ export function openInfo(keys, title) {
   // first thing seen. A single definition is not a list, so it stays open:
   // folding one heading means tapping `?` and then tapping again to read it.
   const fold = entries.length > 1
+  const heading = title || entries[0].title
 
   const html = entries
     .map((d) => {
       const paras = d.body.map((p) => `<p>${esc(p)}</p>`).join('')
       const src = d.source ? `<p class="modal-source">${esc(d.source)}</p>` : ''
+      // A single definition takes its own title into the modal head, so an <h3>
+      // saying the same word again is the first line of every one of these
+      // panels wasted. It is kept only for the case where the two differ, which
+      // is a sectionInfo() called with one key.
+      const h3 = d.title === heading ? '' : `<h3>${esc(d.title)}</h3>`
       return fold
         ? `<details class="def def-fold">
              <summary>${esc(d.title)}</summary>
              <div class="def-fold-body">${paras}${src}</div>
            </details>`
         : `<section class="def">
-             <h3>${esc(d.title)}</h3>
-             ${paras}${src}
+             ${h3}${paras}${src}
            </section>`
     })
     .join('')
 
-  openModal(title || entries[0].title, html)
+  openModal(heading, html)
 }
 
 /**

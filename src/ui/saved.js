@@ -14,7 +14,6 @@
 import { esc, FORMATTERS } from './format.js'
 import { infoButton } from './fields.js'
 import { openModal, modalError } from './modals.js'
-import { GOALS } from '../calc.js'
 import { forageById, MIXED } from '../data/forage.js'
 
 /**
@@ -90,6 +89,24 @@ export function renderSaved(list, filter = '') {
       </div>`
   }
 
+  // The filter and its hint go INSIDE the head rather than under it. They are
+  // siblings of the file controls that way, which is the only arrangement in
+  // which CSS `order` can put those controls below the hint on a phone and
+  // beside "+ New calculation" on a desktop.
+  const filterRow = `
+    <div class="saved-tools">
+      <input type="search" class="saved-filter" data-saved-filter
+        value="${esc(filter)}" placeholder="Filter name, pasture, forage, or date saved"
+        aria-label="Filter saved calculations" />
+      ${
+        filtering
+          ? '<button type="button" class="tip" data-action="clear-saved-filter">Clear</button>'
+          : ''
+      }
+    </div>
+    <p class="hint saved-filter-hint">Separate words with a comma to list several at once.
+      "north, south" shows every card carrying either one.</p>`
+
   return `
     <div class="box">
       ${savedHead(
@@ -98,21 +115,9 @@ export function renderSaved(list, filter = '') {
            filtering
              ? 'Clear the search box to drag them into a different order.'
              : 'Drag a card by its handle to reorder the list.'
-         }`
+         }`,
+        filterRow
       )}
-
-      <div class="saved-tools">
-        <input type="search" class="saved-filter" data-saved-filter
-          value="${esc(filter)}" placeholder="Filter name, pasture, forage, or date saved"
-          aria-label="Filter saved calculations" />
-        ${
-          filtering
-            ? '<button type="button" class="tip" data-action="clear-saved-filter">Clear</button>'
-            : ''
-        }
-      </div>
-      <p class="hint saved-filter-hint">Separate words with a comma to list several at once.
-        "north, south" shows every card carrying either one.</p>
 
       ${
         shown.length
@@ -131,7 +136,7 @@ export function renderSaved(list, filter = '') {
  * someone lands who has finished one pasture and is starting the next, and the
  * only other route out of the Saved tab is to open a record they did not want.
  */
-function savedHead(hint) {
+function savedHead(hint, filterRow = '') {
   return `
     <div class="saved-head">
       <div class="saved-head-text">
@@ -155,6 +160,7 @@ function savedHead(hint) {
       <button type="button" class="btn-add btn-add-inline saved-new" data-action="new-calc">
         + New calculation
       </button>
+      ${filterRow}
     </div>`
 }
 
@@ -196,11 +202,9 @@ function matches(calc, terms) {
 
 function cardFor(calc, filtering) {
   const res = calc.results ?? {}
-  const goals = (calc.goals ?? [])
-    .map((g) => GOALS.find((x) => x.key === g)?.short)
-    .filter(Boolean)
-    .join(', ')
-
+  // The goals are NOT listed here. Every one of them is a labelled figure two
+  // lines further down, so naming them first said the same thing twice in a
+  // card whose whole problem is height.
   const forage =
     calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label ?? ''
 
@@ -226,9 +230,11 @@ function cardFor(calc, filtering) {
         <div class="saved-headings">
           <div class="saved-name">${esc(calc.name || 'Untitled')}</div>
           <div class="saved-meta">
-            ${esc([calc.pastureName, forage].filter(Boolean).join(' · '))}
-            ${calc.pastureName || forage ? '<br />' : ''}
-            ${esc(goals)} · saved ${esc(shortDate(calc.updatedAt))}
+            ${esc(
+              [calc.pastureName, forage, `saved ${shortDate(calc.updatedAt)}`]
+                .filter(Boolean)
+                .join(' · ')
+            )}
           </div>
         </div>
       </div>

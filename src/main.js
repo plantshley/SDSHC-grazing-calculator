@@ -238,6 +238,7 @@ function refresh() {
   }
 
   updateOutputs(res, app)
+  paintAutosave()
   return res
 }
 
@@ -245,10 +246,54 @@ function refresh() {
 
 let saveTimer = null
 
+/**
+ * What the sticky bar says about the autosave.
+ *
+ * `''` before anything has been typed: a bar claiming "Saved" over an empty form
+ * on first load is telling somebody their work is safe before there is any.
+ *
+ * The failed state is the one this exists for. The autosave is silent by design
+ * and storage.js never throws, so a full quota or a locked-down Safari would
+ * otherwise lose every keystroke with nothing on screen to say so.
+ */
+const AUTOSAVE = {
+  saving: { text: 'Saving…', cls: '', hint: 'Your work is being written to this device.' },
+  saved: { text: '✓ Saved', cls: 'is-saved', hint: 'Your work is on this device. Closing the page will not lose it.' },
+  error: {
+    text: '✕ Not saved',
+    cls: 'is-error',
+    hint: 'This browser refused to store your work. It may be out of space, or in private browsing.',
+  },
+}
+
+let autosaveState = ''
+
+function setAutosave(state) {
+  autosaveState = state
+  paintAutosave()
+}
+
+/** Called from refresh() and after every full render, like any [data-out]. */
+function paintAutosave() {
+  const el = app.querySelector('[data-autosave]')
+  if (!el) return
+  const shown = AUTOSAVE[autosaveState]
+  el.hidden = !shown
+  el.textContent = shown?.text ?? ''
+  el.className = `autosave ${shown?.cls ?? ''}`.trim()
+  // The bar has room for two words. The sentence behind them is a title, which
+  // is a desktop affordance, so nothing that matters is only said here: an
+  // explicit save that cannot be written still raises its own alert.
+  el.title = shown?.hint ?? ''
+}
+
 subscribe(() => {
   refresh()
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => saveWorking(getCalculation()), 400)
+  setAutosave('saving')
+  saveTimer = setTimeout(() => {
+    setAutosave(saveWorking(getCalculation()).ok ? 'saved' : 'error')
+  }, 400)
 })
 
 /* ─────────────────────── writing by path, one listener ─────────────────── */
@@ -668,13 +713,23 @@ function handleAction(action, btn) {
 
     /* step 2 */
     case 'set-frame': {
+      const was = FRAMES.find((f) => f.key === calc.frame.key)
       calc.frame.key = btn.dataset.mode
       // A preset is a shortcut to a number, not a replacement for one. It fills
       // the box in so the figure being used is on screen and can be measured
-      // against the hoop in the pickup, and so switching to "Other frame" starts
-      // from something rather than from blank.
+      // against the hoop in the pickup.
       const preset = FRAMES.find((f) => f.key === calc.frame.key)
       if (preset?.area != null) calc.frame.customArea = String(preset.area)
+      // Leaving a preset for "Other frame" empties the box, because the figure
+      // in it is the preset's and not the user's. Left there it reads as an
+      // answer, and 0.96 sq ft is a plausible enough number for somebody's own
+      // frame that nothing on screen would say otherwise. Blank is the app's way
+      // of saying a question is still outstanding, which this one now is.
+      //
+      // Only when LEAVING a preset. Pressing "Other frame" while already on it
+      // is not a change of mind about the frame, and must not wipe a measurement
+      // that was typed in.
+      else if (was?.area != null) calc.frame.customArea = ''
       notify()
       render()
       break

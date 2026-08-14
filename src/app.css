@@ -21,6 +21,15 @@
   flex-wrap: nowrap;
 }
 
+/* The square mark, for the widths where the wordmark and three font choices do
+   not both fit on a row that is not allowed to wrap. Only ever one of the two
+   images is displayed. The wordmark is the compressible one here: squeezed to
+   80px it is an illegible smudge, while the mark is the same brand at 36px and
+   the row underneath carries the tool's name regardless. */
+.toplogo-mark {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .toplogo {
     max-width: min(45%, 200px);
@@ -37,7 +46,7 @@
 
   .seg {
     font-size: 12px;
-    padding: 5px 9px;
+    padding: 5px 8px;
   }
 
   .theme-toggle {
@@ -46,14 +55,39 @@
   }
 }
 
-@media (max-width: 420px) {
-  .toplogo {
-    max-width: 40%;
+@media (max-width: 440px) {
+  .toplogo-wide {
+    display: none;
+  }
+
+  .toplogo-mark {
+    display: block;
   }
 
   .seg {
     font-size: 11.5px;
-    padding: 5px 8px;
+    padding: 5px 7px;
+  }
+}
+
+/* 320px, where the three choices are what the row is mostly made of. */
+@media (max-width: 360px) {
+  .topbar {
+    gap: 8px;
+  }
+
+  .topbar-controls {
+    gap: 6px;
+  }
+
+  .seg {
+    font-size: 11px;
+    padding: 5px 5px;
+  }
+
+  .theme-toggle {
+    width: 30px;
+    height: 30px;
   }
 }
 
@@ -533,16 +567,25 @@
   content: '\2713';
 }
 
+/* overflow-wrap, because several of these cards sit in fixed-column grids that
+   are narrower than one of their own words. "Dissemination" in the stage picker
+   is the case that bit: a single word cannot wrap, and .pick-body carries
+   min-width:0, so it ran out past the card's right-hand edge instead of being
+   contained. break-word rather than anywhere: it breaks a word only when there
+   is no other option, and leaves the intrinsic min-content width alone so the
+   grids that DO size to their content are unaffected. */
 .pick-title {
   font-size: 15px;
   font-weight: bold;
   color: var(--brand-ink);
+  overflow-wrap: break-word;
 }
 
 .pick-sub {
   font-size: 12.5px;
   color: var(--muted);
   line-height: 1.4;
+  overflow-wrap: break-word;
 }
 
 /* ---- forage picker ------------------------------------------------------
@@ -765,6 +808,38 @@ body:has(.sticky-bar) {
   font-size: 12.5px;
   min-height: 0;
   padding: 2px 0;
+}
+
+/* The autosave, under "Show all steps".
+   ------------------------------------
+   Muted while it says "Saving…" and green once it has, so the resting state is
+   the reassuring one and the transient state does not flash a colour on every
+   keystroke. Never --sky: that is the one loud button per screen, and this is
+   not a button.
+
+   .sticky-links is align-items:flex-end, so the right edge stays put and the
+   three strings grow leftwards from it rather than shifting the row. They are
+   kept short and nowrap for the same reason: a line that wraps makes the whole
+   bar taller mid-edit, and the bar overlays the form. */
+.autosave {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.autosave.is-saved {
+  color: var(--green);
+}
+
+/* Something to go and fix, which is what this token is for elsewhere in the
+   app. Losing the autosave is the one storage failure the user can act on, by
+   freeing space or leaving private browsing. */
+.autosave.is-error {
+  color: var(--cost);
+  font-weight: bold;
 }
 
 /* ---- setup chip row ----------------------------------------------------- */
@@ -2083,11 +2158,15 @@ body:has(.sticky-bar) {
   align-self: center;
 }
 
+/* Both are children of .saved-head, not siblings of it, so that `order` can
+   move .head-tools past them on a phone. They take a full row of it. */
 .saved-tools {
+  order: 1;
+  flex: 0 0 100%;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 12px 0;
+  margin: 12px 0 0;
 }
 
 .saved-filter {
@@ -2098,24 +2177,43 @@ body:has(.sticky-bar) {
 /* Sits under the box it describes, not in the hint at the top of the tab. The
    comma rule is only worth reading while looking at the thing it applies to. */
 .saved-filter-hint {
-  margin: -6px 0 12px;
+  order: 2;
+  flex: 0 0 100%;
+  margin: 6px 0 0;
   font-size: 12.5px;
 }
 
+/* ---- the cards ----------------------------------------------------------
+   Built to be SCANNED, not read. A saved list is somebody looking for one
+   pasture among eight, and the sizes below are set so that the whole list fits
+   in a glance rather than so that any one card reads comfortably on its own.
+
+   Only the name holds its weight. Everything under it is the answer to "is this
+   the one", and a list stops being skimmable the moment every line on a card is
+   as loud as every other. So the name comes down least and the meta line comes
+   down most, at every width. */
 .saved-list {
+  margin-top: 12px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
+/* --grip is what the drag handle occupies at the head of the card: its own
+   width, less the negative margin that pulls it back into the padding, plus the
+   gap after it. .saved-figs is a sibling of that row rather than a child of it,
+   so it is indented by the same figure to start on the name's left edge. One
+   variable rather than a repeated 26px, because three rules have to agree and
+   the handle changes size on a phone. */
 .saved-card {
+  --grip: 26px;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
   border-left: 4px solid var(--fld-ink, var(--border));
   border-radius: 8px;
   background: var(--card);
-  padding: 12px 13px;
+  padding: 11px 12px;
 }
 
 /* No colour chosen. Grey is not offered as a tag for exactly this reason: it is
@@ -2171,21 +2269,24 @@ body:has(.sticky-bar) {
 }
 
 .saved-name {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: bold;
+  line-height: 1.25;
   color: var(--brand-ink);
 }
 
 .saved-meta {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
-  margin-top: 3px;
-  line-height: 1.45;
+  margin-top: 2px;
+  line-height: 1.35;
 }
 
 .saved-figs {
-  margin-top: 8px;
-  font-size: 13px;
+  margin-top: 6px;
+  margin-left: var(--grip);
+  font-size: 12.5px;
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2197,7 +2298,7 @@ body:has(.sticky-bar) {
   justify-content: flex-end;
   gap: 12px;
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 8px;
   flex-wrap: wrap;
 }
 
@@ -2510,6 +2611,33 @@ body:has(.sticky-bar) {
   .btn-add-cell {
     flex: 1 1 100%;
   }
+
+  /* One card per row here, so every card costs a full screen of scrolling and
+     a list of six is a long way to the bottom. One more step down from the
+     already-compact desktop sizes.
+
+     The handle keeps its 26px gutter, and that is not an oversight: it is a
+     touch target, and shrinking it to win four pixels of width would cost a
+     drag on the width where dragging is hardest. */
+  .saved-card {
+    padding: 10px 11px;
+  }
+
+  .saved-name {
+    font-size: 14px;
+  }
+
+  .saved-meta {
+    font-size: 11.5px;
+  }
+
+  .saved-figs {
+    font-size: 12px;
+  }
+
+  .saved-actions {
+    gap: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2581,6 +2709,109 @@ body:has(.sticky-bar) {
   }
 }
 
+/* ---- mono: this app's half of the block ----------------------------------
+
+   The reasoning is in styles.css, under the same heading, and so are the rules
+   for the classes the three tools share. These are the ones only this
+   calculator has.
+
+   Same rule about position: this sits after every other size in the file so a
+   one-selector rule here is not beaten by a two-selector rule above it. Where
+   something IS two deep in the sheet (.forage-card .pick-sub, .stage-card
+   .pick-sub, .sticky-links .tip), it is matched at that depth here rather than
+   written short and left not working.
+
+   The figures are untouched on purpose: .kpi-value, .result-figs, .saved-figs,
+   .readout-value, .sample-stats and the dry matter table keep their sizes.
+   Those columns are what somebody picks this face for.
+   -------------------------------------------------------------------------- */
+[data-font="mono"] .setup-hint,
+[data-font="mono"] .save-as-body,
+[data-font="mono"] .pv-sub,
+[data-font="mono"] .pv-picked,
+[data-font="mono"] .result-formula {
+  font-size: 11.5px;
+}
+
+[data-font="mono"] .step-caption,
+[data-font="mono"] .saved-filter-hint,
+[data-font="mono"] .saved-meta,
+[data-font="mono"] .pv-count,
+[data-font="mono"] .pick-sub,
+[data-font="mono"] .sticky-links .tip {
+  font-size: 11px;
+}
+
+[data-font="mono"] .forage-card .pick-sub,
+[data-font="mono"] .stage-card .pick-sub,
+[data-font="mono"] .dm-mode-sub,
+[data-font="mono"] .howto-card-sub,
+[data-font="mono"] .pv-credit,
+[data-font="mono"] .autosave {
+  font-size: 10px;
+}
+
+/* The stage picker is five fixed columns, one per column of Exhibit 4-2, and
+   they are not allowed to wrap onto a second line. So a card is a fifth of the
+   panel wide and "Seed dissemination" has to fit inside it: at 13.5px mono that
+   one word is wider than the card, and it ran out past the right-hand edge on a
+   desktop. It comes down further than any other title here for that one label.
+   The `overflow-wrap` on .pick-title is the belt behind it: a monospaced stack
+   resolves to whatever the device happens to have, and Menlo, Consolas and
+   JetBrains Mono do not share an advance, so no size is right everywhere and
+   the failure has to be a broken word rather than a clipped one. */
+[data-font="mono"] .stage-card .pick-title {
+  font-size: 11.5px;
+}
+
+/* The mode pills carry the longest strings in the app that are not allowed to
+   truncate: "Small hoop (0.96 sq ft)" names the thing being chosen, and two or
+   three of them share a row. Down two steps rather than one. */
+[data-font="mono"] .mode-seg {
+  font-size: 11px;
+}
+[data-font="mono"] .saved-filter {
+    font-size: 11.5px;
+  }
+
+/* The saved cards are the one place the figures DO come down in mono, against
+   the rule at the top of this block, and the reason is that they are not a
+   column to be read off. They are three short labelled lines on a card built to
+   be recognised at a glance, and the card is already the tightest thing in the
+   app. The figures somebody picks this face for are the readouts and the chart,
+   which keep their sizes.
+
+   Desktop first, then one more step where a card is a whole row wide. */
+[data-font="mono"] .saved-name {
+  font-size: 13px;
+}
+
+[data-font="mono"] .saved-meta {
+  font-size: 10.5px;
+}
+
+[data-font="mono"] .saved-figs {
+  font-size: 11.5px;
+}
+
+[data-font="mono"] .saved-actions {
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  [data-font="mono"] .saved-name {
+    font-size: 12.5px;
+  }
+
+  [data-font="mono"] .saved-meta {
+    font-size: 10px;
+  }
+
+  [data-font="mono"] .saved-figs {
+    font-size: 11px;
+  }
+}
+
 /* ---- print --------------------------------------------------------------
    The wizard shows one step at a time; paper shows all five. This is the same
    out-specificity trick styles.css uses for collapsed folders: [hidden] is
@@ -2618,7 +2849,9 @@ body:has(.sticky-bar) {
   .chip-new,
   .head-tools,
   .saved-new,
-  .saved-filter-hint {
+  .saved-filter-hint,
+  /* The autosave is a fact about this browser, not about the pasture. */
+  .autosave {
     display: none !important;
   }
 

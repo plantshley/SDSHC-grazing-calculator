@@ -89,12 +89,30 @@ const MOON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke
  * `data-theme` is on <html> and is set in index.html to "light" so the first
  * paint has a definite value rather than flashing.
  */
+/**
+ * What the phone paints its browser bar with, per theme.
+ *
+ * Kept in step with <meta name="theme-color"> in index.html (the light value)
+ * and with `theme_color` in vite.config.js's manifest. All three have to agree:
+ * the meta is what a browser tab reads, the manifest is what an installed copy
+ * reads, and this is what keeps either of them tracking the in-app toggle.
+ *
+ * A `media="(prefers-color-scheme: dark)"` meta would NOT do this job. The theme
+ * here is a stored choice that can disagree with the system setting, so a
+ * producer on a dark phone who picked light would get a dark bar over a light
+ * page.
+ */
+const BAR_COLOR = { light: '#afbf42', dark: 'rgb(72, 104, 51)' }
+
 export function applyTheme() {
   const stored = getPref('theme')
   const prefersDark =
     typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
   const theme = stored ?? (prefersDark ? 'dark' : 'light')
   document.documentElement.setAttribute('data-theme', theme)
+
+  const bar = document.querySelector('meta[name="theme-color"]')
+  if (bar) bar.setAttribute('content', BAR_COLOR[theme] ?? BAR_COLOR.light)
 
   const toggle = document.querySelector('#themeToggle')
   if (toggle) {
@@ -113,8 +131,15 @@ export function toggleTheme() {
   return applyTheme()
 }
 
+/**
+ * The three faces the topbar offers. Anything else stored — a value from an
+ * older build, or a hand-edited key — falls back to `browser`, so the page can
+ * never end up with no --font at all.
+ */
+const FONTS = new Set(['browser', 'classic', 'mono'])
+
 export function applyFont() {
-  const font = getPref('font') === 'classic' ? 'classic' : 'browser'
+  const font = FONTS.has(getPref('font')) ? getPref('font') : 'browser'
   document.documentElement.setAttribute('data-font', font)
   for (const btn of document.querySelectorAll('[data-font-choice]')) {
     btn.setAttribute('aria-pressed', String(btn.dataset.fontChoice === font))
@@ -123,7 +148,7 @@ export function applyFont() {
 }
 
 export function setFont(choice) {
-  setPref('font', choice === 'classic' ? 'classic' : 'browser')
+  setPref('font', FONTS.has(choice) ? choice : 'browser')
   return applyFont()
 }
 
