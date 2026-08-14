@@ -1102,19 +1102,57 @@ test('the sticky bar says whether the autosave has landed', async () => {
       click('[data-action="toggle-show-all"]')
       type('[data-path="demand.animalWeight"]', '1200')
 
-      // And it is not in the page at all for work that is not in the list yet.
-      // Started, not merely blank: the sticky bar has to be on screen for the
-      // absence to mean anything.
+      // And it says nothing at all for work that is not in the list yet.
       click('[data-action="new-calc"]')
       choose('input[data-action="toggle-goal"][value="days"]')
       choose('input[data-action="set-forage"][value="coolSeasonGrass"]')
       click('[data-action="start"]')
-      assert.ok($('.sticky-bar'), 'the bar is there')
       assert.ok(
         $('[data-action="save-calc"]').textContent.includes('Save'),
-        'and the button still offers to save'
+        'the button still offers to save'
       )
-      assert.equal($('[data-autosave]'), null, 'so nothing beside it says it already is')
+      assert.equal(bar().dataset.listed, '0')
+      type('[data-path="demand.animalWeight"]', '900')
+      assert.equal(bar().hidden, true, 'so nothing beside it says the work already is saved')
+      assert.equal(bar().textContent, '')
+      resolve()
+    }, 500)
+  })
+})
+
+test('a failed autosave says so even on work that was never saved', () => {
+  // The element is in the page whatever the calculation's status, and
+  // paintAutosave() decides. Gating the ELEMENT on being in the saved list hid
+  // this message from brand new work, which is the work it exists for: a
+  // browser that refuses to store anything is losing every keystroke, and the
+  // user has pressed nothing that would have told them.
+  // Swapped at the global, not by assigning over `setItem` on jsdom's Storage:
+  // that object is a Proxy where an unknown property write stores an ITEM, so
+  // `store.setItem = fn` quietly saves a value under the key "setItem" and
+  // leaves the real method in place.
+  const real = global.localStorage
+  global.localStorage = {
+    getItem: (k) => real.getItem(k),
+    removeItem: (k) => real.removeItem(k),
+    setItem: () => {
+      throw new dom.window.DOMException('full', 'QuotaExceededError')
+    },
+  }
+
+  const bar = () => $('[data-autosave]')
+  assert.equal(bar().dataset.listed, '0', 'still an unsaved calculation')
+  type('[data-path="demand.animalWeight"]', '901')
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      global.localStorage = real
+      assert.equal(bar().hidden, false, 'the failure is not hidden with the rest')
+      assert.match(bar().textContent, /Not saved/)
+      assert.ok(bar().classList.contains('is-error'))
+
+      // And it clears itself once a write goes through again, rather than
+      // leaving a warning up about a problem that has passed.
+      type('[data-path="demand.animalWeight"]', '902')
       resolve()
     }, 500)
   })
@@ -1142,4 +1180,25 @@ test('on the Saved tab the file controls sit after the filter hint in the DOM', 
   assert.ok(at('.head-tools') > -1, 'the file controls are in the head')
   assert.ok(at('.saved-tools') > at('.head-tools'), 'and the filter is a sibling after them')
   assert.ok(at('.saved-filter-hint') > at('.saved-tools'))
+})
+
+test('closing the tab inside the debounce still writes the work', async () => {
+  const storage = await import('../src/storage.js')
+  const hide = () => dom.window.dispatchEvent(new dom.window.Event('pagehide'))
+
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  hide() // settle anything the previous test left pending
+
+  type('[data-path="demand.animalWeight"]', '1234')
+  assert.notEqual(
+    storage.loadWorking()?.demand?.animalWeight,
+    '1234',
+    'the write is still 400ms away'
+  )
+
+  // 400ms is a small window, and closing a tab is when somebody is most likely
+  // to be inside it. Mobile Safari suspends timers on backgrounding, so a
+  // pending save can otherwise never run at all.
+  hide()
+  assert.equal(storage.loadWorking()?.demand?.animalWeight, '1234', 'and it went in anyway')
 })

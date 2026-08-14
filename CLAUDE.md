@@ -113,9 +113,16 @@ the field being filled in is not reassurance. Its resting state before anything
 is typed is empty, because a bar claiming "Saved" over a blank form is telling
 somebody their work is safe before there is any.
 
-It renders **only when the calculation is in the saved list** (the same `saved`
-flag the button reads). Beside a button offering to "Save calculation" a line
-reading "Saved" contradicts it, and the button is the one that matters.
+The element is **always** in the page and `paintAutosave()` decides what it says,
+off `data-listed`. The reassuring states are for a calculation already in the
+saved list, because beside a button offering to "Save calculation" a line reading
+"Saved" contradicts it. **The failed state shows either way** — a browser that
+refuses to store anything hits brand new work hardest, and that is exactly the
+work nobody has saved yet. **Do not gate the element itself on `saved`.**
+
+The debounce is flushed on `pagehide` and `visibilitychange`, not `beforeunload`:
+iOS does not fire that reliably, and mobile Safari suspends timers on
+backgrounding, so a pending save can otherwise never run.
 
 ### `openModal()` hands back a NEW body element every time
 

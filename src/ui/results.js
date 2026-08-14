@@ -167,23 +167,23 @@ export function renderStickyBar(showAll, calc, saved = false) {
           <button type="button" class="tip" data-action="toggle-show-all">
             ${showAll ? 'One step at a time' : 'Show all steps'}
           </button>
-          <!-- Only for a calculation that is IN the saved list.
-               ------------------------------------------------
-               The autosave runs either way, but beside a button reading "Save
-               calculation" a line reading "Saved" is a contradiction, and the
-               button is the one that matters: it is the difference between work
-               that survives this browser being cleared and work that does not.
-               Once the record is in the list the button says "Edit saved" and
-               there is nothing left to contradict.
-
-               A placeholder, refreshed by paintAutosave() in main.js, for the
+          <!-- A placeholder, refreshed by paintAutosave() in main.js, for the
                same reason every figure on this bar is one: renderStickyBar()
                runs on a full render and this changes on every keystroke.
+
+               It is always in the page and paintAutosave() decides what it says.
+               data-listed tells it whether this calculation is in the saved
+               list: the reassuring states are for one that is, because beside a
+               button reading "Save calculation" a line reading "Saved"
+               contradicts it. The FAILED state shows either way, and rendering
+               the element unconditionally is what makes that possible. Gating
+               the element itself hid the one message that must never be silent
+               from brand new work, which is the work it was written for.
 
                Deliberately NOT aria-live. It would announce "Saving, Saved"
                after every character typed, which is not peace of mind, it is a
                second voice over the top of the field being filled in. -->
-          ${saved ? '<span class="autosave" data-autosave hidden></span>' : ''}
+          <span class="autosave" data-autosave data-listed="${saved ? '1' : '0'}" hidden></span>
         </div>
         <button type="button" class="btn-main" data-action="save-calc">
           ${

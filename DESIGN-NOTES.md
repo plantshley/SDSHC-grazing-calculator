@@ -187,13 +187,29 @@ in the sticky bar says "Saving…" while the 400ms debounce is pending and
 
 Four decisions in it are not obvious.
 
-It renders only when the calculation is already in the saved list, off the same
-`saved` flag the button beside it reads. The first build showed it always, which
-put "✓ Saved" immediately next to a button reading "Save calculation" — two
-statements about saving, disagreeing, six pixels apart. Of the two the button is
-the one that matters, because it is the difference between work that survives
-this browser being cleared and work that does not. Once the record is in the
-list the button reads "Edit saved" and there is nothing left to contradict.
+The reassuring states appear only for a calculation already in the saved list.
+The first build showed them always, which put "✓ Saved" immediately next to a
+button reading "Save calculation" — two statements about saving, disagreeing, six
+pixels apart. Of the two the button is the one that matters, because it is the
+difference between work that survives this browser being cleared and work that
+does not. Once the record is in the list the button reads "Edit saved" and there
+is nothing left to contradict.
+
+The second build fixed that by gating the ELEMENT on the same flag, and that was
+worse in a way that took a review to see. The failure state was then unreachable
+in the only situation it was written for: a browser refusing to store anything
+loses every keystroke, and the work most likely to be lost that way is work
+nobody has saved yet. `paintAutosave()` no-ops on a missing element, so the one
+message that must never be silent was silent exactly where it mattered. The
+element is now unconditional, `data-listed` carries the flag, and the decision is
+in one function — the reassuring states obey it, the failure ignores it.
+
+The write is also flushed on `pagehide` and `visibilitychange`. 400ms is a small
+window, and closing a tab is the moment somebody is most likely to be inside it.
+Mobile Safari widens it: it suspends timers when a tab is backgrounded, so a
+pending save can simply never run. Not `beforeunload` — iOS does not fire it
+reliably, and it is the wrong tool anyway, since this asks nothing and blocks
+nothing, it only stops waiting.
 
 It is **not** an `aria-live` region. Polite live text is the reflex for a status
 that changes, and here it would announce "Saving, Saved" after every character

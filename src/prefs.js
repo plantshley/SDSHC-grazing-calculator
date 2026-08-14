@@ -104,11 +104,14 @@ const MOON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke
  */
 const BAR_COLOR = { light: '#afbf42', dark: 'rgb(72, 104, 51)' }
 
+/** Same rule as FONTS below, and for the same reason: anything else is ignored. */
+const THEMES = new Set(['light', 'dark'])
+
 export function applyTheme() {
   const stored = getPref('theme')
   const prefersDark =
     typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
-  const theme = stored ?? (prefersDark ? 'dark' : 'light')
+  const theme = THEMES.has(stored) ? stored : prefersDark ? 'dark' : 'light'
   document.documentElement.setAttribute('data-theme', theme)
 
   const bar = document.querySelector('meta[name="theme-color"]')

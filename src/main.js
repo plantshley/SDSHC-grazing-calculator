@@ -220,29 +220,16 @@ function mayLeaveStep(from) {
   return false
 }
 
-/**
- * Repaint the results block, then every computed figure on the page.
- *
- * The results block is rebuilt only when its SHAPE could have changed, which is
- * on a full render. Here it is filled once if it is empty; after that
- * updateOutputs handles it, so the paddock width box does not lose focus on
- * every keystroke.
- */
-function refresh() {
-  const res = compute(resolved())
-
-  const slot = app.querySelector('[data-results]')
-  if (slot && !slot.dataset.built) {
-    slot.innerHTML = renderResults(getCalculation())
-    slot.dataset.built = '1'
-  }
-
-  updateOutputs(res, app)
-  paintAutosave()
-  return res
-}
 
 /* ─────────────────────────────── autosave ──────────────────────────────── */
+
+/*
+ * ABOVE refresh() on purpose. refresh() ends by painting the indicator, so the
+ * two are ordered by which one the other needs, not by which reads first. Below
+ * it, the state declared here would be in its temporal dead zone for anything
+ * that rendered during module evaluation. Nothing does today, which is exactly
+ * the kind of safety that quietly stops being true.
+ */
 
 let saveTimer = null
 
@@ -273,28 +260,91 @@ function setAutosave(state) {
   paintAutosave()
 }
 
-/** Called from refresh() and after every full render, like any [data-out]. */
+/**
+ * Called from refresh(), so a full render cannot leave a stale state behind.
+ *
+ * The reassuring states are for a calculation ALREADY in the saved list, which
+ * is what `data-listed` on the element carries. Beside a button offering to
+ * "Save calculation", a line reading "Saved" contradicts it, and the button is
+ * the one that matters.
+ *
+ * The FAILED state ignores that and always shows, because the case it exists for
+ * is the opposite one: a browser refusing to store anything hits brand new work
+ * hardest, and brand new work is exactly what nobody has saved yet. Hiding the
+ * one message that must never be silent, in the only situation it was written
+ * for, is how this was wrong the first time.
+ */
 function paintAutosave() {
   const el = app.querySelector('[data-autosave]')
   if (!el) return
   const shown = AUTOSAVE[autosaveState]
-  el.hidden = !shown
-  el.textContent = shown?.text ?? ''
-  el.className = `autosave ${shown?.cls ?? ''}`.trim()
+  const say = shown && (el.dataset.listed === '1' || autosaveState === 'error') ? shown : null
+  el.hidden = !say
+  el.textContent = say?.text ?? ''
+  el.className = `autosave ${say?.cls ?? ''}`.trim()
   // The bar has room for two words. The sentence behind them is a title, which
   // is a desktop affordance, so nothing that matters is only said here: an
   // explicit save that cannot be written still raises its own alert.
-  el.title = shown?.hint ?? ''
+  el.title = say?.hint ?? ''
 }
 
-subscribe(() => {
-  refresh()
+/**
+ * Write now rather than at the end of the debounce.
+ *
+ * 400ms of typing is a small window, and closing a tab is the moment somebody is
+ * most likely to be inside it. Mobile Safari makes it worse: it suspends timers
+ * when a tab goes to the background, so a pending save can simply never run.
+ *
+ * `pagehide` and `visibilitychange`, NOT `beforeunload`, which iOS does not fire
+ * reliably and which is the wrong tool besides: this asks nothing and blocks
+ * nothing, it only stops waiting.
+ */
+function flushSave() {
+  if (saveTimer === null) return
   clearTimeout(saveTimer)
-  setAutosave('saving')
+  saveTimer = null
+  setAutosave(saveWorking(getCalculation()).ok ? 'saved' : 'error')
+}
+
+window.addEventListener('pagehide', flushSave)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushSave()
+})
+
+subscribe(() => {
+  clearTimeout(saveTimer)
+  // Assigned rather than set through setAutosave(), because refresh() below
+  // paints it. Going through the setter would write the same two words twice on
+  // every character typed.
+  autosaveState = 'saving'
+  refresh()
   saveTimer = setTimeout(() => {
+    saveTimer = null
     setAutosave(saveWorking(getCalculation()).ok ? 'saved' : 'error')
   }, 400)
 })
+
+/**
+ * Repaint the results block, then every computed figure on the page.
+ *
+ * The results block is rebuilt only when its SHAPE could have changed, which is
+ * on a full render. Here it is filled once if it is empty; after that
+ * updateOutputs handles it, so the paddock width box does not lose focus on
+ * every keystroke.
+ */
+function refresh() {
+  const res = compute(resolved())
+
+  const slot = app.querySelector('[data-results]')
+  if (slot && !slot.dataset.built) {
+    slot.innerHTML = renderResults(getCalculation())
+    slot.dataset.built = '1'
+  }
+
+  updateOutputs(res, app)
+  paintAutosave()
+  return res
+}
 
 /* ─────────────────────── writing by path, one listener ─────────────────── */
 
