@@ -21,6 +21,82 @@
   flex-wrap: nowrap;
 }
 
+/* ---- the topbar band ----------------------------------------------------
+   A full-window strip behind the logo row. The wrapper is in index.html and
+   exists for this rule alone; the note there says why neither .topbar nor a
+   plain block child can carry the background itself.
+
+   The negative margin has to MATCH body's side padding, which styles.css sets
+   at 16px and drops to 12px under 900px. The pair below is the one thing in
+   this block that is not free-standing: change body's padding there and these
+   two follow, or the band stops an inch short of one edge.
+
+   The gradient is derived from --sky and --olive-bg rather than written as hex,
+   so it follows both themes without a second set of values: --olive-bg is
+   already a pale wash in the light theme and a dark one in the dark theme, and
+   the sky is mixed INTO the page background rather than used at full strength.
+   Full --sky is the loudest colour in the system and is spent on one button per
+   screen; a band of it across the top would outrank the answer the page exists
+   to give, and in dark mode the logo is inverted to white and would sit on a
+   bright cyan. A fifth of it reads as a tint in both.
+
+   The animation moves the background POSITION over an oversized gradient — no
+   layout, no paint of anything but this element, and nothing in the row above
+   moves. 40s and `alternate` so it is a drift rather than a loop somebody can
+   catch cycling. */
+.topband {
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+  border-bottom: 1px solid var(--border);
+  background-image: linear-gradient(
+    100deg,
+    color-mix(in oklab, var(--sky) 20%, var(--bg)),
+    var(--olive-bg) 32%,
+    color-mix(in oklab, var(--sky) 14%, var(--bg)) 62%,
+    var(--olive-bg)
+  );
+  background-size: 260% 100%;
+  background-position: 0% 0%;
+  animation: topband-drift 40s ease-in-out infinite alternate;
+}
+
+@keyframes topband-drift {
+  to {
+    background-position: 100% 0%;
+  }
+}
+
+/* styles.css's blanket reduced-motion rule cuts every animation to 0.01ms, but
+   this one is `infinite`, so that leaves it restarting a few thousand times a
+   second rather than stopping. An infinite animation has to be turned off by
+   name, and the position it settles on is the one the band is authored at. */
+@media (prefers-reduced-motion: reduce) {
+  .topband {
+    animation: none;
+    background-position: 0% 0%;
+  }
+}
+
+@media (max-width: 899px) {
+  .topband {
+    margin: 0 -12px;
+    padding: 0 12px 4px;
+  }
+}
+
+/* Ink on paper, and a band of it across the top of every printed page is a
+   third of a toner cartridge. The rule under the row is already printed by
+   styles.css's .topbar. */
+@media print {
+  .topband {
+    background: none;
+    border-bottom: none;
+    margin: 0;
+    padding: 0;
+    animation: none;
+  }
+}
+
 /* The square mark, for the widths where the wordmark and three font choices do
    not both fit on a row that is not allowed to wrap. Only ever one of the two
    images is displayed. The wordmark is the compressible one here: squeezed to
@@ -1122,11 +1198,57 @@ body:has(.sticky-bar) {
   margin-top: 8px;
 }
 
+/* The name of the saved calculation being returned to, inside the Return
+   button. Capped and clipped: a name is whatever the producer typed, and "North
+   pasture rotation, second pass, May" ran the one button on the screen out past
+   the card. Ellipsis rather than a wrap, because the button is a single line
+   and a two-line button beside a one-line warning is not the same control.
+
+   inline-block for the clipping to apply at all — text-overflow needs a box —
+   and vertical-align: bottom to keep the arrow after it on the text baseline
+   rather than lifted by the inline-block's own. */
+.btn-name {
+  display: inline-block;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* The phone half of the pair above. Hidden by default and shown only where
+   .btn-word is not, so the name is on the screen exactly once. */
+.start-return-name {
+  display: none;
+}
+
 /* Trimmed from a button label on a narrow screen, so "Save calculation"
    becomes "Save" rather than wrapping or pushing the bar out of shape. */
 @media (max-width: 620px) {
   .btn-word {
     display: none;
+  }
+
+  /* The row has to be allowed to wrap before the name can take a line of its
+     own under the button; .step-nav is nowrap until 760px. */
+  .step-nav--start {
+    flex-wrap: wrap;
+  }
+
+  /* Muted and in brackets: it names what the button goes back to rather than
+     being a second thing to read. `order` puts it under the button whatever
+     the warning above is doing, and the full 100% basis is what makes it a
+     line rather than a third item squeezed onto the row. */
+  .start-return-name {
+    display: block;
+    order: 3;
+    flex: 1 0 100%;
+    margin: 8px 0 0;
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.3;
+    color: var(--muted);
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1898,8 +2020,13 @@ body:has(.sticky-bar) {
   margin: 0;
 }
 
+/* The tightest box in the app, and the one with the most taken out of it: a
+   number box reserves its right-hand end for the spinner AND for the `%` drawn
+   over the top of it (see .input-wrap in styles.css), which at 96px left a
+   three-digit share showing as a sliver. The box is sized so the reservation
+   comes out of slack rather than out of the figure. */
 .mix-row .field.pct {
-  flex: 0 0 96px;
+  flex: 0 0 124px;
 }
 
 /* ---- results ------------------------------------------------------------ */
@@ -2772,7 +2899,10 @@ body:has(.sticky-bar) {
 }
 [data-font="mono"] .saved-filter {
     font-size: 11.5px;
-  }
+}
+[data-font="mono"] .affix {
+  font-size: 12px;
+}
 
 /* The saved cards are the one place the figures DO come down in mono, against
    the rule at the top of this block, and the reason is that they are not a

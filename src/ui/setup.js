@@ -24,6 +24,11 @@ export function renderSetup(calc, returning = false) {
   const { setId, indexOf } = registerForageSet(calc.forageType)
   const ready = calc.goals.length && calc.forageType
 
+  // Only a saved calculation carries a name — see the note in renderChips — so
+  // an unnamed working copy falls back to "Return to calculation" rather than
+  // to "Return to " with nothing after it.
+  const name = returning && calc.name ? String(calc.name) : ''
+
   return `
     <div class="box">
       <div class="title setup-title">Set up your calculation ${sectionInfo(
@@ -112,14 +117,22 @@ export function renderSetup(calc, returning = false) {
             : `<p class="start-warn">Choose at least one answer and a forage type to begin.</p>`
         }
         <!-- Coming back from Change is not starting over. The button says so,
-             and main.js leaves the current step where it was. -->
+             and main.js leaves the current step where it was.
+
+             The name goes INSIDE .btn-word, which app.css drops below 620px:
+             on a phone the button reads "Return →" and the name moves to the
+             line underneath instead of squeezing the one control on the row.
+             Only one of the two is ever displayed. -->
         <button type="button" class="btn-main" data-action="start" ${ready ? '' : 'disabled'}>
           ${
             returning
-              ? 'Return<span class="btn-word"> to calculation</span> &rarr;'
+              ? `Return<span class="btn-word"> to ${
+                  name ? `<span class="btn-name">${esc(name)}</span>` : 'calculation'
+                }</span> &rarr;`
               : 'Start<span class="btn-word"> calculating</span> &rarr;'
           }
         </button>
+        ${name ? `<p class="start-return-name">(${esc(name)})</p>` : ''}
       </div>
     </div>`
 }

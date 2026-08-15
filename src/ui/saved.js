@@ -359,7 +359,7 @@ export function openSaveAsDialog(calc) {
     `<div class="save-as">
       ${saveAsItem(calc.id, 'save-as-png', 'Image', 'A picture of the calculation answers and the figures behind them.')}
       ${saveAsItem(calc.id, 'save-as-csv', 'Spreadsheet', 'Every figure entered and every figure worked out, as a CSV. Opens in Excel.')}
-      ${saveAsItem(calc.id, 'save-as-print', 'Print or PDF', 'Opens this calculation where you can sent it to your printer or save it as a PDF.')}
+      ${saveAsItem(calc.id, 'save-as-print', 'Print or PDF', 'Opens this calculation where you can send it to your printer or save it as a PDF.')}
       ${saveAsItem(calc.id, 'save-as-json', 'Calculation file', 'The calculation itself, to move to another device or give to somebody else. Bring it back to the saved list with "Upload a calculation".')}
     </div>`
   )

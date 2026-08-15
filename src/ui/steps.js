@@ -231,7 +231,7 @@ function step1(calc) {
           (value, i) => `
         <div class="sample">
           <span class="sample-n">${i + 1}:</span>
-          <div class="input-wrap has-suffix">
+          <div class="input-wrap has-suffix has-spin" style="--suffix-len: 1">
             <input type="number" step="0.1" min="0" inputmode="decimal"
               data-path="samples.${i}" value="${esc(value ?? '')}"
               aria-label="Sample ${i + 1} weight in grams" />
@@ -508,7 +508,7 @@ function mixBuilder(calc) {
         </div>
         <div class="field pct">
           <div class="field-label"><label for="mix-share-${i}">% of stand</label></div>
-          <div class="input-wrap has-suffix">
+          <div class="input-wrap has-suffix has-spin" style="--suffix-len: 1">
             <input id="mix-share-${i}" type="number" step="1" min="0" inputmode="decimal"
               data-path="dm.mix.${i}.share" value="${esc(row.share ?? '')}" />
             <span class="affix suffix">%</span>

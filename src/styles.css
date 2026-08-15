@@ -651,15 +651,40 @@ input.invalid {
 
 /* ---- input frames ------------------------------------------------------ */
 
+/* A suffix is drawn OVER the input, so the input has to be told how much of its
+   right-hand end is already spoken for. Two things live in there and a flat
+   `padding-right: 44px` accounted for neither:
+
+     the suffix itself, which is 1 character on a `%` box and 6 on `lbs/ac` —
+       44px fitted the short ones and left "245" a sliver of a 96px box while
+       "lbs/ac" ran under the value anyway;
+     the spinner on a `type="number"` box, which the browser paints at the very
+       right edge INSIDE the frame — so a suffix at `right: 10px` sits on top of
+       the up/down arrows.
+
+   So the reservation is composed rather than guessed:
+     --suffix-len  how many characters the suffix is. Written by field() in
+                   ui/fields.js; hand-written markup sets it in a style
+                   attribute or takes the 3-character default.
+     --affix-gap   how far in from the right edge the suffix sits, which is
+                   `.has-spin`'s whole job: 28px clears the widest spinner
+                   (Firefox's) with room to read between the two.
+
+   7.5px per character is deliberately over the measured advance of both faces
+   at both affix sizes — 13px system-ui averages ~6.8px and mono at 11px is
+   6.6px. Over-reserving costs a few px of an already-padded box; under-
+   reserving puts the unit on top of the figure, which is the bug. */
 .input-wrap {
   position: relative;
   display: flex;
   align-items: center;
+  --suffix-len: 3;
+  --affix-gap: 10px;
 }
 
 .affix {
   position: absolute;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--muted);
   pointer-events: none;
 }
@@ -668,14 +693,22 @@ input.invalid {
   left: 10px;
 }
 .suffix {
-  right: 10px;
+  right: var(--affix-gap);
 }
 
 .has-prefix input {
   padding-left: 24px;
 }
 .has-suffix input {
-  padding-right: 44px;
+  padding-right: calc(var(--suffix-len) * 7.5px + var(--affix-gap) + 8px);
+}
+
+/* A number box, whose spinner owns the right edge of the frame. The gap is held
+   at 28px whether or not the arrows are currently painted — Chrome only shows
+   them on hover and focus, and a suffix that slid sideways as the pointer
+   crossed the box would be worse than the fixed inset it costs. */
+.has-spin {
+  --affix-gap: 28px;
 }
 
 .row-2 {
@@ -1264,6 +1297,12 @@ body.modal-open {
     -webkit-appearance: none;
     appearance: none;
     margin: 0;
+  }
+
+  /* The spinner is gone two rules up, so the inset kept for it is a hole
+     between the figure and its unit. Back to the plain gap. */
+  .has-spin {
+    --affix-gap: 10px;
   }
 
   select {

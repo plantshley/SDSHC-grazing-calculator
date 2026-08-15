@@ -80,10 +80,26 @@ const idFor = (path) => `f-${String(path).replace(/[.[\]]/g, '-')}`
  */
 export function field(o) {
   const id = idFor(o.path)
+  // The suffix is drawn OVER the box, so the box has to be told how much of its
+  // right-hand end is already taken. Two facts decide that and neither is
+  // knowable from CSS: how long the suffix is, and whether the browser is
+  // painting a spinner at the right edge. See the .input-wrap block in
+  // styles.css — `has-spin` alone is not enough, a one-character `%` and a
+  // six-character `lbs/ac` want very different reservations.
+  const wrap = [
+    'input-wrap',
+    o.prefix ? 'has-prefix' : '',
+    o.suffix ? 'has-suffix' : '',
+    o.type === 'number' ? 'has-spin' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return `
     <div class="field">
       ${labelRow(id, o)}
-      <div class="input-wrap${o.prefix ? ' has-prefix' : ''}${o.suffix ? ' has-suffix' : ''}">
+      <div class="${wrap}"${
+        o.suffix ? ` style="--suffix-len: ${String(o.suffix).length}"` : ''
+      }>
         ${o.prefix ? `<span class="affix prefix">${esc(o.prefix)}</span>` : ''}
         <input
           id="${id}"

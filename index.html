@@ -19,50 +19,61 @@
     <link rel="stylesheet" href="/src/app.css" />
   </head>
   <body>
-    <div class="topbar">
-      <!-- %BASE_URL% is substituted by Vite with the deployed base path. A
-           "./"-relative URL resolves against the current page instead, which is
-           wrong the moment the app is opened on any path but the site root. -->
-      <img
-        class="toplogo toplogo-wide"
-        src="%BASE_URL%sdshc-logo-horizontal.png"
-        alt="South Dakota Soil Health Coalition"
-        width="763"
-        height="200"
-      />
-      <!-- The same mark without the wordmark, for the widths where the topbar
-           has three font choices and a theme toggle to fit beside it. Only ever
-           one of the two is displayed, so the row has one logo and one alt text
-           at every width. Already in public/ as the PWA icon, so it costs no
-           extra bytes in the precache. -->
-      <img
-        class="toplogo toplogo-mark"
-        src="%BASE_URL%sdshc-logo.png"
-        alt="South Dakota Soil Health Coalition"
-        width="179"
-        height="181"
-      />
-      <!-- Centred in the topbar on a desktop, where there is room either side of
-           it. Below 900px the row is already the logo and two controls with
-           nothing to spare, so this one is hidden and app.js's .app-title takes
-           over on the row below. Only ever one of the two is displayed, so the
-           page has one h1 at every width. -->
-      <h1 class="topbar-title">Grazing Calculator</h1>
-      <div class="topbar-controls">
-        <div class="segmented" role="group" aria-label="Font">
-          <span class="segmented-label">Font</span>
-          <button type="button" class="seg" data-font-choice="browser" aria-pressed="true">Browser</button>
-          <button type="button" class="seg" data-font-choice="classic" aria-pressed="false">Classic</button>
-          <button type="button" class="seg" data-font-choice="mono" aria-pressed="false">Mono</button>
+    <!-- The band exists only to carry a background the full width of the
+         window. .topbar is capped at --maxw and centred, so a background on it
+         stops at the content edge; and body has side padding, so a background
+         on a plain block child stops short of the window edge as well. The band
+         cancels that padding with a matching negative margin and puts it back
+         inside, which keeps the row lined up with the content under it without
+         any viewport units — 100vw includes the scrollbar and would have made
+         the page scroll sideways. See .topband in app.css. -->
+    <div class="topband">
+      <div class="topbar">
+        <!-- %BASE_URL% is substituted by Vite with the deployed base path. A
+             "./"-relative URL resolves against the current page instead, which
+             is wrong the moment the app is opened on any path but the site
+             root. -->
+        <img
+          class="toplogo toplogo-wide"
+          src="%BASE_URL%sdshc-logo-horizontal.png"
+          alt="South Dakota Soil Health Coalition"
+          width="763"
+          height="200"
+        />
+        <!-- The same mark without the wordmark, for the widths where the topbar
+             has three font choices and a theme toggle to fit beside it. Only
+             ever one of the two is displayed, so the row has one logo and one
+             alt text at every width. Already in public/ as the PWA icon, so it
+             costs no extra bytes in the precache. -->
+        <img
+          class="toplogo toplogo-mark"
+          src="%BASE_URL%sdshc-logo.png"
+          alt="South Dakota Soil Health Coalition"
+          width="179"
+          height="181"
+        />
+        <!-- Centred in the topbar on a desktop, where there is room either side
+             of it. Below 900px the row is already the logo and two controls
+             with nothing to spare, so this one is hidden and app.js's
+             .app-title takes over on the row below. Only ever one of the two is
+             displayed, so the page has one h1 at every width. -->
+        <h1 class="topbar-title">Grazing Calculator</h1>
+        <div class="topbar-controls">
+          <div class="segmented" role="group" aria-label="Font">
+            <span class="segmented-label">Font</span>
+            <button type="button" class="seg" data-font-choice="browser" aria-pressed="true">Browser</button>
+            <button type="button" class="seg" data-font-choice="classic" aria-pressed="false">Classic</button>
+            <button type="button" class="seg" data-font-choice="mono" aria-pressed="false">Mono</button>
+          </div>
+          <button
+            type="button"
+            class="theme-toggle"
+            id="themeToggle"
+            aria-pressed="false"
+            aria-label="Switch to dark mode"
+            title="Dark mode"
+          ></button>
         </div>
-        <button
-          type="button"
-          class="theme-toggle"
-          id="themeToggle"
-          aria-pressed="false"
-          aria-label="Switch to dark mode"
-          title="Dark mode"
-        ></button>
       </div>
     </div>
 
