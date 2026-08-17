@@ -176,6 +176,48 @@ The same rule is why `renderResults()` is called on a full render only and
 `updateOutputs()` on every keystroke: re-rendering the cards to refresh a figure
 would tear the focus out of the paddock width box on every character typed.
 
+### The one thing that does not refresh as you type
+
+The sample spread note. Everything else `updateOutputs()` touches is a figure: it
+sits in one place and its value changes, and refreshing it on every keystroke is
+exactly right. The spread note is a three-line paragraph that appears, rewrites
+itself and vanishes, and it is a **judgement of the entry** rather than a figure
+worked out from it.
+
+Refreshed as you type it was wrong twice over. It moved the boxes below it around
+under the thumb, and worse, mid-number it was judging a figure that was not all
+there: 1 in the first box and 100 in the second is a wide spread while the 100 is
+still "1", so the note appeared telling somebody to go back out and clip more
+spots on the strength of a digit they were in the middle of typing.
+
+So it is settled once per ENTRY rather than per keystroke, and "settled" is the
+word rather than "hidden". `updateOutputs(res, root, {spreadNote})` takes the
+decision from `editingSamples` in `main.js`, which the `input` listener sets when
+the field being typed into is a weight box and which `focusout` and `focusin` on
+`app` clear. When the flag is up, the function **does not touch the paragraph at
+all**: it holds whatever it last said.
+
+Both halves of that took a correction, in opposite directions.
+
+The first version was gated on "the caret is in step 1", which meant entering five
+weights in a row showed nothing until the user tapped somewhere else on the page.
+Tapping the next box is exactly the moment the previous weight is finished, so
+leaving a weight box for another one now settles the note rather than suppressing
+it. Both events are wired because `focusout` fires before focus lands anywhere, so
+it is the one that catches the move, while `focusin` covers focus arriving from
+outside the app with no `focusout` seen here. `render()` clears the flag too,
+because replacing the markup drops focus to the body.
+
+The second version then hid the note on the first keystroke into the next box,
+which is the same flicker approached from the other side: the note appears when you
+tap box 3, disappears as you type in box 3, and comes back when you leave it. A
+paragraph that behaves like that reads as a fault in the page. Freezing it instead
+means it can be **stale by one part-typed weight**, and that is the right trade:
+it is advice about whether to clip more spots, not a figure anybody reads off.
+
+Nothing else on the page changed. A figure that sits still while its value changes
+is not the same kind of thing as a sentence that comes and goes.
+
 ### The autosave says so
 
 The working calculation has always been written on every keystroke, and until
@@ -210,6 +252,12 @@ Mobile Safari widens it: it suspends timers when a tab is backgrounded, so a
 pending save can simply never run. Not `beforeunload` — iOS does not fire it
 reliably, and it is the wrong tool anyway, since this asks nothing and blocks
 nothing, it only stops waiting.
+
+And on `set-tab` and `go-saved`, which is a different reason for the same call.
+The write now updates the saved record as well as the working copy, and the Saved
+tab is about to draw that record. 400ms is easily long enough to type a figure and
+tap a tab, and a list drawn from the store a moment before the store is written is
+one edit behind with nothing to redraw it.
 
 It is **not** an `aria-live` region. Polite live text is the reflex for a status
 that changes, and here it would announce "Saving, Saved" after every character
@@ -285,6 +333,19 @@ Grey is not one of the eleven swatches. Grey is already what an untagged card
 looks like (`.saved-card--untagged`), and offering it gives two ways to say the
 same thing with no way to see which was meant.
 
+### A card obeys "blank is not zero" too, and did not
+
+The card reads the record's stored `results` and formats them itself, which put it
+outside `updateOutputs()` and therefore outside the rule that renders `null` as a
+dash. Every formatter in `format.js` passes its argument through `finite()`, whose
+job is to stop an overflow reaching the screen, so `days(null)` is "0 days".
+
+A calculation saved half way through has `grazingDays: null`, which is the model
+saying it will not guess. The card said **Grazing days: 0 days** — not a blank, an
+answer, and the worst available one: zero days is what a pasture with nothing
+growing on it would carry. `figure()` in `saved.js` guards `null` and `undefined`
+before the formatter, so the card shows the same dash the results block does.
+
 ### The head is one flex container, and the card lost a line
 
 The file controls belong beside "+ New calculation" on a desktop and below the
@@ -359,6 +420,69 @@ warn about the autosave, which is the thing that cannot be lost.
 idea: a button that says "to saved" must not land on a list this calculation is
 missing from, so it writes the record first if there is not one.
 
+### It stays a `confirm()`, and a modal was tried
+
+The browser's dialog reads *"…will lose it. Save it first, or continue?"* and then
+offers **OK** and **Cancel**, because those are the only words a browser will put
+on those buttons and no page can change them. OK is the word for agreeing with a
+statement rather than for choosing between two outcomes, so a version was built on
+`openModal()` with **Continue** and **Go back** on it, focus resting on the answer
+that keeps the work.
+
+It was reverted. A modal cannot block, so `confirmLeavingUnsaved()` had to take a
+callback instead of returning a boolean, `openSavedCalc()` had to take an `after`,
+and `new-calc` had to wrap its whole body in a closure — three call sites turned
+inside out so that one button could read "Continue". The words were not worth the
+shape of the code, and the same trade would come up again for Delete and Restore,
+where OK is the right word anyway: those are statements of consequence with a
+plain yes on the end.
+
+Worth knowing before anybody tries it a second time: the two-button version is
+about twenty lines and works fine. The cost is entirely in what it does to the
+callers.
+
+---
+
+## "Saved" means one thing: the record matches the screen
+
+Save a calculation half way through, which is the normal way to use this — one
+pasture, entered in the pasture, before the herd figures are known. Then finish it.
+The Saved tab went on showing the figures the record held at the moment it was
+saved, while the sticky bar over the top of the same calculation said "✓ Saved".
+
+Both statements were true, of different things. The bar meant the working copy had
+been written to its own key. The card meant the record had been written when Save
+was pressed. Nobody can be asked to hold that distinction in their head, and the
+Saved tab is the place people go precisely to see what they have.
+
+So the autosave writes both. `writeEverywhere()` calls `saveWorking()` as before
+and then `syncSavedRecord()`, which writes the record **only if this calculation is
+already in the list**. Nothing there creates a record: the Save button still
+decides what is kept, and a calculation nobody has named stays out of the tab.
+
+Two guards make that safe to run on a 400ms debounce.
+
+`syncSavedRecord()` compares a `fingerprint()` of the record with one of the
+working copy and returns early when they match. This is load-bearing rather than an
+optimisation: opening a saved calculation replaces the working copy, which
+notifies, which lands here — so without the check, **opening** a record would
+rewrite it, move the date on its card, and jump it to the top of a list nobody had
+reordered. Looking is not editing. The fingerprint leaves out everything the store
+owns (`updatedAt`, `createdAt`, `sortIndex`, `schemaVersion`, `tag`) and `results`,
+which are worked out from the rest.
+
+A `Conflict` — another tab wrote this record after this tab last read it — is left
+alone rather than asked about. A question belongs to a button somebody pressed, not
+to a keystroke, and `persist()` behind the Save button still asks it. The working
+copy is written either way, so nothing typed is at risk while that stands.
+
+What this gives up is worth stating. `openSavedCalc()` used to be able to say the
+record was opened as a scratch copy, so poking at a saved calculation could not
+damage it. That protection was mostly imaginary: the bar invited "Edit saved" two
+inches away, there has never been a discard, and the autosave had already made the
+change permanent in the working key. What it bought in exchange was a Saved tab
+that could be three steps behind the screen with nothing anywhere to say so.
+
 ---
 
 ## `storage.js` never throws
@@ -380,6 +504,61 @@ dialog and the sticky bar's, so the stored value is only a **fallback**, used
 when the incoming record's `tag` is `undefined`. `undefined` is "not mentioned"
 and `''` is "no colour, deliberately"; collapsing the two puts a removed colour
 straight back.
+
+---
+
+## Where the data lives is stated, not only linked
+
+Somebody is asked to type their sample weights, their herd size and their acres
+into a web page, at a workshop, often on a borrowed device. The honest answer to
+"who can see this?" is one tap away rather than something they have to ask a
+person about, and it is in three places on purpose:
+
+- **A sentence in the footer, on every tab** (`.footer-privacy`): *Everything you
+  enter stays on this device.* This is the one that matters. A page about it
+  somewhere is not the same answer as a line they cannot miss.
+- **A `privacy` definition**, opened by the *Read more* link beside it. Read-only
+  like every other `?` — it is not a grazing term, but it is the same kind of
+  thing.
+- **The *Saving your work* section of the how-to**, which already ended on it.
+
+**The sentence survives printing and the link does not.** The print block hides
+`.footer button`, so a worksheet handed to a landlord or an NRCS office still
+carries the statement, and it is still true on paper.
+
+It is also the one line in the footer with a **width**, `max-width` plus auto side
+margins in `app.css`. Set to the full width of a desktop page it was a single long
+row of small grey type, which is the shape of something nobody reads, and this is
+the one line in the app that has to be read. `margin: auto` rather than centred
+text on a full-width box, so the block sits under the middle of the page instead of
+being centred text pinned to the left edge. In `app.css` and not the shared sheet:
+the width was chosen for these sentences, and `styles.css` belongs to three tools.
+
+The **cover crops tab gets a different sentence**, and this is the whole reason
+`footer()` takes the tab at all. That tab is a cross-origin JotForm: submitting
+it sends the entries to JotForm, so the blanket line would be a promise the app
+cannot keep on one of its three tabs, which is worse than making no promise. It
+names JotForm, says the submission goes to them, and confines the guarantee to
+the rest of the calculator. The `privacy` definition carries the same exception
+in its last paragraph, so the long answer and the short one agree.
+
+Two things farm-budget's copy of this footer has that this one deliberately does
+not:
+
+- **No export links.** Farm-budget's footer carries *Export budget CSV*, *Save
+  budget file* and *Print*, acting on the working scenario. Here step 5 already
+  carries *Save as image*, *Export CSV* and *Print or save as PDF*, and a card's
+  *Save as* carries the same four for a stored record. A second, quieter set at
+  the foot of the page would act on the **working** calculation while the Saved
+  tab is showing a list of records that are not it — the same mistake the
+  `kind:` check on the two file formats exists to make impossible.
+- **The how-to link stays**, even though the header `?` opens the same guide.
+  They are one action, so there is nothing to keep in step, and at the bottom of
+  a five-step worksheet on a phone the spelled-out label is the findable one.
+
+This documents a fact about the current build. If anything is ever submitted
+anywhere from the perennial tab, these three places are what has to change
+first, before the feature ships and not after.
 
 ---
 

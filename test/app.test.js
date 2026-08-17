@@ -40,6 +40,12 @@ before(async () => {
     writable: true,
   })
   global.localStorage = dom.window.localStorage
+  // A module calling bare addEventListener() gets window's in a browser. Without
+  // these two, covercrop.js's online/offline wiring throws a ReferenceError the
+  // moment that tab is opened, which is noise in the output at best and cover for
+  // a real error at worst.
+  global.addEventListener = dom.window.addEventListener.bind(dom.window)
+  global.removeEventListener = dom.window.removeEventListener.bind(dom.window)
   global.MutationObserver = dom.window.MutationObserver
   global.HTMLElement = dom.window.HTMLElement
   global.Node = dom.window.Node
@@ -1180,6 +1186,206 @@ test('on the Saved tab the file controls sit after the filter hint in the DOM', 
   assert.ok(at('.head-tools') > -1, 'the file controls are in the head')
   assert.ok(at('.saved-tools') > at('.head-tools'), 'and the filter is a sibling after them')
   assert.ok(at('.saved-filter-hint') > at('.saved-tools'))
+})
+
+test('the footer says where the data lives, on every tab', () => {
+  // Somebody typing their sample weights, their herd size and their acres into a
+  // web page at a workshop is entitled to know where it goes without going
+  // looking for it, so the sentence is on the screen rather than only behind a
+  // link.
+  for (const tab of ['perennial', 'saved']) {
+    click(`[data-action="set-tab"][data-tab="${tab}"]`)
+    const line = $('.footer-privacy')
+    assert.ok(line, `the ${tab} tab states it`)
+    assert.match(line.textContent, /stays on this device/i)
+  }
+
+  // The blanket sentence is NOT true on the cover crops tab: that form is a
+  // cross-origin JotForm and submitting it sends the entries to JotForm. A
+  // promise the app cannot keep on one of its three tabs is worse than none.
+  click('[data-action="set-tab"][data-tab="covercrop"]')
+  const cc = $('.footer-privacy').textContent
+  assert.match(cc, /JotForm/)
+  assert.match(cc, /rest of this calculator/i)
+
+  // And it survives printing while its link does not, so a printed worksheet
+  // still carries a statement that is true on paper.
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+  const print = css.slice(css.indexOf('@media print'))
+  assert.match(print, /\.footer button/)
+  assert.doesNotMatch(print, /\.footer-privacy\s*\{[^}]*display:\s*none/)
+})
+
+test('the footer link explains at length and writes nothing', () => {
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  const before = JSON.stringify(state.getCalculation())
+
+  click('.footer-privacy [data-info="privacy"]')
+  const body = $('.modal-body').textContent
+  assert.equal($('.modal-title').textContent, 'Where your calculations live')
+  assert.match(body, /not sent anywhere/i)
+  assert.match(body, /cannot see your calculations/i)
+  assert.match(body, /clearing your browsing data/i)
+  assert.match(body, /Export backup/, 'and says how to keep a copy on purpose')
+  assert.match(body, /JotForm/, 'and names the one exception')
+  assert.equal($$('.modal-body input, .modal-body select').length, 0, 'nothing to fill in')
+  click('.modal-close')
+
+  assert.equal(JSON.stringify(state.getCalculation()), before, 'the `?` changed no value')
+})
+
+test('the footer offers no export of its own', () => {
+  // Step 5 already carries Save as image, Export CSV and Print, and a card's
+  // Save as carries the same four for a stored record. A second set at the foot
+  // of the page would act on the working calculation while the Saved tab shows a
+  // list of records that are not it.
+  click('[data-action="set-tab"][data-tab="saved"]')
+  const actions = [...$('.footer').querySelectorAll('button')].map(
+    (b) => b.dataset.action ?? `info:${b.dataset.info}`
+  )
+  assert.deepEqual(actions, ['how-to', 'info:privacy'])
+})
+
+test('the unsaved-work warning is the browser dialog, and Cancel keeps the work', async () => {
+  const storage = await import('../src/storage.js')
+  click('[data-action="set-tab"][data-tab="perennial"]')
+
+  // This test stands on a calculation that is NOT in the list, which is the only
+  // case the question is asked in.
+  const id = state.getCalculation().id
+  assert.ok(!storage.listCalcs().some((c) => c.id === id), 'the working calculation is unsaved')
+
+  const real = global.confirm
+  let asked = ''
+  global.confirm = (message) => {
+    asked = message
+    return false
+  }
+  click('[data-action="new-calc"]')
+  assert.match(asked, /not in your saved list/i, 'the question names the reason')
+  assert.equal(state.getCalculation().id, id, 'Cancel replaced nothing')
+
+  global.confirm = () => true
+  click('[data-action="new-calc"]')
+  assert.notEqual(state.getCalculation().id, id, 'OK starts the new one')
+  assert.ok($('.goal-grid'), 'and lands on the setup screen')
+  global.confirm = real
+
+  // Put the steps back for the tests below.
+  choose('input[data-action="toggle-goal"][value="days"]')
+  choose('input[data-action="set-forage"][value="coolSeasonGrass"]')
+  click('[data-action="start"]')
+})
+
+test('the spread note is settled once per entry, not once per keystroke', () => {
+  const note = () => $('[data-spread-note]')
+  const boxes = $$('[data-path^="samples."]')
+  assert.ok(boxes.length >= 3, 'step 1 is on screen')
+
+  // A wide spread, which is what the note is about. Mid-number it would be
+  // judging a figure that is not all there: 1 and 100 read as a wide spread while
+  // the 100 is still "1".
+  boxes[0].focus()
+  type(boxes[0], 1)
+  boxes[1].focus()
+  type(boxes[1], 100)
+  assert.equal(note().hidden, true, 'nothing appears under the thumb while typing')
+
+  // Moving to the next weight means the last one is finished, which is the moment
+  // the judgement is worth making. It does not wait for a tap on the page.
+  boxes[2].focus()
+  assert.equal(note().hidden, false, 'the next box is enough')
+  assert.match(note().textContent, /wide spread/)
+
+  // And once it is up it STAYS up while the next weight is typed. Hiding it on
+  // the first keystroke and bringing it back on the last is the same flicker
+  // approached from the other side.
+  const said = note().textContent
+  type(boxes[2], 5)
+  assert.equal(note().hidden, false, 'typing does not take it away again')
+  assert.equal(note().textContent, said, 'and does not rewrite it mid-number')
+
+  // Leaving the box is what settles it again — up, updated, or down.
+  boxes[2].blur()
+  assert.equal(note().hidden, false, 'still a wide spread: 1, 100, 5')
+
+  boxes[1].focus()
+  type(boxes[1], 1)
+  assert.equal(note().hidden, false, 'held while the evening-up is typed')
+  boxes[2].focus()
+  type(boxes[2], 1)
+  boxes[2].blur()
+  assert.equal(note().hidden, true, 'and it stands down once that entry is made')
+})
+
+test('editing a saved calculation keeps its card in step', async () => {
+  const storage = await import('../src/storage.js')
+
+  // Saved half way through, which is the normal thing to do: one pasture at a
+  // time, in a pasture, before the herd figures are known.
+  click('[data-action="save-calc"]')
+  $('#save-name').value = 'Mid-way pasture'
+  click('[data-save-confirm]')
+  const id = state.getCalculation().id
+  assert.ok(storage.getCalcById(id), 'it is in the list')
+
+  // An unanswered goal has no answer on a card either. Every formatter treats a
+  // non-finite number as zero, so this read "Grazing days: 0 days" — an answer,
+  // and a wrong one: it says the pasture will not feed anything.
+  click('[data-action="set-tab"][data-tab="saved"]')
+  const card = () => $(`[data-calc-id="${id}"] .saved-figs`).textContent
+  assert.match(card(), /Grazing days: —/, 'a figure with no answer yet is a dash')
+
+  // Now finish it.
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  click('[data-action="toggle-show-all"]')
+  click('[data-action="set-frame"][data-mode="small"]')
+  choose('input[data-action="set-stage"][value="headOut"]')
+  type('[data-path="usable.amountLeaving"]', 600)
+  type('[data-path="demand.animalWeight"]', 1200)
+  type('[data-path="demand.numAnimals"]', 50)
+  type('[data-path="pasture.totalAcres"]', 160)
+  const onScreen = out('grazingDays')
+  assert.notEqual(onScreen, '—', 'the worksheet is finished')
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // The bar says "Saved" the whole way through this. It used to mean only
+      // that the working copy had been written, while the record behind the card
+      // still held the figures it was saved with three steps ago.
+      assert.match($('[data-autosave]').textContent, /Saved/)
+      click('[data-action="set-tab"][data-tab="saved"]')
+      assert.match(card(), new RegExp(`Grazing days: ${onScreen}`), 'the card followed the work')
+      assert.equal(
+        storage.getCalcById(id).demand.numAnimals,
+        '50',
+        'and so did the inputs behind it'
+      )
+
+      // Opening one and only LOOKING at it writes nothing, which is what keeps
+      // the date on the card honest and stops the list reordering itself under
+      // somebody who came to read.
+      const before = storage.getCalcById(id).updatedAt
+      click(`[data-action="open-calc"][data-id="${id}"]`)
+      setTimeout(() => {
+        assert.equal(storage.getCalcById(id).updatedAt, before, 'an open is not an edit')
+        click('[data-action="toggle-show-all"]')
+        resolve()
+      }, 500)
+    }, 500)
+  })
+})
+
+test('the privacy line is narrowed in app.css, not in the shared sheet', () => {
+  // styles.css is shared with SDSHC-farm-budget and the Virtual Fence ROI tool,
+  // so a width chosen for this app's sentences belongs in app.css. jsdom loads no
+  // CSS, so this reads the two files.
+  const shared = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+  const app = readFileSync(new URL('../src/app.css', import.meta.url), 'utf8')
+
+  assert.match(app, /\.footer-privacy\s*\{[^}]*max-width/, 'app.css sizes the line')
+  assert.match(app, /\.footer-privacy\s*\{[^}]*margin-left:\s*auto/, 'and keeps it centred')
+  assert.doesNotMatch(shared, /\.footer-privacy\s*\{[^}]*max-width/, 'the shared sheet is untouched')
 })
 
 test('closing the tab inside the debounce still writes the work', async () => {

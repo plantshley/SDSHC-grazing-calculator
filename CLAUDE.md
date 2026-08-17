@@ -122,7 +122,25 @@ work nobody has saved yet. **Do not gate the element itself on `saved`.**
 
 The debounce is flushed on `pagehide` and `visibilitychange`, not `beforeunload`:
 iOS does not fire that reliably, and mobile Safari suspends timers on
-backgrounding, so a pending save can otherwise never run.
+backgrounding, so a pending save can otherwise never run. It is flushed on
+`set-tab` and `go-saved` too — the Saved tab is about to draw the record that
+write updates, and 400ms is long enough to switch tabs inside.
+
+**The sample spread note is the one thing on the page that does not refresh as
+you type.** It is a judgement of the entry rather than a figure worked out from it,
+and mid-number it describes a spread that exists only because the digits are not
+all in — 1 and 100 read as a wide spread while the 100 is still "1".
+
+So it is settled once per **entry**: `updateOutputs(res, root, {spreadNote: false})`
+**leaves the paragraph exactly as it is** and does not hide it. `editingSamples` in
+`main.js` is set by the `input` listener and cleared by `focusout`/`focusin` on
+`app`, so leaving a weight box — **including for the next weight box** — is what
+makes it appear, update or stand down.
+
+Both halves came from a correction. Gating it on "the caret is in step 1" made
+somebody tap the page to see it at all; hiding it on the first keystroke of the
+next weight was the same flicker from the other side. **Do not turn the frozen
+state back into a hidden one.**
 
 ### `openModal()` hands back a NEW body element every time
 
@@ -150,6 +168,12 @@ Save, "Edit saved" in the sticky bar, and Edit on a card. No separate rename or
 colour dialog.
 
 "Edit saved" still SAVES — it writes the figures as they stand.
+
+A card's figures come from the record's stored `results`, so an unanswered goal
+must render a dash there too: `figure()` in `saved.js` guards `null` before the
+formatter, because every formatter treats a non-finite number as 0 and
+"Grazing days: 0 days" is an answer, and a wrong one. Same rule as
+`updateOutputs()`, one file further out.
 
 `updateCalcMeta()` moves `updatedAt` only when the name or the pasture changed;
 colouring a card is filing, not editing. Grey is not one of the eleven swatches —
@@ -190,8 +214,34 @@ lands on the setup screen with a new id. It is the only genuinely blank start.
 this into a dirty-flag check** — it would warn about the autosave, which is the
 thing that cannot be lost.
 
+It is the browser's `confirm()`, and it stays that way. A modal of our own could
+label its buttons "Continue" and "Go back" instead of OK and Cancel; it was tried
+and reverted, because a modal cannot block and the callback it forces on this
+function and on `openSavedCalc()` costs more than the two words are worth.
+
 `go-saved` (the To Saved button on step 5) writes the record first if there is
 not one.
+
+### "Saved" means one thing: the record matches the screen
+
+The autosave writes the working copy **and**, if this calculation is already in
+the saved list, that record — `writeEverywhere()` and `syncSavedRecord()` in
+`main.js`. A calculation saved half way through and then finished used to sit in
+the Saved tab showing the figures it had when it was saved, under a bar reading
+"Saved". Both were true of different things, which is not something a user can be
+asked to hold in their head.
+
+Nothing there **creates** a record. The Save button still decides what is kept, so
+a calculation nobody has named stays out of the list.
+
+`syncSavedRecord()` compares `fingerprint()` before writing, and that guard is
+load-bearing: opening a record notifies, so without it an open would rewrite the
+record, move its date and jump it to the top of a list nobody had reordered.
+`fingerprint()` leaves out what the store owns — `updatedAt`, `createdAt`,
+`sortIndex`, `schemaVersion`, `tag` and `results`.
+
+A `Conflict` (another tab wrote it) is **left alone** rather than asked about: the
+question belongs to a button somebody pressed, and `persist()` still asks it.
 
 ### `storage.js` never throws
 
@@ -248,6 +298,23 @@ sheet appears, and the page would be swapped out from under it. `step` and
 Figures for an exported image or spreadsheet are **recomputed** with
 `compute(resolved(record))`, never read from the record's stored `results`. Same
 rule as reopening one.
+
+### Where the data lives is stated, not only linked
+
+`footer()` in `main.js` renders on every tab and states it in one sentence
+(`.footer-privacy`), with a `privacy` definition behind *Read more* and the same
+fact at the end of the how-to's *Saving your work*. The sentence survives
+printing and the link does not — the print block hides `.footer button`.
+
+`footer()` takes the tab for one reason: the **cover crops tab says something
+different**, because that tab is a cross-origin JotForm and submitting it sends
+the entries to JotForm. **Do not simplify that back to one sentence** — the
+blanket line is a promise the app cannot keep on one of its three tabs.
+
+The footer carries the how-to link and the privacy line and **no exports**,
+unlike farm-budget's copy. Step 5 and a card's *Save as* already carry those, and
+a set at the foot of the page would act on the working calculation while the
+Saved tab shows records that are not it.
 
 ### The shared design system does not drift
 

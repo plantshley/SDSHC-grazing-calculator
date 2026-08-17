@@ -545,7 +545,7 @@
   color: var(--muted);
   margin: 0 0 10px;
   line-height: 1.45;
-  max-width: 78ch;
+  max-width: 100%;
 }
 
 .goal-grid {
@@ -2170,6 +2170,22 @@ body:has(.sticky-bar) {
   border-left: 3px solid var(--cost);
   font-size: 14px;
   line-height: 1.5;
+}
+
+/* ---- footer, app-specific ------------------------------------------------
+   The shared sheet centres the footer and sizes its type; this narrows the one
+   line of prose in it. A sentence set to the full width of a desktop page is a
+   single long row of small grey text, which is the shape of something nobody
+   reads, and this is the one line in the app that has to be read. Centred by
+   `margin: auto` on a max-width, so it stays under the middle of the page rather
+   than being centred text pinned to the left edge.
+
+   Wide enough for the cover crops tab's longer sentence to take two or three
+   lines rather than seven. */
+.footer-privacy {
+  max-width: 86ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ---- color swatches -----------------------------------------------------

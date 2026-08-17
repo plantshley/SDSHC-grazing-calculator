@@ -95,11 +95,17 @@ function render() {
   const calc = getCalculation()
   const tab = getPref('tab')
 
+  // Replacing the markup drops focus to the body, so nothing is being typed into
+  // any more. Left standing, a stale flag would hold the spread note back until
+  // somebody happened to tap a weight box and leave it again.
+  editingSamples = false
+
   app.innerHTML = `
     ${header(tab)}
     ${tab === 'perennial' ? perennial(calc) : ''}
     ${tab === 'covercrop' ? renderCoverCrop() : ''}
-    ${tab === 'saved' ? renderSaved(listCalcs(), savedFilter) : ''}`
+    ${tab === 'saved' ? renderSaved(listCalcs(), savedFilter) : ''}
+    ${footer(tab)}`
 
   if (tab === 'covercrop') wireCoverCrop(app)
   if (tab === 'saved') restoreFilterFocus()
@@ -154,6 +160,44 @@ function header(tab) {
         <button type="button" class="help-btn help-btn--head" data-action="how-to"
           aria-label="How to use this calculator" title="How to use this calculator">?</button>
       </div>
+    </div>`
+}
+
+/**
+ * The foot of every screen, ported from SDSHC-farm-budget.
+ *
+ * The privacy line is STATED, not only linked. Somebody is being asked to type
+ * their sample weights, their herd size and their acres into a web page at a
+ * workshop, often on a borrowed device, and "there is a page about it somewhere"
+ * is not the same answer as one sentence they cannot miss. The link opens the
+ * full explanation for anyone who wants it, and `.footer button` is hidden when
+ * the page is printed, so a printout carries the statement without the controls.
+ *
+ * NO export links here, unlike farm-budget's copy. Step 5 already carries Save
+ * as image, Export CSV and Print, and a card's Save as carries the same four for
+ * a stored record. A second set at the foot of the page would act on the WORKING
+ * calculation while the Saved tab is showing a list of records that are not it.
+ *
+ * The cover crops tab gets its own sentence because the blanket one is not true
+ * there: that tab is a JotForm on another origin, and submitting it sends what
+ * was typed to JotForm. A promise the app cannot keep on one of its three tabs
+ * is worse than no promise at all.
+ */
+function footer(tab) {
+  const privacy =
+    tab === 'covercrop'
+      ? `The cover crop form on this tab is hosted by JotForm, and inputs will only be sent to them if you hit the "DO NOT CLICK" button at the bottom. Everything you enter in the rest of this calculator
+         stays on this device.`
+      : 'Everything you enter stays on this device.'
+
+  return `
+    <div class="footer">
+      <button type="button" class="tip" data-action="how-to">How to use this calculator</button>
+      <p class="footer-privacy">
+        ${privacy}
+        <button type="button" class="tip" data-info="privacy">Read more</button>
+      </p>
+      <p>South Dakota Soil Health Coalition</p>
     </div>`
 }
 
@@ -303,7 +347,69 @@ function flushSave() {
   if (saveTimer === null) return
   clearTimeout(saveTimer)
   saveTimer = null
-  setAutosave(saveWorking(getCalculation()).ok ? 'saved' : 'error')
+  setAutosave(writeEverywhere() ? 'saved' : 'error')
+}
+
+/**
+ * The autosave writes the working copy AND the saved record it came from.
+ *
+ * The record used to be written only when somebody pressed Save, so a
+ * calculation saved half way through and then finished sat in the Saved tab
+ * showing the figures it had at the moment it was saved, while the bar over the
+ * top of it said "Saved". Both statements were true of different things, which
+ * is not something a user can be expected to hold in their head: the tab is the
+ * place they go to see what they have, and what they had was three steps behind.
+ *
+ * So "Saved" now means one thing. The working copy is written on every keystroke
+ * as before, and if this calculation is already IN the list, that record is
+ * written with it.
+ *
+ * Only if it is already in the list. Nothing here creates a record, so the Save
+ * button still decides what gets kept, and a calculation nobody has named stays
+ * out of the Saved tab.
+ *
+ * @returns {boolean} true when everything that needed writing was written.
+ */
+function writeEverywhere() {
+  const calc = getCalculation()
+  const working = saveWorking(calc)
+  return syncSavedRecord(calc).ok && working.ok
+}
+
+/**
+ * Write the working calculation over the record in the saved list, if it is one.
+ *
+ * The fingerprint check is what keeps merely LOOKING at a saved calculation from
+ * touching it. Opening one replaces the working copy, which notifies, which
+ * lands here: without the check, opening a record would rewrite it and move its
+ * date for no reason, and on a list that has never been dragged into an order it
+ * would jump to the top.
+ *
+ * A `Conflict` means another tab wrote this record after this one last read it.
+ * The autosave leaves it alone rather than asking — the question belongs to a
+ * button somebody pressed, and the explicit save still asks it. The working copy
+ * is written either way, so nothing typed is at risk while that stands.
+ */
+function syncSavedRecord(calc) {
+  const stored = getCalcById(calc.id)
+  if (!stored) return { ok: true }
+
+  const record = { ...structuredClone(calc), results: compute(resolved(calc)) }
+  if (fingerprint(stored) === fingerprint(record)) return { ok: true }
+
+  const result = saveCalc(record)
+  return result.ok || result.error === 'Conflict' ? { ok: true } : result
+}
+
+/**
+ * Everything on a record that the person using it can change, and nothing the
+ * store owns: `updatedAt` and `createdAt` are stamped by saveCalc, `sortIndex`
+ * belongs to the Saved tab, `tag` has its own two owners, and `results` are
+ * worked out from the rest.
+ */
+function fingerprint(record) {
+  const { updatedAt, createdAt, sortIndex, schemaVersion, tag, results, ...rest } = record
+  return JSON.stringify(rest)
 }
 
 window.addEventListener('pagehide', flushSave)
@@ -320,7 +426,7 @@ subscribe(() => {
   refresh()
   saveTimer = setTimeout(() => {
     saveTimer = null
-    setAutosave(saveWorking(getCalculation()).ok ? 'saved' : 'error')
+    setAutosave(writeEverywhere() ? 'saved' : 'error')
   }, 400)
 })
 
@@ -341,10 +447,52 @@ function refresh() {
     slot.dataset.built = '1'
   }
 
-  updateOutputs(res, app)
+  updateOutputs(res, app, { spreadNote: !editingSamples })
   paintAutosave()
   return res
 }
+
+/* ───────────────── the spread note waits for the pen to lift ───────────── */
+
+/**
+ * True while a weight is part typed. It FREEZES the spread note; it does not hide
+ * it.
+ *
+ * The spread note is the one thing on the page that is a JUDGEMENT of what has
+ * been entered rather than a figure worked out from it, and it is a paragraph
+ * three lines long. Recomputed on every keystroke it appears and vanishes under
+ * the thumb, and mid-number it is judging a figure that is not all there: 1 and
+ * 100 read as a wide spread while the 100 is still "1".
+ *
+ * So the note is settled once per ENTRY rather than per keystroke. Leaving a
+ * weight box, including for the next weight box, is what says that entry is
+ * finished, and that is when it appears, updates or stands down. In between it
+ * holds whatever it last said — hiding it as soon as a key goes down would be the
+ * same flicker approached from the other side.
+ *
+ * Everything else on the page keeps updating as you type. A figure that sits
+ * still while its value changes is not the same thing as a sentence that comes
+ * and goes.
+ */
+let editingSamples = false
+
+const isSampleBox = (el) => !!el?.dataset?.path?.startsWith('samples.')
+
+/**
+ * Entering or leaving a weight box ends the entry, whichever box comes next.
+ *
+ * Both events are needed. `focusout` fires BEFORE focus lands anywhere, so it is
+ * what catches a move to another weight box and to the page alike; `focusin`
+ * covers focus arriving from outside the app, where no `focusout` was seen here.
+ */
+const endSampleEntry = () => {
+  if (!editingSamples) return
+  editingSamples = false
+  refresh()
+}
+
+app.addEventListener('focusout', endSampleEntry)
+app.addEventListener('focusin', endSampleEntry)
 
 /* ─────────────────────── writing by path, one listener ─────────────────── */
 
@@ -359,6 +507,10 @@ app.addEventListener('input', (e) => {
   if (!path) return
   setPath(getCalculation(), path, e.target.value)
   if (path === 'frame.customArea') syncFramePill(e.target.value)
+  // Set BEFORE notify(), which is what repaints the page. A weight being typed
+  // leaves the spread note as it stands until that box is left; typing anywhere
+  // else means no weight is part entered, so the note is settled again.
+  editingSamples = isSampleBox(e.target)
   notify()
 })
 
@@ -476,6 +628,11 @@ function defaultMixType(calc) {
  *
  * An untouched form is not work, so it goes without asking.
  *
+ * The browser's own dialog, deliberately. A modal of ours could label its buttons
+ * "Continue" and "Go back" instead of OK and Cancel, and that was tried: it costs
+ * a callback in place of a return value here and at every call site, because a
+ * modal cannot block. The words are not worth the shape of the code.
+ *
  * @returns {boolean} true to go ahead.
  */
 function confirmLeavingUnsaved(what) {
@@ -485,7 +642,7 @@ function confirmLeavingUnsaved(what) {
   if (listCalcs().some((c) => c.id === calc.id)) return true
 
   return confirm(
-    `The calculation you have open is not in your saved list. ${what} will lose it. Save it first, or continue?`
+    `The calculation you have open is not in your saved list. ${what} will lose it. Hit Ok to continue, or Cancel to go back to the open calculation.`
   )
 }
 
@@ -651,6 +808,10 @@ function handleAction(action, btn) {
   switch (action) {
     /* chrome */
     case 'set-tab':
+      // The last keystroke may still be inside the 400ms debounce, and the Saved
+      // tab is about to draw the record that write updates. Waiting would put a
+      // list on screen that is one edit behind and then never redraw it.
+      flushSave()
       setPref('tab', btn.dataset.tab)
       render()
       break
@@ -919,6 +1080,9 @@ function handleAction(action, btn) {
         persist(calc)
         notify()
       }
+      // Same reason as set-tab: anything still in the debounce belongs in the
+      // record before the list that shows it is drawn.
+      flushSave()
       setPref('tab', 'saved')
       render()
       scrollToTop()
@@ -1021,8 +1185,15 @@ function handleAction(action, btn) {
  * Put a saved record on screen, replacing the working calculation.
  *
  * Opening REPLACES what is being worked on, so an unsaved calculation goes with
- * it. The record is opened as a COPY: editing a saved calculation in place
- * would rewrite something the user may only have wanted to look at.
+ * it. The record is cloned rather than adopted, so nothing on screen holds a live
+ * pointer into the stored list.
+ *
+ * It is no longer a scratch copy, though. Editing a calculation that is in the
+ * list writes back to it — see writeEverywhere() — because a Saved tab showing
+ * figures three steps behind the screen was worse than the protection that
+ * bought. LOOKING still changes nothing: syncSavedRecord() compares the record
+ * with the working copy before it writes, so an open that touches no field
+ * touches no record.
  *
  * setCalculation notifies, which is what schedules the autosave. Without it,
  * reloading straight after opening would revert to whatever was in the working

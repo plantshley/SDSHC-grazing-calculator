@@ -251,4 +251,26 @@ export const DEFINITIONS = {
       'The backup file is dated, so backups taken on different days sit beside each other in your downloads folder rather than overwriting one another.',
     ],
   },
+
+  /* ─────────────────────────── the footer ──────────────────────────────── */
+
+  // Not a grazing term, and it opens from the footer rather than from a `?`
+  // beside a field. It belongs here because it is the same kind of thing: a
+  // read-only explanation that changes no number. Somebody is being asked to
+  // type their sample weights, their herd size, and their acres into a web page
+  // at a workshop, often on a borrowed device, and the honest answer to "who can
+  // see this?" should be one tap away rather than something they have to ask a
+  // person about.
+  privacy: {
+    title: 'Where your calculations live',
+    body: [
+      'Everything you enter stays on this device, in this browser. It is not sent anywhere and it is not stored on any server.',
+      'The South Dakota Soil Health Coalition cannot see your calculations. Nobody can, except somebody using this device.',
+      'Your saved calculations will not appear on your other phone or computer, and they are not shared with anyone.',
+      'To move one to another device, or to hand it to somebody else, use "Save as" on its card to download a calculation file, and "Upload a calculation" on the Saved tab to read it back in.',
+      'To keep a copy of everything at once, use "Export backup" on the Saved tab. Those files are the only things that ever leave this device, and only when you download them yourself.',
+      'Because the calculations live in this browser, clearing your browsing data deletes them. Export a backup for anything you want to keep.',
+      'The one exception is the Grazing Cover Crops tab. That form is hosted by JotForm rather than by this calculator, so submitting it sends your entries to them. Nothing you type on the perennial grazing tab goes near it.',
+    ],
+  },
 }

@@ -210,13 +210,13 @@ function cardFor(calc, filtering) {
 
   const figures = []
   if (calc.goals?.includes('days')) {
-    figures.push(`Grazing days: <b>${esc(FORMATTERS.days(res.grazingDays))}</b>`)
+    figures.push(`Grazing days: <b>${esc(figure('days', res.grazingDays))}</b>`)
   }
   if (calc.goals?.includes('acres')) {
-    figures.push(`Acres per day: <b>${esc(FORMATTERS.acres(res.acresPerDay))}</b>`)
+    figures.push(`Acres per day: <b>${esc(figure('acres', res.acresPerDay))}</b>`)
   }
   if (calc.goals?.includes('animals')) {
-    figures.push(`Animals: <b>${esc(FORMATTERS.head(res.animalsAllowed))}</b>`)
+    figures.push(`Animals: <b>${esc(figure('head', res.animalsAllowed))}</b>`)
   }
 
   const tag = TAGS.includes(calc.tag) ? calc.tag : ''
@@ -250,6 +250,20 @@ function cardFor(calc, filtering) {
         <button type="button" class="tip danger" data-action="delete-calc" data-id="${esc(calc.id)}">Delete</button>
       </div>
     </div>`
+}
+
+/**
+ * A card obeys the same rule as the rest of the app: an unanswered goal has no
+ * answer, and it shows a dash.
+ *
+ * compute() returns `null`, not 0, for a goal whose inputs are not all in, and
+ * every formatter here treats a non-finite number as zero. So a calculation saved
+ * half way through — which is the normal thing to do, one pasture at a time —
+ * read "Grazing days: 0 days" on its card. Zero days is an answer, and a wrong
+ * one: it says this pasture will not feed anything.
+ */
+function figure(fmt, value) {
+  return value === null || value === undefined ? '—' : FORMATTERS[fmt](value)
 }
 
 function shortDate(iso) {

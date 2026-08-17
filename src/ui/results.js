@@ -204,8 +204,11 @@ export function renderStickyBar(showAll, calc, saved = false) {
  *
  * Called on every input. Touches only text, never structure, so nothing the
  * user is typing into can be replaced underneath them.
+ *
+ * `spreadNote: false` leaves the sample spread note alone — not hidden, untouched
+ * — while a weight is part typed. See the note beside `[data-spread-note]` below.
  */
-export function updateOutputs(res, root = document) {
+export function updateOutputs(res, root = document, { spreadNote = true } = {}) {
   for (const el of root.querySelectorAll('[data-out]')) {
     const key = el.dataset.out
     const fmt = FORMATTERS[el.dataset.fmt] ?? FORMATTERS.number
@@ -246,7 +249,14 @@ export function updateOutputs(res, root = document) {
     el.textContent = outstanding.length ? '' : formulaFor(el.dataset.formula, res)
   }
 
-  const spread = root.querySelector('[data-spread-note]')
+  // `spreadNote: false` leaves the paragraph EXACTLY as it is, rather than
+  // hiding it. Every other figure here is refreshed as you type, which is right
+  // for a figure: it sits still and its value changes. This is three lines of
+  // prose, so it is settled once per entry — mid-number it would be judging a
+  // figure that is not all there (1 and 100 is a wide spread while the 100 is
+  // still "1"), and a paragraph that vanishes on the first keystroke and comes
+  // back on the last is the same flicker from the other side.
+  const spread = spreadNote ? root.querySelector('[data-spread-note]') : null
   if (spread) {
     // Only worth saying once there are enough samples for a spread to mean
     // something, and only when it is wide enough to be worth another ten
