@@ -878,6 +878,12 @@ function handleAction(action, btn) {
         startedOnce = true
       }
       render()
+      // The forage chart is eight rows of photographs, so this is pressed from
+      // well down a long screen and Return comes back to a step that was being
+      // worked on. Neither leaves a scroll position worth keeping: the setup
+      // screen is what it belonged to, and the worksheet that replaces it is a
+      // different length.
+      scrollToWork(workTarget())
       break
     case 'edit-setup':
       setupOpen = true
@@ -909,13 +915,13 @@ function handleAction(action, btn) {
       setPref('maxStep', Math.max(getPref('maxStep'), next))
       markPassed(next)
       render()
-      scrollToTop()
+      scrollToWork(workTarget())
       break
     }
     case 'prev-step':
       setPref('step', clampStep(getPref('step') - 1))
       render()
-      scrollToTop()
+      scrollToWork(workTarget())
       break
     case 'go-step': {
       // The stepper offers the next circle as well as the ones behind, so
@@ -932,7 +938,7 @@ function handleAction(action, btn) {
       // mean step 1 has been gone past — it means the opposite.
       if (to > from) markPassed(to)
       render()
-      scrollToTop()
+      scrollToWork(workTarget())
       break
     }
     case 'toggle-show-all': {
@@ -954,6 +960,12 @@ function handleAction(action, btn) {
         setOpenSteps([clampStep(getPref('step'))])
       }
       render()
+      // Turning it on, the landing place is the step this left open just above:
+      // the reason to turn the toggle on is to work on that step with the others
+      // to hand. Turning it back off, the strip is there again and it is the top
+      // of the work exactly as it is for Next. workTarget() reads the mode that
+      // was set two lines up, so it answers both.
+      scrollToWork(workTarget())
       break
     }
     case 'toggle-step': {
@@ -1465,6 +1477,66 @@ function persist(calc) {
 
 function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+/**
+ * The narrow layout, where everything above the worksheet is a stack.
+ *
+ * Below 900px the tool's name drops to its own row under the topbar, the tab
+ * strip and the forage chips sit on rows of their own, and the top of the page
+ * is a screenful before the work starts. The same boundary as `.topbar-title` in
+ * app.css, deliberately: this is that layout, not a fourth number.
+ */
+function narrowLayout() {
+  return !!window.matchMedia?.('(max-width: 899px)').matches
+}
+
+/**
+ * Where the top of the work is, in whichever mode is on.
+ *
+ * The stepper in the wizard: it says which step this is, and that step's head is
+ * directly under it.
+ *
+ * Under "Show all steps" there is no stepper, and the work is the EXPANDED step —
+ * the one section that is not a folded head. Not `step`, which is the wizard's
+ * current step and goes stale the moment the toggle goes on: nothing in this mode
+ * moves it, so it still names wherever the user was when they left the wizard,
+ * which may well be folded shut by now. The topmost open one when several are, so
+ * the landing is never below work that is already unfolded above it. All of them
+ * folded and there is no expanded step to go to, so it falls back to that stale
+ * step's head, which is at least a place in the worksheet.
+ *
+ * Read off the DOM rather than off `openSteps`, because what the user is looking
+ * at is the question, and it is the same answer isStepOpen() gave renderSteps().
+ * Call it AFTER render() — anything from before it has been thrown away.
+ */
+function workTarget() {
+  if (!getPref('showAll')) return app.querySelector('.stepper')
+  const open = [...app.querySelectorAll('.step')].find(
+    (section) => !section.querySelector('.step-body')?.hidden
+  )
+  return open ?? app.querySelector(`.step[data-step="${clampStep(getPref('step'))}"]`)
+}
+
+/**
+ * Land on the work rather than on the top of the page.
+ *
+ * On a phone, moving between steps and scrolling back to `top: 0` puts the
+ * header, the tab strip and the chips on screen and the step that was just
+ * opened below the fold — a move the user asked for, followed by having to
+ * scroll to see that it happened. So the target is put at the top of the screen
+ * instead. Wide screens keep the page top: there the same chrome is one compact
+ * row, so the top of the page already IS the top of the worksheet and scrolling
+ * past it would only throw the tabs away.
+ *
+ * `scroll-margin-top` on the targets (app.css) keeps the landing off the very
+ * edge, so there is a visible sliver of what is above it.
+ */
+function scrollToWork(el) {
+  const target = narrowLayout() ? el : null
+  // jsdom has no scrollIntoView at all, and options are not universal either.
+  if (target?.scrollIntoView) target.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  else scrollToTop()
 }
 
 /* ────────────────────────── chrome outside #app ────────────────────────── */

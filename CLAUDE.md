@@ -84,6 +84,35 @@ inside `:has(.step-pill:not([hidden]))`, so a head with nothing to say does not
 pay a row of `gap` for an empty line. The indent is a **measured constant** —
 chevron, gap, badge, gap — because CSS cannot ask the badge how wide it came out.
 
+### A step change lands on the work, not on the top of the page
+
+`scrollToWork(sel)` in `main.js` is what **Next**, **Back**, a **stepper circle**,
+**Start / Return** and the **Show all steps** toggle scroll with. Below 900px it
+puts the target at the top of the screen; at 900px up everything above the
+worksheet is one compact row, so the page top already is the top of the work and
+it stays `scrollToTop()`. Call it **after `render()`** — it queries the markup
+that render just wrote.
+
+`workTarget()` is the target, and it is per mode, not per button: `.stepper` in
+the wizard, and under Show all steps, which has no stepper, the **expanded** step.
+**Not `step`** — nothing in that mode moves the wizard's current step, so it names
+wherever the user was when the toggle went on and may be folded shut by now. The
+topmost open one when several are open, and that stale step's head only when every
+one of them is folded. It reads `.step-body[hidden]` off the DOM, the same answer
+`isStepOpen()` gave `renderSteps()`, and it returns the **element**. Three of the
+five call sites can be in either mode, so **do not inline a target at one of
+them.**
+
+The breakpoint is `.topbar-title`'s, deliberately: this is that layout, not a
+fourth number. The air above the landing is `scroll-margin-top` on
+`.stepper, .step` in `app.css` and not an offset worked out in the JS.
+
+**Start / Return** is in the list because the position it leaves belongs to the
+setup screen — pressed from the foot of an eight-row forage chart, and returning
+to a worksheet of a different length. A **tab** change is not: `+ New calculation`
+and `To Saved` are arrivals rather than moves within the worksheet, and what is
+above them is not chrome to skip past.
+
 ### The worksheet's constants are not "corrected"
 
 The two hoop presets use the worksheet's round numbers (100, not the exact

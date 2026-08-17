@@ -974,6 +974,84 @@ test('a step ahead of where you got to is not warned about', () => {
   click('[data-action="toggle-show-all"]')
 })
 
+test('on a phone a step change lands on the work, not on the top of the page', () => {
+  // Carries on from above: the wizard, on step 2, with the stepper on the page.
+  // jsdom has neither layout nor media queries and no scrollIntoView at all, so
+  // both halves of the decision are stood in for. Restored in the finally, since
+  // every test after this one shares the window.
+  const realMatch = dom.window.matchMedia
+  const realScroll = dom.window.scrollTo
+  let landed = null
+  let toTop = 0
+  dom.window.Element.prototype.scrollIntoView = function () {
+    landed = this
+  }
+  dom.window.scrollTo = () => {
+    toTop += 1
+  }
+
+  try {
+    dom.window.matchMedia = () => ({ matches: true })
+    // Step 2 has already been warned about, so one press goes through.
+    click('[data-action="next-step"]')
+    assert.equal($('.step-item--active .step-num').textContent, '3', 'it moved on')
+    assert.equal(landed, $('.stepper'), 'and the strip is what the screen starts at')
+    assert.equal(toTop, 0, 'the header is not what the user asked to see')
+
+    landed = null
+    click($$('.step-num')[1])
+    assert.equal(landed, $('.stepper'), 'a circle lands in the same place')
+
+    // No stepper in show-all mode: the step left open is the work.
+    landed = null
+    click('[data-action="toggle-show-all"]')
+    assert.equal(landed, $('.step[data-step="1"]'), 'the open step starts at the top')
+
+    // Nothing in this mode moves the wizard's current step, so it is stale, and
+    // the expanded step is the one the user is actually in. Fold step 2, unfold
+    // step 4, and the two disagree.
+    click('.step[data-step="1"] [data-action="toggle-step"]')
+    click('.step[data-step="3"] [data-action="toggle-step"]')
+    assert.ok($('.step[data-step="1"] .step-body').hidden, 'step 2 is away')
+    landed = null
+    click('[data-action="edit-setup"]')
+    click('[data-action="start"]')
+    assert.equal(landed, $('.step[data-step="3"]'), 'Return lands on the expanded step')
+
+    click('.step[data-step="3"] [data-action="toggle-step"]')
+    landed = null
+    click('[data-action="edit-setup"]')
+    click('[data-action="start"]')
+    assert.equal(
+      landed,
+      $('.step[data-step="1"]'),
+      'with every step folded there is nowhere better than the step it came from'
+    )
+
+    landed = null
+    click('[data-action="toggle-show-all"]')
+    assert.equal(landed, $('.stepper'), 'and the strip is back to land on')
+
+    // Change and back again in the wizard: the scroll position belonged to the
+    // setup screen, and the forage chart it was left in is eight rows of photos.
+    landed = null
+    click('[data-action="edit-setup"]')
+    click('[data-action="start"]')
+    assert.equal(landed, $('.stepper'), 'Return lands on the work too')
+
+    // A wide screen keeps the page top, where that chrome is one compact row.
+    dom.window.matchMedia = () => ({ matches: false })
+    landed = null
+    click('[data-action="next-step"]')
+    assert.equal(landed, null, 'nothing is scrolled past on a desktop')
+    assert.equal(toTop, 1, 'the top of the page is the landing place there')
+  } finally {
+    dom.window.matchMedia = realMatch
+    dom.window.scrollTo = realScroll
+    delete dom.window.Element.prototype.scrollIntoView
+  }
+})
+
 test('To Saved writes a calculation that is not in the list yet', () => {
   // Steps 2 to 4 are still blank, so each costs one press to be told and one to
   // go on anyway. Counting presses would make this test pass on a hidden step 5

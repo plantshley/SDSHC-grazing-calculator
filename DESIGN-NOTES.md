@@ -208,6 +208,79 @@ two lines above it.
 
 ---
 
+## A step change lands on the work, not on the top of the page
+
+Every step change scrolled to `top: 0`, which is right on a desktop and wrong on a
+phone. On a phone the top of the page is the logo row, the tool's name on a row of
+its own, the tab strip, and the forage chips — a screenful of chrome before step 1
+starts. Pressing **Next** therefore did the thing asked of it and then showed the
+user something else, leaving them to scroll down to see that it had happened. The
+same press on a wide screen shows the step, because up there that chrome is one
+compact row.
+
+So the scroll is per layout rather than per action, and the boundary is
+`.topbar-title`'s 900px — the width where the name drops to its own row is the
+width where the stack begins. Reusing it was the point: a fourth breakpoint would
+have to be kept in step with the three that already decide how tall that stack is.
+
+**What to land on** differs by mode, because the wizard has a stepper and "Show
+all steps" does not. In the wizard it is the strip: it says which step this is,
+and the step's own head is directly under it. With the toggle on there is no
+strip, so it is the **expanded** step — the one section that is not a folded head,
+and therefore the step somebody has open in order to work on it.
+
+The first version used the wizard's current step for that, which is wrong and only
+looks right from the toggle. Nothing under "Show all steps" moves `step`: not
+typing, not the carets. It still names wherever the user was when they left the
+wizard, so the moment they fold that step away and unfold another, the target is a
+shut head somewhere above the work. `toggle-show-all` hides this from itself,
+because it force-opens `step` on the way in — the two agree there and nowhere else.
+Reading the fold state instead means the answer comes from what is on screen.
+
+Topmost open one when several are, so the landing is never below a step already
+unfolded above it. Every step folded and there is no expanded step to go to, so it
+falls back to `step`'s head: stale, but a place in the worksheet rather than none.
+It is read off `.step-body[hidden]` rather than off the `openSteps` pref, which is
+the same answer `isStepOpen()` handed `renderSteps()` a moment earlier, from the
+side the user is on.
+
+That is a fact about the mode and not about the button, which is why it is
+`workTarget()` and not a selector written out at each call. Three of the five
+callers — Start, Return and the toggle itself — can be in either mode, and the
+first version of this had the selector inlined at the toggle, where `now` happened
+to say which mode it was. Start would have had to ask the same question a second
+way.
+
+**Start and Return** scrolled nowhere either, and that one is the worst of the
+set: the button is at the foot of a landing screen carrying eight rows of
+photographs, so it is nearly always pressed from well down the page, and Return
+comes back to a worksheet that is a different length again. Whatever offset
+survives belonged to the chart. This one is not gated on the layout — a desktop
+press from the bottom of the chart lands just as badly — so on a wide screen it
+goes to the page top, which is what every other tab and screen change there does.
+
+Turning the toggle **off** scrolled nowhere at all before this, which was not a
+deliberate choice so much as an unnoticed one. Five sections collapse to one, the
+page gets much shorter, and the browser clamps the old offset to whatever is left
+— an arbitrary landing that changes with the step. It goes to the strip now, the
+same place Next goes.
+
+The air above the landing is `scroll-margin-top: 12px` on `.stepper, .step` rather
+than an offset computed in JS. Only a `scrollIntoView()` ever reads it, so it
+costs nothing at the widths that do not scroll, and it keeps a sliver of the row
+above on screen: flush against the top edge reads as a page with no top rather
+than as a page that has been scrolled.
+
+`scrollToWork()` has to run after `render()`, since `render()` replaces
+`app.innerHTML` and the element scrolled to has to be the one now in the page.
+
+jsdom has no layout, no media query evaluation and no `scrollIntoView`, so the
+test stubs `matchMedia` and `Element.prototype.scrollIntoView` and asserts which
+element was handed to it, both ways round. That is as far as a test can go here —
+where the element actually ends up needs a phone.
+
+---
+
 ## The worksheet's constants are not "corrected"
 
 `43,560 / 453.592 / 0.96` is 100.03 and the worksheet prints **100**. The two

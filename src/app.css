@@ -989,6 +989,17 @@ body:has(.sticky-bar) {
   margin-top: 14px;
 }
 
+/* Where scrollToWork() in main.js lands on a phone: the strip after a step
+   change, the open step after "Show all steps" goes on. Nothing but a
+   scrollIntoView() ever reads these, so the value costs nothing on the widths
+   that do not scroll. A gutter's worth, so the landing is not flush against the
+   top edge and a sliver of what is above it stays on screen — flush reads as the
+   page having no top rather than as the page having been scrolled. */
+.stepper,
+.step {
+  scroll-margin-top: 12px;
+}
+
 .step-head {
   display: flex;
   align-items: center;
