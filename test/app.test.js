@@ -392,6 +392,47 @@ test('show all puts every step on the page, collapsed except the current one', (
   assert.ok($('.stepper'), 'the stepper comes back')
 })
 
+test('a folded step wears a count, once it has been gone past', () => {
+  const pill = () => $('[data-step-pill="2"]')
+  const note = () => $('[data-step-missing="2"]')
+
+  // This worksheet was walked forward to step 5, by Next and by the stepper, so
+  // every step behind it has been gone past — filled in on the way, and so never
+  // bumped by mayLeaveStep(). Turning the toggle on marks them too, for the same
+  // reason: it puts the lot on the page at once, behind you.
+  assert.ok($('.step[data-step="2"]').hasAttribute('data-warned'), 'step 3 is behind us')
+  click('[data-action="toggle-show-all"]')
+  assert.ok($('.step[data-step="2"]').hasAttribute('data-warned'), 'and still is, folded')
+  assert.ok(pill().hidden, 'which says nothing while the step is finished')
+
+  // Empty step 3 while it is folded shut, and the head is the only place left to
+  // say so: the note is in the page, correct, and folded away with the body.
+  assert.ok($('.step[data-step="2"] .step-body').hidden, 'step 3 is folded')
+  click('.step[data-step="2"] [data-action="clear-step"]')
+  assert.ok(!pill().hidden, 'the shut head carries the count')
+  assert.equal(pill().textContent, '1 missing')
+  assert.ok(!note().hidden, 'with the note itself waiting inside')
+
+  // Open it and the count stands down: the note is two lines below the head, and
+  // the same shortfall twice in one box reads as two problems.
+  click('.step[data-step="2"] [data-action="toggle-step"]')
+  assert.ok(pill().hidden, 'the count is for a shut step only')
+  assert.ok(!note().hidden, 'the note has the head to itself')
+
+  // Both are placeholders like every figure on the page: they clear themselves
+  // on the keystroke that answers them, not at the next render.
+  type('[data-path="usable.amountLeaving"]', 600)
+  assert.ok(note().hidden, 'the note goes as soon as the box is filled')
+  click('.step[data-step="2"] [data-action="toggle-step"]')
+  assert.ok(pill().hidden, 'and there is nothing left for the head to say')
+
+  // Step 5 collects nothing of its own, so it can never owe anything.
+  assert.equal($('[data-step-pill="4"]'), null, 'the results head has no count')
+
+  click('[data-action="toggle-show-all"]')
+  assert.ok($('.stepper'), 'back to one step at a time for what follows')
+})
+
 test('work survives a reload', async () => {
   assert.equal(out('usableForage'), '525 lbs/ac')
 
@@ -869,8 +910,11 @@ test('the stepper offers the next circle, and a step says what it still needs', 
   assert.ok(nums[2].disabled, 'the one after it is not: the strip still says where the work got to')
 
   // A step is blank when you arrive on it, so saying it is unfinished on arrival
-  // is telling the user what they can already see.
-  assert.equal($('[data-step-missing="0"]'), null, 'nothing is said just for turning up')
+  // is telling the user what they can already see. The placeholder is in the page
+  // from the start, like every figure is, and says nothing until it has something
+  // to say.
+  assert.ok($('[data-step-missing="0"]').hidden, 'nothing is said just for turning up')
+  assert.ok(!$('.step[data-step="0"]').hasAttribute('data-warned'), 'and nothing marks it yet')
 
   // Trying to leave it is the moment that changes. The first press stays put.
   click('[data-action="next-step"]')
@@ -891,6 +935,43 @@ test('the stepper offers the next circle, and a step says what it still needs', 
 
   click($$('.step-num')[1])
   assert.ok(!$$('.step-num')[2].disabled, 'arriving by circle unlocks the next one in turn')
+})
+
+test('a step ahead of where you got to is not warned about', () => {
+  // Carries on from above: a fresh worksheet, on step 2, with only step 1 filled
+  // in and everything after it blank.
+  click('[data-action="toggle-show-all"]')
+  assert.ok(
+    !$('.step[data-step="2"]').hasAttribute('data-warned'),
+    'the toggle marks what is behind you, not what is in front'
+  )
+  assert.ok($('[data-step-pill="2"]').hidden, 'so no head says anything about step 3')
+
+  // Unfolding step 4 to read it is going past the steps above it: the same
+  // statement Next makes, made with a caret. There is no Next in this mode.
+  click('.step[data-step="3"] [data-action="toggle-step"]')
+  assert.ok(!$('[data-step-pill="2"]').hidden, 'and now step 3 says so')
+  assert.equal($('[data-step-pill="2"]').textContent, '1 missing')
+
+  // Step 2 was gone past as well, but it is the one body left open, so it says
+  // it at length instead of as a count.
+  assert.ok(!$('.step[data-step="1"] .step-body').hidden, 'step 2 is the open one')
+  assert.ok($('[data-step-pill="1"]').hidden, 'so its head keeps quiet')
+  assert.ok(!$('[data-step-missing="1"]').hidden, 'and the note in its body does the talking')
+
+  // Working in a step counts too, which is what carries this for a step that was
+  // already open when the toggle went on.
+  type('[data-path="demand.animalWeight"]', 1100)
+  assert.equal($('[data-step-pill="2"]').textContent, '1 missing', 'the count holds while work goes on')
+
+  // Folding step 4 away is going past step 4 itself, and the head it just folded
+  // is the only place left to say what step 4 still owes.
+  assert.ok($('[data-step-pill="3"]').hidden, 'nothing on step 4 while you are in it')
+  click('.step[data-step="3"] [data-action="toggle-step"]')
+  assert.ok(!$('[data-step-pill="3"]').hidden, 'putting it away is finishing with it')
+  assert.equal($('[data-step-pill="3"]').textContent, '1 missing', 'the herd size, now the weight is in')
+
+  click('[data-action="toggle-show-all"]')
 })
 
 test('To Saved writes a calculation that is not in the list yet', () => {

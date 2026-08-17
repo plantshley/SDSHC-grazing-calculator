@@ -221,24 +221,30 @@ export function updateOutputs(res, root = document, { spreadNote = true } = {}) 
   for (const el of root.querySelectorAll('[data-missing]')) {
     const outstanding = res.missing?.[el.dataset.missing] ?? []
     el.hidden = !outstanding.length
-    if (outstanding.length) {
-      el.textContent = `Still needed: ${outstanding
-        .map((k) => (INPUT_LABELS[k] ?? k).toLowerCase())
-        .join(', ')}.`
-    }
+    if (outstanding.length) el.textContent = `Still needed: ${labels(outstanding)}.`
   }
 
   // The same shortfall again, on the step that asks for it. Refreshed on every
   // keystroke like a figure is, so it clears itself the moment the box is
   // filled rather than waiting for the user to try to leave the step again.
   for (const el of root.querySelectorAll('[data-step-missing]')) {
-    const outstanding = res.missingByStep?.[Number(el.dataset.stepMissing)] ?? []
+    const outstanding = stepOutstanding(el, res)
     el.hidden = !outstanding.length
     if (outstanding.length) {
-      el.textContent = `This step is not finished. Still needed: ${outstanding
-        .map((k) => (INPUT_LABELS[k] ?? k).toLowerCase())
-        .join(', ')}.`
+      el.textContent = `This step is not finished. Still needed: ${labels(outstanding)}.`
     }
+  }
+
+  // And once more on the step HEAD, as a count, for a step whose body is shut
+  // under "Show all steps" — where the note above is in the page, still correct,
+  // and folded out of sight. Only while it is shut: with the body open the note
+  // is two lines below the head, and the same shortfall said twice in one box
+  // reads as two problems.
+  for (const el of root.querySelectorAll('[data-step-pill]')) {
+    const outstanding = stepOutstanding(el, res)
+    const shut = !!el.closest('.step')?.querySelector('.step-body')?.hidden
+    el.hidden = !shut || !outstanding.length
+    if (!el.hidden) el.textContent = `${outstanding.length} missing`
   }
 
   for (const el of root.querySelectorAll('[data-formula]')) {
@@ -295,6 +301,27 @@ export function updateOutputs(res, root = document, { spreadNote = true } = {}) 
   }
 
   updateHeadline(res, root)
+}
+
+/** Outstanding input keys, in the words the form uses for them. */
+function labels(keys) {
+  return keys.map((k) => (INPUT_LABELS[k] ?? k).toLowerCase()).join(', ')
+}
+
+/**
+ * What the step containing `el` still owes — or nothing, until the user has gone
+ * past it.
+ *
+ * `data-warned` on the section is that gate, and it is read here rather than
+ * passed in so that every caller of updateOutputs() gets the same answer without
+ * having to know the rule. main.js owns the attribute: pressing Next on an
+ * unfinished step sets it, and under "Show all steps", where there is no Next,
+ * typing in a later step sets it on the ones behind.
+ */
+function stepOutstanding(el, res) {
+  const section = el.closest('.step')
+  if (!section?.hasAttribute('data-warned')) return []
+  return res.missingByStep?.[Number(section.dataset.step)] ?? []
 }
 
 /** The answers so far, pinned in the bar at the bottom. */

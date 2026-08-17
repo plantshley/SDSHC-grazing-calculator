@@ -234,17 +234,59 @@ function clampStep(n) {
 const STEP_FIELDS = [['samples'], ['frame', 'dm'], ['usable'], ['demand'], ['pasture']]
 
 /**
- * Steps the user has tried to leave with a required input still blank.
+ * Steps the user has gone past with a required input still blank.
  *
- * Only these render a shortfall note. A step is blank when you arrive on it, so
- * a note on arrival is telling you what you can already see, every time, on
- * every step: the kind of warning people learn to read past, which is worse
- * than none at all.
+ * Only these say so — the note in the step body, and the count on its head while
+ * it is folded shut. A step is blank when you arrive on it, so a note on arrival
+ * is telling you what you can already see, every time, on every step: the kind of
+ * warning people learn to read past, which is worse than none at all.
  *
  * Session state, not a preference. It is about this run through the worksheet
  * and has no business surviving a reload or travelling in a saved record.
  */
 const warnedSteps = new Set()
+
+/**
+ * Everything before `upto` has been gone past.
+ *
+ * Every way forward through the worksheet says that. In the wizard: pressing
+ * Next, and pressing a circle further along the stepper. Under "Show all steps",
+ * where there is no Next: turning the toggle on, which puts every step behind you
+ * on the page at once; unfolding a later step; folding away the step you are in,
+ * which goes past that step as well; and working in a later step, which is what
+ * carries a step that was already open when the toggle went on.
+ *
+ * mayLeaveStep() marks the ONE step being left, because it also has to decide
+ * whether to stay on it; this marks everything behind wherever the user has got
+ * to.
+ *
+ * It writes `data-warned` straight onto the section as well as into the set,
+ * because the typing route runs on a keystroke and a keystroke must not
+ * re-render the field being typed into. An attribute is not structure, and
+ * updateOutputs() reads it on the same notify(). The callers that render anyway
+ * get the same attribute back from renderSteps().
+ */
+function markPassed(upto) {
+  for (let j = 0; j < upto; j += 1) {
+    if (warnedSteps.has(j)) continue
+    warnedSteps.add(j)
+    app.querySelector(`.step[data-step="${j}"]`)?.setAttribute('data-warned', '')
+  }
+}
+
+/**
+ * The typing route, off the step an input sits in.
+ *
+ * Under "Show all steps" only. In the wizard there IS a Next, pressing it is the
+ * statement, and only one step is on screen to type in anyway — so this would be
+ * a second, silent way into the same set, on a mode that already has an explicit
+ * one.
+ */
+function markStepsBefore(el) {
+  if (!getPref('showAll')) return
+  const i = Number(el?.closest?.('.step')?.dataset.step)
+  if (Number.isInteger(i)) markPassed(i)
+}
 
 /**
  * One speed bump on the way out of an unfinished step.
@@ -507,6 +549,7 @@ app.addEventListener('input', (e) => {
   if (!path) return
   setPath(getCalculation(), path, e.target.value)
   if (path === 'frame.customArea') syncFramePill(e.target.value)
+  markStepsBefore(e.target)
   // Set BEFORE notify(), which is what repaints the page. A weight being typed
   // leaves the spread note as it stands until that box is left; typing anywhere
   // else means no weight is part entered, so the note is settled again.
@@ -535,6 +578,11 @@ function syncFramePill(value) {
 // <select> fires change rather than input in older Safari, so both are wired.
 app.addEventListener('change', (e) => {
   const el = e.target
+  // Answering anything inside a step counts, not just a typed box: a growth
+  // stage is a radio. Everything on the setup screen is outside a .step, so this
+  // is inert there.
+  markStepsBefore(el)
+
   if (el.dataset?.path && el.tagName === 'SELECT') {
     setPath(getCalculation(), el.dataset.path, el.value)
     // Changing a mix row's forage type invalidates the stage chosen under it.
@@ -859,6 +907,7 @@ function handleAction(action, btn) {
       const next = clampStep(getPref('step') + 1)
       setPref('step', next)
       setPref('maxStep', Math.max(getPref('maxStep'), next))
+      markPassed(next)
       render()
       scrollToTop()
       break
@@ -879,6 +928,9 @@ function handleAction(action, btn) {
       if (to > from && !mayLeaveStep(from)) break
       setPref('step', to)
       setPref('maxStep', Math.max(getPref('maxStep'), to))
+      // Forward only, again. Arriving back on step 2 to check a figure does not
+      // mean step 1 has been gone past — it means the opposite.
+      if (to > from) markPassed(to)
       render()
       scrollToTop()
       break
@@ -890,6 +942,12 @@ function handleAction(action, btn) {
         // Everything reached, so returning to the wizard cannot lock a step the
         // user has already been reading.
         setPref('maxStep', STEP_LABELS.length - 1)
+        // And everything behind where they got to has now been gone past: the
+        // steps are all on the page at once, folded, and a step that was filled
+        // in on the way through was never bumped, so without this a shortfall
+        // that appears later — a Clear, a figure taken back out — would have
+        // nothing to say it on.
+        markPassed(clampStep(getPref('step')))
         // Five sections expanded is a very long page. The reason to turn this
         // on is usually to reach ONE earlier figure, so only the step being
         // left starts open.
@@ -900,7 +958,13 @@ function handleAction(action, btn) {
     }
     case 'toggle-step': {
       const i = clampStep(btn.dataset.step)
-      setStepOpen(i, btn.getAttribute('aria-expanded') !== 'true')
+      const opening = btn.getAttribute('aria-expanded') !== 'true'
+      setStepOpen(i, opening)
+      // Unfolding a step further down the page is going past the ones above it.
+      // Folding one away is going past THAT one as well — it is the caret's way
+      // of saying the same thing Next says, and the count lands on the head the
+      // fold just made the only place left to say it.
+      markPassed(opening ? i : i + 1)
       render()
       break
     }

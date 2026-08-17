@@ -1098,6 +1098,93 @@ body:has(.sticky-bar) {
   transform: rotate(45deg);
 }
 
+/* The shortfall count, on the head of a step that is folded shut.
+   updateOutputs() decides when it says anything: only for a step already gone
+   past, only while there is something outstanding, and only while the body is
+   shut, because the note inside says the same thing at length.
+
+   The warning wash, matching .step-missing, because it is the same shortfall in
+   fewer words — and it says "missing" rather than relying on the colour to.
+   Shaped like .step-n on the other side of the title, so the row reads as a
+   label and a count rather than a badge and a button. */
+.step-pill {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  color: var(--cost);
+  background: var(--cost-bg);
+  border: 1px solid var(--cost);
+  border-color: color-mix(in srgb, var(--cost) 45%, transparent);
+  border-radius: 20px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+/* On a phone the head row is already the badge, the title, the `?` and Clear on
+   a row that is not allowed to wrap, and the title is what gives way. So the
+   count drops to its own line under the title instead of taking width off it,
+   and gets smaller: on its own line it has nothing to compete with.
+
+   Only the COUNT moves. The `?` holds the same place on every step head at this
+   width — the end of the title's row, immediately left of Clear — whether that
+   head has something to say or not. It explains the step title, and a mark that
+   moves about depending on whether a box has been filled in is one nobody can
+   learn the position of.
+
+   That is what `flex: 1 1 0` on the toggle is for, and it is needed twice over.
+   It fixes the `?` in one place by laying the title out from a basis of zero and
+   letting it fill the row. And once the row is allowed to wrap it is the only
+   thing keeping the `?` on that row at all: left at `auto` the toggle's
+   hypothetical width is the whole unwrapped title, which does not fit, and a
+   wrapping container answers that by pushing the next item onto a new line
+   rather than by shrinking anything.
+
+   This is the one place the desktop rule above is deliberately inverted. There,
+   a toggle that fills the row would push the `?` away from a title with room to
+   spare beside it. Here there is no room to spare: the title is wrapping to two
+   lines either way, so filling the row is what gives the `?` a fixed position
+   instead of one that follows the last word of the title around.
+
+   The line break is a full-width ::after, ordered between Clear and the count,
+   so the line above keeps its arrangement exactly. It exists only while the
+   count does — an unconditional empty flex line still costs the row `gap` on
+   every head, in the mode whose whole point is fitting five of them on a screen.
+   Where :has() is missing the count stays on the row, which is the desktop
+   layout and was the only layout before this. */
+@media (max-width: 640px) {
+  .step-head--toggle .step-toggle {
+    flex: 1 1 0;
+  }
+
+  .step-head--toggle:has(.step-pill:not([hidden])) {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+
+  .step-head--toggle:has(.step-pill:not([hidden]))::after {
+    content: '';
+    flex: 0 0 100%;
+    height: 0;
+    order: 1;
+  }
+
+  .step-pill {
+    order: 2;
+    /* Where the title starts: the chevron (8px), the row's gap, the "Step N"
+       badge, the gap again. The badge is a measured constant rather than a
+       computed one — CSS cannot ask another element how wide it turned out, and
+       it is six characters of 11px bold caps, which lands within about three
+       pixels across all three font choices. A count three pixels out under a
+       title still reads as aligned; nudge this if a face is ever added that
+       makes it look otherwise. */
+    margin: 4px 0 0 calc(8px + 8px + 60px + 8px);
+    font-size: 10px;
+    letter-spacing: 0.2px;
+    padding: 2px 8px;
+  }
+}
+
 /* ---- step navigation ---------------------------------------------------- */
 
 .step-nav {
@@ -2972,8 +3059,11 @@ body:has(.sticky-bar) {
   }
 
   /* A shut section prints open, so its chevron would be pointing the wrong way
-     at a control that is not there on paper. */
+     at a control that is not there on paper — and the shortfall count stands in
+     for a note that is folded away, which on paper it is not: the note itself
+     prints, two lines below. */
   .step-chev,
+  .step-pill,
   .app-nav,
   .app-nav-wrap,
   .stepper,

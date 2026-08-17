@@ -70,11 +70,11 @@ in different words reads as two separate problems. `STEP_INPUTS` (which step
 COLLECTS an input) and `STEP_FIELDS` in `main.js` (which branches a step's Clear
 empties) are different questions and are deliberately not merged.
 
-The step note is rendered **only for a step the user has already tried to
-leave** with something outstanding — `warnedSteps` in `main.js`, session state,
-not a preference. A step is blank when you arrive on it, so a note on arrival
-tells you what you can already see, on every step, every time. That is the kind
-of warning people learn to read past, which is worse than none.
+The step note is shown **only for a step the user has already gone past** with
+something outstanding — `warnedSteps` in `main.js`, session state, not a
+preference. A step is blank when you arrive on it, so a note on arrival tells you
+what you can already see, on every step, every time. That is the kind of warning
+people learn to read past, which is worse than none.
 
 `mayLeaveStep()` is one speed bump, not a wall: the first press stays put and
 shows the note, a second press goes through. A partly filled worksheet still
@@ -82,10 +82,129 @@ shows every sub-result it can, and refusing to move would stop someone reading
 ahead to see what a later step is going to ask for. Going BACK is never
 blocked — that is what the stepper is for.
 
-Once rendered, the note is a `[data-step-missing]` placeholder refreshed by
-`updateOutputs()`, not markup built at render time, for the usual reason: it has
-to clear itself on the keystroke that fills the box, not the next time the page
-is rebuilt.
+The note is a `[data-step-missing]` placeholder refreshed by `updateOutputs()`,
+not markup built at render time, for the usual reason: it has to clear itself on
+the keystroke that fills the box, not the next time the page is rebuilt.
+
+### "Gone past" is every way forward, and only one of them is Next
+
+`mayLeaveStep()` marks the one step being left, because it also has to decide
+whether to stay on it. That is not the same question as "which steps are behind
+me", and answering only the first left two holes.
+
+The first: **a step filled in correctly on the way through is never bumped.** The
+bump only fires on a step with something outstanding, so somebody who walks
+1→2→3→4→5 answering everything ends on step 5 with `warnedSteps` empty. Take a
+figure back out of step 3 later — a Clear, a box emptied to try another number —
+and nothing anywhere says so, because as far as the set is concerned they have
+never been past it.
+
+The second: **the stepper can jump.** Pressing circle 4 from step 2 goes past
+step 3 without ever standing on it.
+
+So `markPassed(upto)` marks everything behind wherever the user has got to, and
+it is called from every way forward there is. In the wizard: Next, and a circle
+further along the stepper. Under **Show all steps**, where the wizard's two do not
+exist:
+
+- **turning the toggle on**, which is a statement in itself — it puts every step
+  behind you on the page at once;
+- **unfolding a later step**, the caret saying what Next says;
+- **folding away the step you are in**, which goes past that step as well. This
+  is the one that marks the step itself rather than only the ones above it, and
+  it earns that by what it does to the screen: folding a step is what makes its
+  head the only place left to say what it owes. Putting an unfinished step away
+  and being told so as it closes is the whole gesture working;
+- **working in a later step**, which is what carries a step that was already open
+  when the toggle went on — you never opened it, so no caret spoke for it.
+
+Going back never marks, on any route: arriving on step 2 to check a figure means
+the opposite. Nor does unfolding a step mark that step itself — opening it is
+arriving on it, and a step is blank when you arrive.
+
+The typing route is the one that could not lean on Next at all. The gate above
+was originally written at render time — `stepMissing()` returned an empty string
+unless the step was in `warnedSteps` — and that was safe while the only way into
+the set was pressing a button, because pressing a button renders. Under **Show
+all steps** there is no Next. Every step is on the page at once, so the only
+statement a producer makes about being done with step 2 is that they are now
+typing in step 4, and a keystroke must not re-render the field being typed into.
+
+So the gate moved off the markup and onto the section: `data-warned` on `.step`,
+set by `markStepsBefore()` straight from the input listener, alongside the entry
+in `warnedSteps` that the next full render will re-emit. An attribute is not
+structure — nothing is replaced, nothing loses focus — and `updateOutputs()` is
+already reading the DOM on that same `notify()`. `stepOutstanding()` in
+`results.js` reads the attribute rather than taking the set as an argument, so
+every caller of `updateOutputs()` gets the same answer without having to know the
+rule.
+
+`markStepsBefore()` bails out unless `showAll` is on. It would otherwise be a
+second, silent route into `warnedSteps` for a mode that already has an explicit
+one, and the two would disagree the moment the wizard's speed bump was tuned.
+
+### A folded step cannot show its own note
+
+Which is the hole the count on the head fills. Under Show all steps the note is
+in the page and correct, and folded out of sight: the one step that has something
+to say is the one whose body is shut. `[data-step-pill]` is that note reduced to
+`2 missing`, sitting on the head where the fold cannot hide it.
+
+Three things had to be settled:
+
+- **Only while the body is shut.** Open, the note is two lines under the head
+  saying the same thing at length, and one shortfall said twice in one box reads
+  as two problems.
+- **After the `?`, not inside the toggle.** Inside, it lands between the title and
+  the `?` and pushes the `?` along — the same drift `.step-toggle { flex: 0 1
+  auto }` exists to prevent. The toggle points at it with `aria-describedby`
+  instead, so the count reaches a screen reader with the button rather than only
+  as text alongside it. A hidden target is ignored, so the wiring needs no
+  undoing when the count stands down.
+- **It says "missing".** `--cost` carries it, but colour is never the only
+  signal, and a bare red dot on a step head is a fault light rather than a count.
+
+Below 640px it moves to its own line under the title and drops a size. The head
+row is already the step badge, the title, the `?` and Clear on a row that is not
+allowed to wrap, and the title is the item that gives way — so on a phone the
+count would be taking width off the one thing on the row that says which step
+this is. On its own line it has nothing to compete with, which is also why it can
+afford to be smaller there than it is on a desktop.
+
+The first attempt was `flex-wrap: wrap` and the break alone, and it moved the
+wrong thing: the `?` dropped to a line of its own, above the count, on every head
+that had one. A wrapping flex container does not shrink an item to make room for
+the next one, it starts a new line — and the toggle's hypothetical width is the
+whole unwrapped title. So the toggle takes `flex: 1 1 0` at this width, which
+lays the title out from a basis of zero, lets it fill the row and wrap inside
+itself, and leaves the `?` and Clear where they were.
+
+That inverts the desktop rule two sections up, deliberately. There, a toggle that
+fills the row pushes the `?` away from a title that had room beside it. Here
+there is no room: the title wraps to two lines either way, so filling the row is
+what gives the `?` **one** position — immediately left of Clear, the same on
+every head, whether or not that head has a count. Otherwise it sits wherever the
+last word of the title happens to end, which is a different place on each of the
+five steps and a different place again once a box is filled in.
+
+The line break itself is a full-width `::after` on the head, ordered between
+Clear and the count, so the line above keeps its arrangement exactly rather than
+being re-flowed. It is inside `:has(.step-pill:not([hidden]))` because an
+unconditional empty flex line still costs the row `gap` on every head, in the
+mode whose whole point is fitting five of them on a screen. Where `:has()` is
+missing the count stays on the row, which is the desktop layout and was the only
+layout before this.
+
+The indent that puts the count under the title rather than under the chevron is a
+measured constant: chevron, gap, badge, gap. CSS has no way to ask the badge how
+wide it turned out — it is inside the toggle, so it is not a track of anything
+the count belongs to — and the alternatives were worse. Six characters of 11px
+bold caps land within about three pixels across the three font choices, and three
+pixels out under a title still reads as aligned.
+
+Print hides it. The print block forces every `.step-body[hidden]` open, so the
+note itself prints — the count would be the same sentence again, in fewer words,
+two lines above it.
 
 ---
 

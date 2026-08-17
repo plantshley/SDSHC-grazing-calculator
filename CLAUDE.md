@@ -48,11 +48,41 @@ Both count selected goals only. `STEP_INPUTS[4]` is deliberately empty.
 `STEP_INPUTS` and `STEP_FIELDS` (in `main.js`) answer different questions and are
 not merged.
 
-A step note renders only for a step already left with something outstanding
-(`warnedSteps`, session state, not a preference). `mayLeaveStep()` is one speed
-bump: the second press goes through, and going back is never blocked. The note is
-a `[data-step-missing]` placeholder refreshed by `updateOutputs()`, not markup
-built at render time.
+A step says what it still owes only once the user has **gone past it**
+(`warnedSteps`, session state, not a preference). Every way forward says that, in
+both modes: **Next**, **a circle further along the stepper**, **turning Show all
+steps on** (every step behind you, on the page at once), **unfolding a later
+step**, **folding away the step you are in** (that step included — the head it
+just folded is the only place left to say what the step owes), and **working in a
+later step**, which is what carries a step already open when the toggle went on.
+
+`markPassed(upto)` is all of them; `markStepsBefore(el)` is the typing one, off
+the input's own section, and it bails out unless `showAll` — the wizard has Next
+for that and only one step on screen to type in. Going **back** never marks, on
+any route. Unfolding step *i* marks what is above it and **not `i` itself** —
+opening a step is arriving on it. Folding it marks `i` too.
+
+`mayLeaveStep()` marks the one step being left, because it also decides whether
+to stay on it: one speed bump, the second press goes through, and going back is
+never blocked.
+
+Both the note and the count are placeholders refreshed by `updateOutputs()`, not
+markup built at render time: `[data-step-missing]` in the body, and
+`[data-step-pill]` on a collapsible head. The gate is `data-warned` on the
+`.step` section, **read from the DOM** rather than passed in, because
+`markStepsBefore()` runs on a keystroke and sets the attribute without a render.
+The count shows for a **shut** body only — with the step open the note is two
+lines below the head, and one shortfall said twice in one box reads as two
+problems. Print hides it: the body prints open, so the note itself prints.
+
+The count sits **after the `?`**, never inside the toggle, under the same rule as
+the `?` itself. Below 640px it drops to its own line, indented to where the title
+starts, and gets smaller. Three rules do that and none is optional: `flex: 1 1 0`
+on the toggle (see the `?` section), `flex-wrap: wrap` on the head, and a
+full-width `::after` break ordered between Clear and the count. The last two are
+inside `:has(.step-pill:not([hidden]))`, so a head with nothing to say does not
+pay a row of `gap` for an empty line. The indent is a **measured constant** —
+chevron, gap, badge, gap — because CSS cannot ask the badge how wide it came out.
 
 ### The worksheet's constants are not "corrected"
 
@@ -159,7 +189,11 @@ heading a section (step title, sub-title, tab strip). Both live in `app.css`;
 
 In a step head the caret leads the row and `.step-toggle` is `flex: 0 1 auto`, so
 the `?` stays immediately right of the title. The `?` is a sibling of the toggle,
-never inside it.
+never inside it. **Below 640px that flips to `flex: 1 1 0`** on collapsible heads
+only: the title wraps to two lines there whatever happens, so filling the row is
+what pins the `?` beside Clear instead of letting it follow the last word of the
+title about — and it is also what keeps the `?` on the title's row once the row
+is allowed to wrap for the shortfall count.
 
 ### One dialog owns a saved calculation's identity
 

@@ -54,8 +54,10 @@ const STEP_HEADS = [
 ]
 
 /**
- * @param {Set<number>} warned  steps the user has already tried to leave with
- *   something outstanding. Only those render a shortfall note.
+ * @param {Set<number>} warned  steps the user has already gone past with
+ *   something outstanding. Only those say so, and `data-warned` on the section
+ *   is what carries it: updateOutputs() reads the attribute, so main.js can add
+ *   a step to the set mid-keystroke without a render.
  */
 export function renderSteps(calc, step, showAll, warned = new Set()) {
   return `
@@ -65,11 +67,13 @@ export function renderSteps(calc, step, showAll, warned = new Set()) {
           const [title, infoKeys] = STEP_HEADS[i]
           const open = showAll ? isStepOpen(i) : i === step
           return `<section class="box step${showAll ? ' step--collapsible' : ''}"
-            data-step="${i}"${showAll || i === step ? '' : ' hidden'}>
+            data-step="${i}"${warned.has(i) ? ' data-warned' : ''}${
+            showAll || i === step ? '' : ' hidden'
+          }>
             ${head(i + 1, title, infoKeys, showAll, open)}
             <div class="step-body"${showAll && !open ? ' hidden' : ''}>
               ${fn(calc, showAll)}
-              ${stepMissing(i, warned)}
+              ${stepMissing(i)}
               ${showAll ? '' : nav(i)}
             </div>
           </section>`
@@ -93,13 +97,20 @@ export function renderSteps(calc, step, showAll, warned = new Set()) {
  * than in the sticky bar: a control that empties whatever is on screen is one
  * that has to be read carefully every time, and this one names its scope by
  * where it sits.
+ *
+ * The pill goes AFTER the `?`, not inside the toggle beside the title. Inside,
+ * it would sit between the title and the `?` and push the `?` along, which is
+ * the same drift the toggle's `flex: 0 1 auto` exists to prevent. The toggle
+ * points at it with aria-describedby instead, so a screen reader gets the count
+ * with the button rather than only in passing.
  */
 function head(n, title, infoKeys, collapsible, open) {
+  const i = n - 1
   const label = `<span class="step-n">Step ${n}</span>
     <span class="title">${esc(title)}</span>`
 
   const clear = `<button type="button" class="tip danger step-clear" data-action="clear-step"
-    data-step="${n - 1}">Clear</button>`
+    data-step="${i}">Clear</button>`
 
   if (!collapsible) {
     return `<div class="step-head">${label}${
@@ -107,14 +118,19 @@ function head(n, title, infoKeys, collapsible, open) {
     }${clear}</div>`
   }
 
+  // Step 5 collects nothing, so it can never owe anything. See stepMissing().
+  const pill =
+    i === 4 ? '' : `<span class="step-pill" id="stepPill${i}" data-step-pill="${i}" hidden></span>`
+
   return `
     <div class="step-head step-head--toggle">
-      <button type="button" class="step-toggle" data-action="toggle-step" data-step="${n - 1}"
-        aria-expanded="${open}">
+      <button type="button" class="step-toggle" data-action="toggle-step" data-step="${i}"
+        aria-expanded="${open}"${pill ? ` aria-describedby="stepPill${i}"` : ''}>
         <span class="step-chev" aria-hidden="true"></span>
         ${label}
       </button>
       ${infoKeys ? sectionInfo(infoKeys, title) : ''}
+      ${pill}
       ${clear}
     </div>`
 }
@@ -122,20 +138,24 @@ function head(n, title, infoKeys, collapsible, open) {
 /**
  * What this step still owes, named on the step that asks for it.
  *
- * Rendered only for a step the user has already tried to LEAVE with something
+ * Shown only for a step the user has already gone past with something
  * outstanding. A step is blank when you arrive on it, so a note saying it is
  * unfinished is telling you what you can already see; said on arrival every
  * time, it is noise, and noise is what people learn to read past.
  *
- * Once rendered it behaves like a figure: a [data-out]-style placeholder that
- * updateOutputs() fills from `missingByStep`, so it clears itself on the
- * keystroke that fills the box rather than waiting for the next render.
+ * The placeholder is in the page from the start and updateOutputs() decides
+ * whether it says anything, off `data-warned` on the section — the same rule as
+ * every figure, and for the same reason. It used to be gated here, at render
+ * time, which was fine while pressing Next was the only way to go past a step:
+ * that presses a button, and a button renders. Under "Show all steps" there is
+ * no Next, so a step is gone past by typing in a later one, and a keystroke must
+ * not re-render the field being typed into.
  *
  * Step 5 never has one. The result cards name their own outstanding inputs, and
  * a second note above them saying the same thing reads as two problems.
  */
-function stepMissing(i, warned) {
-  if (i === 4 || !warned.has(i)) return ''
+function stepMissing(i) {
+  if (i === 4) return ''
   return `<p class="step-missing" data-step-missing="${i}" hidden></p>`
 }
 
