@@ -79,6 +79,11 @@
 
     <main id="app"></main>
 
+    <!-- Author tool, hidden behind a secret gesture and linked to from no
+         screen. Loaded BEFORE main.js so any saved palette override is on
+         <html> before the first render, and kept out of main.js so the entry
+         module the tests import stays exactly what it was. -->
+    <script type="module" src="/src/themelab.js"></script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

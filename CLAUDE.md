@@ -283,6 +283,39 @@ margins that centre `.help-btn`, `align-content` vs `align-items` in
 `.field-label`, and `grid-auto-flow: column` on `.result-row` — are written up in
 *[DESIGN-NOTES.md](DESIGN-NOTES.md)*. Read them before fighting the symptom.
 
+### The theme lab is an author tool, not a feature
+
+`src/themelab.js` is a hidden palette editor: **Ctrl+Alt+T**, or five taps on the
+SDSHC logo inside two seconds; Escape closes it. Nothing on any screen links to
+it. It is loaded from `index.html` **before** `main.js`, so a saved override is
+on `<html>` before the first render, and it is kept out of `main.js` so the entry
+module the tests import stays what it was.
+
+Shared with SDSHC-farm-budget under the same rule as `styles.css`, because it
+edits `styles.css`'s tokens: **a change belongs in both copies or in neither.**
+The deliberate differences are the store key, the group names and the token
+descriptions. Farm-budget declares `--placeholder` and this app does not — that
+is the one real divergence between the two stylesheets, and it is a colour this
+app has not chosen rather than one the lab is hiding.
+
+- It writes **inline** custom properties on `<html>`, never a stylesheet, so
+  removing one restores the shipped colour exactly and one mechanism covers both
+  themes.
+- Its own colours are `--tl-*` names declared on `.tl-panel`, and **no `--tl-*`
+  name is in `ALL_TOKENS`**. Wiring the panel to `--card` and `--text` would mean
+  setting `--text` near `--card` leaves you unable to see the control that puts
+  it back.
+- `GROUPS` is hand-written and `styles.css` is where the colours live, so
+  `test/themelab.test.js` asserts the two lists agree in both directions. A token
+  added to `:root` with no row here is one the lab silently leaves out of "reset"
+  and "copy full palette".
+- The mirror's correctness property — a light token left at its shipped value
+  reproduces the exact dark hex — is asserted against `styles.css` **parsed**,
+  not against a copy of it.
+- Overrides and the shelf of saved palettes live under one localStorage key of
+  their own (`sdshc-gc-themelab`). They are **not** preferences and are not
+  carried by an export or a backup.
+
 ## Photo and media slots
 
 A filled slot is `{ src, alt, credit }`; `src` resolves against
