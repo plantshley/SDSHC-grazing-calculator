@@ -21,7 +21,11 @@
  *    forage and overstocks the pasture.
  */
 
-export const SCHEMA_VERSION = 1
+/**
+ * 2 added `calcType` to every record, when a second worksheet joined this one.
+ * See migrate() in storage.js.
+ */
+export const SCHEMA_VERSION = 2
 
 /* ───────────────────────────── constants ───────────────────────────────── */
 
@@ -284,9 +288,8 @@ export function blendDryMatter(rows, warnings) {
 /* ─────────────────────── steps 3 to 5, reusable ────────────────────────── */
 
 /**
- * Daily forage demand. Exported on its own because the cover crop worksheet
- * uses the identical calculation with a 3% default, so the second calculator
- * will reuse this rather than restating it.
+ * Daily forage demand. Exported on its own because both worksheets work it out
+ * the same way, so the cover crop model reuses this rather than restating it.
  */
 export function demand(animalWeight, bodyWeightPct, numAnimals, warnings) {
   const weight = nonNegative(animalWeight, 'Animal weight', warnings)
@@ -332,12 +335,20 @@ export function animalsFrom(totalUsableForage, perAnimalDemand, days) {
  */
 export function compute(c = {}) {
   const warnings = []
+  // Where each step's warnings begin. This function runs in worksheet order, so
+  // the step a warning belongs to is just where in here it was raised, and
+  // slicing at the boundaries beats making every push name its own step: a push
+  // naming the wrong step would be wrong silently. Same shape as missingByStep.
+  const stepStarts = [0]
+  const nextStep = () => stepStarts.push(warnings.length)
+
   const goals = Array.isArray(c.goals) ? c.goals : []
 
   /* Step 1 */
   const sample = averageSample(c.samples, warnings)
 
   /* Step 2 */
+  nextStep()
   const multiplier = frameMultiplier(c.frame?.key, c.frame?.customArea, warnings)
   const totalProduction = finite(sample.avgGrams * multiplier)
 
@@ -345,6 +356,7 @@ export function compute(c = {}) {
   const availableForage = finite(totalProduction * (dryMatterPct / 100))
 
   /* Step 3 */
+  nextStep()
   const leaveMode = c.usable?.mode === 'pct' ? 'pct' : 'lbs'
   let amountLeaving
   let usableForage
@@ -382,9 +394,11 @@ export function compute(c = {}) {
   const harvestPctEquivalent = finite(safeDiv(usableForage, availableForage) * 100)
 
   /* Step 4 */
+  nextStep()
   const d = demand(c.demand?.animalWeight, c.demand?.bodyWeightPct, c.demand?.numAnimals, warnings)
 
   /* Step 5, shared land figures */
+  nextStep()
   const totalAcres = nonNegative(c.pasture?.totalAcres, 'Total acres', warnings)
   const ungrazeableAcres = nonNegative(c.pasture?.ungrazeableAcres, 'Ungrazeable acres', warnings)
   let acresAvailable = finite(totalAcres - ungrazeableAcres)
@@ -423,6 +437,11 @@ export function compute(c = {}) {
   // answer they did not ask for is noise.
   const outstanding = new Set(goals.flatMap((g) => missing[g] ?? []))
   const missingByStep = STEP_INPUTS.map((keys) => keys.filter((k) => outstanding.has(k)))
+  // The flat list stays for the CSV and the share image, which carry every
+  // warning as one block. The split is what each step shows for itself.
+  const warningsByStep = stepStarts.map((from, i) =>
+    warnings.slice(from, stepStarts[i + 1] ?? warnings.length)
+  )
 
   const ready = (goal, value) => (missing[goal].length ? null : value)
 
@@ -446,6 +465,7 @@ export function compute(c = {}) {
     warnings,
     missing,
     missingByStep,
+    warningsByStep,
 
     // Step 1
     avgGrams: sample.avgGrams,
@@ -543,14 +563,22 @@ export function paddockSides(sqFt, width) {
 
 /* ─────────────────────────── goal requirements ─────────────────────────── */
 
-/** Every input key the selected goals need, shared ones first, deduplicated. */
-export function inputsForGoals(goals) {
+/**
+ * Every input key the selected goals need, shared ones first, deduplicated.
+ *
+ * `inputs` is the GOAL_INPUTS map to read, defaulting to this worksheet's. The
+ * shape of the question — shared keys, then what each goal adds — is the same
+ * whichever worksheet is asking, so the second calculator passes its own map
+ * rather than carrying a copy of this logic. Still no imports: the map arrives
+ * as an argument.
+ */
+export function inputsForGoals(goals, inputs = GOAL_INPUTS) {
   const list = Array.isArray(goals) ? goals : []
-  const required = new Set(GOAL_INPUTS.shared)
+  const required = new Set(inputs.shared)
   const optional = new Set()
 
   for (const g of list) {
-    const spec = GOAL_INPUTS[g]
+    const spec = inputs[g]
     if (!spec) continue
     for (const k of spec.required) required.add(k)
     for (const k of spec.optional ?? []) optional.add(k)
@@ -570,23 +598,23 @@ export function inputsForGoals(goals) {
  * only what is left. A key can appear under two goals when both genuinely need
  * it, which is correct and reads naturally.
  */
-export function checklistForGoals(goals) {
-  const list = (Array.isArray(goals) ? goals : []).filter((g) => GOAL_INPUTS[g])
+export function checklistForGoals(goals, inputs = GOAL_INPUTS) {
+  const list = (Array.isArray(goals) ? goals : []).filter((g) => inputs[g])
   if (!list.length) return { shared: [], groups: [] }
 
   const perGoal = list.map((g) => ({
     goal: g,
     // Deduplicated, so a future edit that lists a key as both required and
     // optional cannot print it twice in the checklist.
-    keys: [...new Set([...GOAL_INPUTS[g].required, ...(GOAL_INPUTS[g].optional ?? [])])],
+    keys: [...new Set([...inputs[g].required, ...(inputs[g].optional ?? [])])],
   }))
 
   if (list.length === 1) {
-    return { shared: [...GOAL_INPUTS.shared, ...perGoal[0].keys], groups: [] }
+    return { shared: [...inputs.shared, ...perGoal[0].keys], groups: [] }
   }
 
   const inEvery = perGoal[0].keys.filter((k) => perGoal.every((p) => p.keys.includes(k)))
-  const shared = [...GOAL_INPUTS.shared, ...inEvery]
+  const shared = [...inputs.shared, ...inEvery]
 
   const groups = perGoal
     .map((p) => ({ goal: p.goal, keys: p.keys.filter((k) => !inEvery.includes(k)) }))

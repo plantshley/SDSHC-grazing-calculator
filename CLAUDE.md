@@ -1,8 +1,11 @@
 # SDSHC Grazing Calculator
 
-The SDSHC *Graziers Math Worksheet* as a calculator. Clipped forage samples in,
-grazing days / acres needed / animals allowed out. Vanilla ES modules, Vite,
-vite-plugin-pwa, zero runtime dependencies. Deployed to GitHub Pages.
+Two SDSHC worksheets as calculators, on tabs of their own. **Perennial grazing**
+is the *Graziers Math Worksheet* — clipped forage samples in. **Cover crops** is
+the *Grazing Cover Crops* worksheet — average stand height in. Both give grazing
+days / acres needed / animals allowed out, and both save into one list. Vanilla
+ES modules, Vite, vite-plugin-pwa, zero runtime dependencies. Deployed to GitHub
+Pages.
 
 ```
 npm run dev       vite, port 5174
@@ -18,10 +21,99 @@ a rule covers.
 
 ## Critical contracts
 
+### One registry, parallel calculators
+
+A worksheet is a **descriptor** in `src/calculators.js`, and `main.js`'s machinery
+— the stepper, `warnedSteps`, `markPassed`, `mayLeaveStep`, the autosave, the
+Saved tab, the drag, the print block — stays generic and reads whichever
+descriptor is active. **Adding a calculator is adding a row there and the modules
+it names.** It is not editing the machinery.
+
+```js
+{ id, tabLabel, shortName, newCalcBlurb,
+  newCalculation, resolved, compute,
+  stepLabels, stepFields, stepInputs, inputLabels, goals,
+  started(calc), setupAnswered(calc),
+  renderSetup(calc, returning), renderChips(calc),
+  renderSteps(...), renderResults(calc),
+  handleAction(action, btn, ctx) -> handled:boolean, handleChange, handleInput,
+  afterClearStep(calc, i),
+  csv(calc, res) -> rows[][], image(calc, res) -> {headlines, rows, subtitle},
+  savedMeta(calc) -> string[] }
+```
+
+Three lookups and one helper, and between them they are how everything else
+avoids knowing there are two:
+
+- `calculatorFor(calc)` — the descriptor for a **record**, from its `calcType`.
+  **The `?? DEFAULT_CALC_TYPE` fallback is load-bearing**: every record written
+  before `calcType` existed has none, and they are all perennial.
+- `calculatorById(id)` — falls back rather than returning nothing, because a
+  caller renders off it.
+- `activeCalculator()` — the one on screen.
+- `computeRecord(calc)` — `desc.compute(desc.resolved(calc))`. It replaces every
+  `compute(resolved(x))`: `refresh`, `mayLeaveStep`, `syncSavedRecord`, `persist`,
+  the exports.
+
+`ctx = { render, closeModal, root }`. **`main.js` owns `render()`**, so a
+descriptor asks for one rather than importing it — that is what keeps
+`calculators.js` out of `main.js`'s import cycle. `calculators.js` reaches the
+whole UI, so `storage.js` and `export.js` stay out of it; what storage needs to
+know about a record's shape is in `schema.js` instead.
+
+**The anti-rule: do not parameterise `compute()` into one model with branches.**
+That was the alternative and it is what this shape was chosen over. The two
+worksheets share their last three steps and share *nothing* in their first two, so
+a merged model is a function whose every line sits behind an `if`. What they
+really share is the arithmetic, and that is already shared — `demand()`,
+`daysFrom()`, `acresFrom()` and `animalsFrom()` are exported on their own from
+`calc.js` for exactly this.
+
+`state.js` holds a **map** of working calculations, one per type, created lazily —
+a user who never opens the cover crop tab never gets a cover crop record written
+anywhere. `setCalculation(calc, type)` makes the written slot **active**, because
+every caller wants both and splitting them opens the hole where `notify()` fires
+about record X while `writeEverywhere()` reads the active slot.
+
+### Preferences are global; a place in a worksheet is not
+
+`theme`, `font`, `tab`, `showAll` and `showStagePhotos` stay at the top level of
+`prefs.js`. `step`, `maxStep` and `openSteps` live under `wizard[type]`, one block
+per calculator, reached through `getWizard(type)` / `setWizard(type, patch)` /
+`isStepOpen(type, i)` / `setStepOpen(type, i, open)` / `setOpenSteps(type, ids)`.
+
+The line between them: **a place in a worksheet belongs to that worksheet, a way
+of working does not.** Switching tabs must not move where the other worksheet had
+got to; switching tabs also must not turn "Show all steps" off, because that is
+how this person reads a worksheet and not a fact about one of them.
+
+`wizard` needs a **deep** merge over `DEFAULTS` in `read()` — a stored block
+holding only `perennial` would otherwise leave every other calculator `undefined`
+and `getWizard()` would hand back nothing.
+
+`migratePrefs()` moves v1's flat `step` / `maxStep` / `openSteps` under
+`wizard.perennial` and deletes them, and a block already written by this build
+wins over them. **It is not dead code**: somebody who has not opened the app since
+the second calculator landed still has the flat keys, and dropping them puts them
+back on step 1 of a worksheet they were halfway through.
+
+`checkedNeeds` ids are `${scope}:${key}` and both worksheets ask for
+`animalWeight`, `numAnimals` and `totalAcres`, so the ids would collide. The cover
+crop setup renderer prefixes its scope `cc:` — the tick is "I have packed a
+yardstick" or "I have packed a gram scale", which are different jobs on different
+days, so they are different ticks. **The pref shape was not changed for this.**
+
 ### `src/calc.js` is pure
 
 No DOM, no imports, no side effects, no I/O. **Do not add an import here.** The
 dry matter lookup lives in `state.js` for this reason.
+
+`src/calc-covercrop.js` is the second model and obeys the same rule one step out:
+it imports the **primitives** from `calc.js` — `num()`, `finite()`, `safeDiv()`,
+`nonNegative()`, `demand()`, `daysFrom()`, `acresFrom()`, `animalsFrom()`,
+`paddockSides()`, `SQ_FT_PER_ACRE` — **and nothing else**. `calc.js` still
+imports nothing at all. The lookup rule extends with it: the occupation-period
+and season tables are resolved in `state-covercrop.js`, never in the model.
 
 - Every arithmetic result passes through `num()`, `finite()` or `safeDiv()`. An
   overflow collapses to 0.
@@ -39,8 +131,19 @@ negative figure is worth the same as zero and is never handed back as a bonus.**
 answered, and lists the outstanding ones in `missing`. `updateOutputs()` renders
 `null` as a dash. An explicit `0` counts as answered.
 
-`answered()` is the only place that decides this. A new required input goes in
-`GOAL_INPUTS` **and** in `answered()`.
+Each model has exactly one `answered()`, and it is the only place that decides
+this **for that model**. It reads the **resolved** value, never the stored key: a
+season or an occupation period this build cannot look up resolves to rates of 0,
+and the arithmetic then runs to completion and prints "0 grazing days". A key
+nothing matches is **unanswered** — a dash, plus a warning naming it, the same
+shape `frameMultiplier()` uses on the other model. A new required input goes in that model's `GOAL_INPUTS`
+**and** in its `answered()`. `GOAL_INPUTS`, `STEP_INPUTS`, `INPUT_LABELS` and
+`STEP_FIELDS` are per calculator and reached through the descriptor —
+`STEP_FIELDS` lives on it rather than in `main.js`.
+
+`updateOutputs(res, root, { spreadNote, labels })` takes the label map, because
+its `labels()` helper would otherwise read perennial's `INPUT_LABELS` and print
+raw keys in the other worksheet's shortfall note.
 
 `missing` is per goal and drives the dash and the result card note.
 `missingByStep` sorts the same keys by `STEP_INPUTS` and drives the step note.
@@ -65,6 +168,15 @@ opening a step is arriving on it. Folding it marks `i` too.
 `mayLeaveStep()` marks the one step being left, because it also decides whether
 to stay on it: one speed bump, the second press goes through, and going back is
 never blocked.
+
+**A warning goes on the step that raised it.** `compute()` returns the flat
+`warnings` list *and* `warningsByStep`, sliced at the step boundaries — the models
+run in worksheet order, so where a warning was raised is which step it belongs to,
+and slicing beats making every `push` name its own step, which would be wrong
+silently. `step-frame.js` gives every step a `[data-warnings]` box and
+`updateOutputs()` fills each from `warningsByStep[i]`, the box finding its own
+index off the enclosing `.step` exactly as `[data-step-missing]` does. **The flat
+list stays** and is what the CSV and the share image carry, as one block.
 
 Both the note and the count are placeholders refreshed by `updateOutputs()`, not
 markup built at render time: `[data-step-missing]` in the body, and
@@ -107,6 +219,19 @@ The breakpoint is `.topbar-title`'s, deliberately: this is that layout, not a
 fourth number. The air above the landing is `scroll-margin-top` on
 `.stepper, .step` in `app.css` and not an offset worked out in the JS.
 
+`workTarget()` reads `.stepper` and `.step-body[hidden]` **off the DOM**, so a
+worksheet that renders different class names gets no scroll at all on a phone and
+**nothing fails** — no error, no test, just a landing at the top of the page. That
+is why the class and attribute contract in the next paragraph is a hard
+requirement rather than a house style.
+
+Every calculator's step renderer emits the same contract:
+`.box.step[data-step][data-warned]`, `.step--collapsible`, `.step-head`,
+`.step-body[hidden]`, `.step-nav`, `[data-out][data-fmt]`, `[data-step-missing]`,
+`[data-step-pill]`, `.stepper`. `updateOutputs()`, `stepOutstanding()`,
+`workTarget()`, `scrollToWork()`, the collapse handler and the whole
+`@media print` block key off those.
+
 **Start / Return** is in the list because the position it leaves belongs to the
 setup screen — pressed from the foot of an eight-row forage chart, and returning
 to a worksheet of a different length. A **tab** change is not: `+ New calculation`
@@ -118,6 +243,30 @@ above them is not chrome to skip past.
 The two hoop presets use the worksheet's round numbers (100, not the exact
 100.03) so a paper copy and the screen agree. Only a custom frame area uses the
 exact conversion.
+
+`IMPLAUSIBLE_HEIGHT_IN` (144, twelve feet) is a **plausibility query, not a
+limit**: it warns and still works the answer out, the same as `demand()`'s
+`rate > 10`. It catches the one-keystroke slip — 18 typed as 180 — that nothing
+else on the sheet can question, since 180 is positive, finite and above the
+anchor. It is set well above a real stand deliberately: **a warning that fires on
+real work is worse than no warning**, because the people most likely to measure a
+ten-foot sorghum-sudan stand are the ones who would learn to dismiss the line.
+
+**Both worksheets default to 2.6% of body weight**, `DEFAULT_BODY_WEIGHT_PCT` and
+`COVER_CROP_BODY_WEIGHT_PCT`. The printed cover crop worksheet fixes its rate at
+3%; 2.6% is SDSHC's working figure, it sits inside the NRCS range of 2.5% to 3%,
+and the field is editable, so a 3% worksheet is reproduced by typing 3. This is a
+**default**, not a constant the model depends on — that is the difference from the
+rule above. `test/covercrop.test.js` types 3 into it before checking the paper's
+worked example, which is what keeps that test about the worksheet rather than
+about the default.
+
+`COOL_SEASON_BASE` in `src/data/covercrop.js` is **1,140**, and older printed
+copies of the cover crop worksheet give it as 140. That was a typo in the PDF,
+since corrected, and the arithmetic proving it is kept in a comment above the
+constant. **Do not "correct" it back from an out-of-date copy.** The rule the
+case sets: a round number the paper rounds is kept, because paper parity is the
+point; an arithmetic error the paper's own worked example contradicts is not.
 
 "Small hoop" sets `frame.key`; the figure in the area box is a *display* of the
 preset, not what the model reads. **Do not route a preset through `customArea`.**
@@ -137,15 +286,24 @@ goes back to a dash until a real measurement arrives.
 percentage must never be written into markup or into a stored record** —
 `state.js` `resolved()` looks it up at compute time.
 
+`src/data/covercrop.js` is the same rule for the other worksheet: the season
+production rates and the occupation-period utilization table are the only copy of
+either, and `resolvedCoverCrop()` in `state-covercrop.js` looks them up at compute
+time. `COOL_SEASON_BASE` carries a comment recording that the printed PDF says 140
+where its own worked example needs 1,140; correcting it is that one line, and it
+reaches every record ever saved **because** no record holds a copy.
+
 `test/forage.test.js` transcribes the table independently rather than looping
 over the source.
 
 ### Adding an input means touching three places
 
-Markup in `src/ui/*` -> the factory in `src/state.js` -> `src/calc.js`. Inputs
-declare `data-path="demand.animalWeight"` and one delegated listener in `main.js`
-writes by path, so a new field needs no handler — but it must exist in the
-factory and be consumed by the model.
+Markup in `src/ui/*` -> **that calculator's** factory -> **that calculator's**
+model. Perennial: `src/state.js` -> `src/calc.js`. Cover crop:
+`src/state-covercrop.js` -> `src/calc-covercrop.js`. Inputs declare
+`data-path="demand.animalWeight"` and one delegated listener in `main.js` writes
+by path, so a new field needs no handler — but it must exist in the factory and
+be consumed by the model.
 
 ### Computed figures are `[data-out]` placeholders, never template literals
 
@@ -238,6 +396,16 @@ formatter, because every formatter treats a non-finite number as 0 and
 "Grazing days: 0 days" is an answer, and a wrong one. Same rule as
 `updateOutputs()`, one file further out.
 
+**`+ New calculation` on the Saved tab asks which worksheet** (`openNewCalcDialog()`),
+because that is the one place the answer is not already on screen. The copy of the
+button in a worksheet's chip row does not ask: it is the worksheet you are
+standing in. **Upload a calculation needs no chooser at all** — the file declares
+its own `calcType`.
+
+A **backup covers both kinds** and stays one file. "Back up my work" splitting into
+a two-step job is how it stops being done consistently. The restore `confirm()`
+states counts per type on both sides, arriving and going.
+
 `updateCalcMeta()` moves `updatedAt` only when the name or the pasture changed;
 colouring a card is filing, not editing. Grey is not one of the eleven swatches —
 it is already what an untagged card looks like.
@@ -247,8 +415,29 @@ in `saved.js`). Typing already narrows, so an AND would be a second way to do
 what every keystroke does; the comma is for listing two pastures side by side.
 `filtering` is `terms.length > 0`, **not** `filter.trim()` — a lone comma is not
 a filter, and treating it as one would hide nothing while switching reordering
-off, which reads as the drag handle having broken. The date is matched as
+off, which reads as the drag handle having broken. **`narrowed()` in `main.js`
+gates the drag HANDLER and must ask `filterTerms()` the same question**: when the
+two disagreed, the page said draggable and every drag silently did nothing. The date is matched as
 **displayed**, not as stored.
+
+`filtering` is **either** narrowing: the text terms **or** the calculator pills.
+Both hide cards, so both switch reordering off, and one Clear undoes both — a
+Clear beside two narrowings that only undid one leaves a list still hiding cards
+with nothing on screen saying why.
+
+The pill row (`.saved-kinds`, `set-saved-kind`) sits at the right-hand end of the
+filter row, not on a row of its own: it does the same job as the box beside it.
+Its three segments are equal width, sized to the widest label by
+`grid-auto-columns: 1fr` over `width: max-content` — a flex row would leave "All"
+a third the width of "Cover crop". The box beside it is **`flex: 1 1 0`, not
+`1 1 auto`**: `styles.css` gives every input `width: 100%`, which an `auto` basis
+reads as "I want the whole row", and the segments wrapped to a second line no
+matter how they were sized. Below 640px they take a row each and the segments
+centre on theirs. It only renders once the list actually
+**holds** more than one kind, or while a pill is on. `matches()` searches
+the descriptor's `shortName` too, so typing "cover crop" narrows the same way the
+pill does — the pill is the one-tap version, the box is for somebody already
+typing.
 
 The filter box and its hint are rendered **inside** `.saved-head`, not under it,
 so they are siblings of `.head-tools` and CSS `order` can put the file controls
@@ -256,19 +445,45 @@ below the hint on a phone and beside "+ New calculation" on a desktop. `order`
 only works between siblings; splitting them back out breaks the phone layout
 with nothing failing.
 
-A card's meta line is pasture, forage and date. It does **not** list the goals:
-every goal is a labelled figure two lines below it. `.saved-figs` is indented by
+**One list holds both kinds**, with one drag order and one `sortIndex` space. Two
+lists were the alternative: each would need its own head, its own "+ New", and its
+own order, which is a second set of furniture on a phone solving a problem the
+list only has once somebody has more than a handful of each.
+
+The **calculator badge** (`.saved-kind`) is in the card's top-right corner, on the
+name's row and out of the meta line. It is a label on the whole card rather than
+one more field about the pasture, and it is the same word on every card of a
+kind — down the right-hand edge that reads as a column to skim, where in front of
+the pasture name it was a prefix to read past on every row. It is the one thing on
+a card that is not optional: nothing else says whether "Grazing days: 25" came off
+clipped samples or off a yardstick, and the two are not comparable.
+
+A card's meta line is pasture, then whatever that worksheet's `savedMeta(calc)`
+adds — forage for one, season for the other — then the date. It does **not** list
+the goals: every goal is a labelled figure two lines below it. `.saved-figs` is indented by
 `--grip` on `.saved-card`, the width the drag handle takes out of the row above,
 so the figures start on the name's left edge.
 
 ### Clearing is per step, and it names its own scope
 
 Each step head carries a **Clear** that empties that step and nothing else, from
-`STEP_FIELDS` in `main.js`, whose values come from `newCalculation()`. There is
-no Clear in the sticky bar and there must not be one.
+`stepFields` **on the descriptor**, whose values come from that calculator's own
+`newCalculation()`. There is no Clear in the sticky bar and there must not be one.
+`afterClearStep(calc, i)` is the optional hook for whatever a worksheet cannot
+leave blank — perennial's mix rows take back the forage type the setup screen
+already named.
 
 **+ New calculation** drops the whole record, goals and forage type included, and
 lands on the setup screen with a new id. It is the only genuinely blank start.
+
+Its scope is **one calculator**: it drops the record for the worksheet you are in
+and leaves the other one exactly as it was. From the Saved tab, where neither
+worksheet is on screen, `openNewCalcDialog()` asks which — and the answer names
+the record dropped, the tab landed on, and the wizard reset. From a worksheet's
+chip row there is no question to ask, so `data-kind` is absent and the active
+calculator is meant. Written down because it reads as a bug either way if it is
+not: silently clearing both is destructive, and silently clearing neither looks
+broken.
 
 ### "Unsaved" means "not in the list", not "not saved recently"
 
@@ -301,7 +516,8 @@ a calculation nobody has named stays out of the list.
 load-bearing: opening a record notifies, so without it an open would rewrite the
 record, move its date and jump it to the top of a list nobody had reordered.
 `fingerprint()` leaves out what the store owns — `updatedAt`, `createdAt`,
-`sortIndex`, `schemaVersion`, `tag` and `results`.
+`sortIndex`, `schemaVersion`, `tag` and `results`. `calcType` is in it, and
+correctly so: a record cannot change type, so it can only ever agree.
 
 A `Conflict` (another tab wrote it) is **left alone** rather than asked about: the
 question belongs to a button somebody pressed, and `persist()` still asks it.
@@ -314,7 +530,19 @@ shape changes, bump `SCHEMA_VERSION` in `calc.js` and add a step to `migrate()`.
 **Never drop a record because it is old.**
 
 The working calculation is in its own key from the saved list — a failing
-autosave must not take the saved calculations with it.
+autosave must not take the saved calculations with it — **and its own key per
+calculator**, in `WORKING_KEYS`. `sdshc-gc-working` is **perennial's and does not
+move**, so a worksheet somebody was halfway through survives the upgrade. The key
+is chosen off the **record's** `calcType`, not off what is on screen:
+`printSavedCalc()` borrows a record that may be of the other type.
+
+`migrate()` carries **version steps only**. The per-type shape defaults run after
+the ladder, in `fillRecordDefaults()` from `schema.js`. The old `version < 1` step
+grafted `samples`, `dm`, `usable` and `pasture` onto every record unconditionally,
+which is precisely what a cover crop record must not get — so a shape graft in the
+ladder is the bug this restructure had to undo. **Never guess a record's type from
+its shape**: an empty record of either type looks the same. An unknown `calcType`
+from a future build is coerced to the default, never dropped.
 
 `sortIndex` is owned by the Saved tab, so the stored value always wins. `tag` has
 two owners, so the stored value is only a **fallback**, used when the incoming
@@ -330,7 +558,16 @@ name and `importBackupJSON()` refuses a single calculation by name. Restoring on
 calculation over a list of twelve is the mistake this format has to make
 impossible, so **do not relax either check to "whatever parses"**.
 
-`tag` and `sortIndex` describe one device's list. `exportCalcJSON()` strips them;
+**`kind` is the FILE marker and `calcType` is the RECORD discriminator. Do not
+conflate them.** `kind` answers "is this one calculation or a whole list", and it
+is checked **first**, before anything is read out. `calcType` answers "which
+worksheet made this calculation", and it is what makes an upload need no chooser:
+the file says so itself. `importCalcJSON()`'s gate is `looksLikeCalculation()` — a
+known `calcType`, **or** the legacy `samples` array for a file exported before
+`calcType` existed. Still never "whatever parses".
+
+`tag` and `sortIndex` describe one device's list. `exportCalcJSON()` strips them
+and **keeps `calcType`**, which describes the calculation rather than the device;
 `exportBackupJSON()` keeps them, because a backup restores a list onto itself and
 the arrangement is most of what people back up for.
 
@@ -351,16 +588,20 @@ screen**: printing prints the page, and the page shows the working calculation,
 so from the Saved tab it would print the list.
 
 `printSavedCalc()` **borrows** the record and gives it back — it does not go
-through `openSavedCalc()`, asks nothing, and restores the working calculation,
-the tab and `setupOpen`. Cancelling the print dialog otherwise left the user
+through `openSavedCalc()`, asks nothing, and restores the working calculation, the
+**active calculator type**, the tab and `setupOpen`. Two traps, both easy and both
+silent: capture `getCalculation(borrowedType)` and **not** `getCalculation()`, or
+printing a cover crop record while perennial is on screen clobbers the wrong
+working slot; and restore `setActiveType()` **after** `setCalculation()`, which
+sets it. Cancelling the print dialog otherwise left the user
 standing in a calculation they never opened. The swap back runs on `afterprint`,
 **not** off `print()` returning: on a phone `print()` can hand back before the
 sheet appears, and the page would be swapped out from under it. `step` and
 `maxStep` are left alone, since print forces every step visible anyway.
 
 Figures for an exported image or spreadsheet are **recomputed** with
-`compute(resolved(record))`, never read from the record's stored `results`. Same
-rule as reopening one.
+`computeRecord(record)` — the record's own descriptor resolving and computing it —
+never read from the record's stored `results`. Same rule as reopening one.
 
 ### Where the data lives is stated, not only linked
 
@@ -369,10 +610,22 @@ rule as reopening one.
 fact at the end of the how-to's *Saving your work*. The sentence survives
 printing and the link does not — the print block hides `.footer button`.
 
-`footer()` takes the tab for one reason: the **cover crops tab says something
-different**, because that tab is a cross-origin JotForm and submitting it sends
-the entries to JotForm. **Do not simplify that back to one sentence** — the
-blanket line is a promise the app cannot keep on one of its three tabs.
+**`footer()` takes no arguments, and one sentence covers every tab.** It used to
+take the tab, because the cover crops tab was a cross-origin JotForm and
+submitting it sent the entries to JotForm — the blanket line was a promise the app
+could not keep there. The native cover crop calculator removed the exception, and
+the parameter went with it.
+
+That is a rule and not just a tidy-up: **a second sentence must not come back
+unless a tab genuinely sends data somewhere.** The one thing that still leaves the
+device is the *link* to SDSHC's older JotForm at the foot of the cover crop setup
+screen, and that link carries its own warning where it sits, in `.cc-jotform`.
+Warning about another site in the footer of every screen would say "your data is
+safe here, except" on tabs where there is no except.
+
+Three places carry the promise and they move together: `.footer-privacy`, the
+`privacy` definition's last paragraph, and the end of the how-to's *Saving your
+work*.
 
 The footer carries the how-to link and the privacy line and **no exports**,
 unlike farm-budget's copy. Step 5 and a card's *Save as* already carry those, and
@@ -385,6 +638,13 @@ Saved tab shows records that are not it.
 A change there belongs in every tool or in none of them. **App-specific rules go
 in `src/app.css`.** One deliberate divergence, in `app.css`: the topbar never
 wraps here.
+
+Every cover crop style is in `app.css` — `.saved-kind`, `.saved-kinds`,
+`.cc-jotform` and the rest — and **no token was added to `styles.css` for it**.
+`test/themelab.test.js` asserts that `GROUPS` in `themelab.js` and `:root` in
+`styles.css` agree in both directions, so a new token there fails the suite in a
+file that has nothing to do with the feature. The badge tints are `color-mix()`
+over tokens that already exist.
 
 The tool's name is in the page twice, `.topbar-title` (900px up) and `.app-title`
 (below), with `display: none` on the other so the page has one `h1`. **Adding a
@@ -453,10 +713,10 @@ A filled slot is `{ src, alt, credit }`; `src` resolves against
 labelled placeholder with the same shape and viewer, so filling one in is a
 data-file edit and no code change.
 
-Source files live in `public/forage-images/` and are precached, so they are the
-app's offline install size: **keep every file under about 500 KB and the long
-side at 1400px**, in webp. Workbox refuses anything over 2 MB and fails the
-build.
+Source files live in `public/forage-images/`, and cover crop photography will
+live in `public/covercrop-images/`. They are precached, so they are the app's
+offline install size: **keep every file under about 500 KB and the long side at
+1400px**, in webp. Workbox refuses anything over 2 MB and fails the build.
 
 - A forage type carries `photos: []`, a list. `registerForageSet()` flattens
   those into one viewer set and hands back `{ setId, indexOf }`. **Do not
@@ -469,6 +729,10 @@ build.
   **not** the grass list reordered. Each set's `note` and the species named in
   every sublabel say so — **do not drop either or collapse the two notes.**
 - Stage photos default to HIDDEN (`showStagePhotos: false`).
+- A cover crop season carries `photos: []` under the same rule, flattened by
+  `registerSeasonSet()` in `setup-covercrop.js`. **All three are empty**, so all
+  three render as placeholders; the seasons are the minimum viable set and
+  filling them in is an edit to `src/data/covercrop.js`.
 
 Still wanted, and the dead files to clear: see *[DESIGN-NOTES.md](DESIGN-NOTES.md)*.
 
@@ -496,9 +760,11 @@ refreshes the APK or the user reinstalls.
 
 ## Known limits
 
-- The cover crops tab embeds a cross-origin JotForm, so it cannot be cached and
-  does not work offline; it says so. `demand()`, `daysFrom()`, `acresFrom()` and
-  `animalsFrom()` are exported separately from `calc.js` for the native
-  replacement.
+- `demand()`, `daysFrom()`, `acresFrom()` and `animalsFrom()` are exported
+  separately from `calc.js` because both models use them. The two worksheets
+  share their arithmetic from step 3 on and share nothing at all before it.
+- `public/covercrop-images/` is empty. Every season card and every cover crop
+  step photo renders as a labelled placeholder until it is filled in, which is a
+  data-file edit in `src/data/covercrop.js` and no code change.
 - jsdom loads no CSS, so `el.hidden` in `test/app.test.js` reflects the attribute
   rather than what a browser paints.

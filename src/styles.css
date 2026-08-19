@@ -711,6 +711,18 @@ input.invalid {
   --affix-gap: 28px;
 }
 
+/* The browser draws a number input's up/down arrows itself, and it draws them
+   for a LIGHT page unless told otherwise: on a dark card they came out as
+   near-white chevrons, the brightest thing in a column of dark inputs.
+   `color-scheme` hands the UA the one fact it was missing.
+
+   Declared as its own rule rather than inside the [data-theme="dark"] token
+   block, which would need CSS Nesting. Scoped to the control rather than set on
+   :root, so it changes nothing else about how the page is painted. */
+[data-theme="dark"] input[type="number"] {
+  color-scheme: dark;
+}
+
 .row-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;

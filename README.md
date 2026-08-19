@@ -1,21 +1,25 @@
 # SDSHC Grazing Calculator
 
-The South Dakota Soil Health Coalition's *Graziers Math Worksheet*, as a
-calculator you can use in the pasture.
+Two South Dakota Soil Health Coalition worksheets, as calculators you can use in
+the pasture: the *Graziers Math Worksheet* and *Grazing Cover Crops*.
 
-Clip and weigh a few forage samples, and it works out any combination of:
+Both work out any combination of:
 
-- **How many grazing days?** How long a pasture will feed your herd.
+- **How many grazing days?** How long the piece will feed your herd.
 - **How many acres do I need?** Paddock size for a day, or for a rotation.
 - **How many animals can I run?** Herd size for the days you plan to graze.
 
-It shows every sub-result along the way, so you can see where a number came from
-and catch a bad entry before it reaches the answer.
+They show every sub-result along the way, so you can see where a number came from
+and catch a bad entry before it reaches the answer. Each keeps its own work, so
+you can leave one part way through and come back to it, and both save into one
+list.
 
 ## How it works
 
-Five steps, numbered to match the paper worksheet so you can follow along with a
-printed copy.
+Five steps each, numbered to match the paper worksheets so you can follow along
+with a printed copy.
+
+**Perennial grazing** — native range and tame pasture, from clipped samples:
 
 1. **Clip and weigh.** Sample weights in grams, averaged.
 2. **Forage available.** Scaled from your hoop to an acre, then dried down using
@@ -24,19 +28,36 @@ printed copy.
 4. **Daily demand.** Animal weight times percent of body weight, times head.
 5. **Results.** Your answers, with the arithmetic written out in words.
 
+**Cover crops** — annuals, from the average height of the stand. No scale needed:
+
+1. **Measure height.** Average stand height in inches, against the dominant
+   season's production rate.
+2. **Residual.** The same estimate at the height you plan to leave, subtracted.
+3. **Usable forage.** Utilization, set by how long the animals are on the
+   piece. The longer they stay, the more is trampled and fouled.
+4. **Daily demand.** Animal weight times percent of body weight, times head.
+5. **Results.** Your answers, with the arithmetic written out in words.
+
 The dry matter chart is NRPH Exhibit 4-2. Definitions come from the National
-Range and Pasture Handbook glossary, NRCS, September 1997.
+Range and Pasture Handbook glossary, NRCS, September 1997. The cover crop
+production and utilization tables come from the SDSHC
+[Grazing Cover Crops worksheet](https://www.sdsoilhealthcoalition.org/wp-content/uploads/2021/03/Grazing-cover-crops-worksheet.pdf).
 
 ## Using it
 
 Runs in any modern browser and installs to a phone home screen as an app. Once
-loaded it works with no signal, which is the point: the sampling happens in the
-pasture.
+loaded the whole thing works with no signal, which is the point: the measuring
+happens in the field.
 
-- Your entries save on the device as you type.
-- **Save calculation** keeps a named copy, one per pasture per season.
-- **Clear all** resets the form you are working on and leaves saved copies alone.
-- Print, export to CSV, or save the results as an image.
+- Your entries save on the device as you type, for both calculators.
+- **Save calculation** keeps a named copy, one per pasture per season. Saved
+  cards say which worksheet they came off, and the list can be shown one kind at
+  a time.
+- **Clear**, on a step, empties that step. **New calculation** starts the
+  worksheet you are in over again. Neither touches saved copies or the other
+  worksheet.
+- Print, export to CSV, or save the results as an image. **Export backup** writes
+  everything saved on the device to one file.
 
 Nothing is uploaded anywhere. Everything stays in the browser, which also means
 clearing your browser data removes it.
@@ -60,16 +81,4 @@ See [CLAUDE.md](CLAUDE.md) for the contracts worth knowing before changing the
 model, the storage layer, or the design tokens, and
 [DESIGN-NOTES.md](DESIGN-NOTES.md) for the reasoning behind each one.
 
-## Photography still wanted
 
-The forage type picker and the growth stage picker have photo slots that
-currently render labelled placeholders. Filling them is a data-file edit with no
-code change. See the table in
-[DESIGN-NOTES.md](DESIGN-NOTES.md#still-wanted) for exactly which images are
-needed.
-
-## Not yet built
-
-The Grazing Cover Crops tab currently embeds the existing JotForm. A native
-version sharing this calculator's engine is planned. That tab needs an internet
-connection; the perennial calculator does not.

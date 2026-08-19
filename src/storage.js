@@ -16,17 +16,28 @@
  * pastures by colour needs a label, not a container, and a label cannot get
  * orphaned when the thing it points at is deleted.
  *
- * The working calculation lives in its OWN key, separate from the saved list.
- * Autosave writes it on every keystroke; the saved list is written only when
- * someone presses Save. Sharing a key would let a failing autosave take the
- * saved calculations with it.
+ * The working calculation lives in its OWN key, separate from the saved list,
+ * AND in its own key per calculator. Autosave writes it on every keystroke; the
+ * saved list is written only when someone presses Save. Sharing a key would let
+ * a failing autosave take the saved calculations with it, and sharing one across
+ * calculators would let a failure on one worksheet take the other's work too.
+ *
+ * `sdshc-gc-working` stays the PERENNIAL key and does not move, so a producer
+ * with a half-finished worksheet still has it after the upgrade.
  */
 
 import { SCHEMA_VERSION } from './calc.js'
+import { CALC_TYPE_IDS, DEFAULT_CALC_TYPE, fillRecordDefaults, looksLikeCalculation } from './schema.js'
 
 const KEY = 'sdshc-gc-calcs'
-const KEY_WORKING = 'sdshc-gc-working'
 const KEY_LAST = 'sdshc-gc-last-open'
+
+const WORKING_KEYS = {
+  perennial: 'sdshc-gc-working',
+  covercrop: 'sdshc-gc-working-covercrop',
+}
+
+const workingKey = (type) => WORKING_KEYS[type] ?? WORKING_KEYS[DEFAULT_CALC_TYPE]
 
 /**
  * The `updatedAt` last read or written for each record, so a save can tell
@@ -49,9 +60,19 @@ function readKey(key) {
   }
 }
 
-function writeKey(key, value) {
+/**
+ * @param {string} key
+ * @param {() => string} serialise  the stringify, called INSIDE the try.
+ *
+ * A thunk rather than a string, because `writeKey(k, JSON.stringify(x))` runs
+ * the stringify as an argument — outside this try — and JSON.stringify throws on
+ * a circular reference or a BigInt where structuredClone would not have. That is
+ * unlikely with today's plain records, but "never throws" is the whole contract
+ * of this module and an argument evaluated before the call is not covered by it.
+ */
+function writeKey(key, serialise) {
   try {
-    localStorage.setItem(key, value)
+    localStorage.setItem(key, typeof serialise === 'function' ? serialise() : serialise)
     return { ok: true }
   } catch (err) {
     // QuotaExceededError is the realistic failure. The caller must surface it:
@@ -71,26 +92,39 @@ function removeKey(key) {
 /**
  * Bring an older stored record up to the current shape.
  * Each version gets its own step; steps run in order and fall through.
+ *
+ * The LADDER carries version steps only. Filling in missing branches is not a
+ * version step and runs after it, because a record of either type may be missing
+ * one at any version. The v<1 step used to graft `samples`, `dm`, `usable` and
+ * `pasture` onto every record it saw, which is precisely what a second
+ * calculator's records must not get — hence fillRecordDefaults(), which asks the
+ * record what type it is first.
  */
 function migrate(rec) {
   const version = Number(rec?.schemaVersion) || 0
 
   if (version < 1) {
     rec.schemaVersion = 1
-    rec.goals ??= []
-    rec.samples ??= []
-    rec.sample ??= {}
-    rec.dm ??= {}
-    rec.usable ??= {}
-    rec.demand ??= {}
-    rec.pasture ??= {}
-    // Without this the list sorts on the string "undefined", which compares
-    // above any ISO date, and an ancient record shows up as the newest.
+    // Only what is genuinely type-neutral. Without these the list sorts on the
+    // string "undefined", which compares above any ISO date, and an ancient
+    // record shows up as the newest.
     rec.createdAt ??= new Date(0).toISOString()
     rec.updatedAt ??= rec.createdAt
   }
 
-  return rec
+  if (version < 2) {
+    // Before v2 there was one calculator, so a record with no calcType came out
+    // of it. Never guess from the shape: an empty record of either type looks
+    // exactly the same.
+    rec.calcType ??= DEFAULT_CALC_TYPE
+    rec.schemaVersion = 2
+  }
+
+  // A record naming a type this build does not have — written by a newer build,
+  // or hand-edited. Coerce it so it renders as SOMETHING; never drop it.
+  if (!CALC_TYPE_IDS.includes(rec.calcType)) rec.calcType = DEFAULT_CALC_TYPE
+
+  return fillRecordDefaults(rec)
 }
 
 /**
@@ -114,20 +148,25 @@ function byListOrder(a, b) {
 
 /**
  * Autosave. Overwrites in place and is never versioned against another tab,
- * because there is only ever one working calculation on a device.
+ * because there is only ever one working calculation per calculator on a device.
+ *
+ * The type comes off the RECORD, not off whatever is on screen. printSavedCalc()
+ * borrows a record that may belong to the other calculator, and writing that to
+ * the active calculator's key would put a cover crop record where the perennial
+ * one lives.
  */
-export function saveWorking(calc) {
+export function saveWorking(calc, type = calc?.calcType ?? DEFAULT_CALC_TYPE) {
   let text
   try {
     text = JSON.stringify(calc)
   } catch {
     return { ok: false, error: 'NotSerializable' }
   }
-  return writeKey(KEY_WORKING, text)
+  return writeKey(workingKey(type), text)
 }
 
-export function loadWorking() {
-  const raw = readKey(KEY_WORKING)
+export function loadWorking(type = DEFAULT_CALC_TYPE) {
+  const raw = readKey(workingKey(type))
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)
@@ -136,13 +175,13 @@ export function loadWorking() {
   } catch {
     // A working copy that will not parse is one calculation, and the user is
     // about to start a new one anyway. Saved calculations are in another key
-    // and are untouched.
+    // and are untouched, and so is the other calculator's working copy.
     return null
   }
 }
 
-export function clearWorking() {
-  removeKey(KEY_WORKING)
+export function clearWorking(type = DEFAULT_CALC_TYPE) {
+  removeKey(workingKey(type))
 }
 
 /* ───────────────────────── saved calculations ──────────────────────────── */
@@ -233,7 +272,7 @@ export function saveCalc(calc, { force = false } = {}) {
     all.push(record)
   }
 
-  const result = writeKey(KEY, JSON.stringify(all))
+  const result = writeKey(KEY, () => JSON.stringify(all))
   if (result.ok) {
     lastKnownUpdatedAt.set(record.id, record.updatedAt)
     setLastOpened(record.id)
@@ -274,14 +313,14 @@ export function updateCalcMeta(id, { name, pastureName, tag } = {}) {
   }
 
   if (renamed) found.updatedAt = new Date().toISOString()
-  const result = writeKey(KEY, JSON.stringify(all))
+  const result = writeKey(KEY, () => JSON.stringify(all))
   if (result.ok && renamed) lastKnownUpdatedAt.set(id, found.updatedAt)
   return result
 }
 
 export function deleteCalc(id) {
   const remaining = listCalcs().filter((c) => c.id !== id)
-  const result = writeKey(KEY, JSON.stringify(remaining))
+  const result = writeKey(KEY, () => JSON.stringify(remaining))
   if (result.ok) lastKnownUpdatedAt.delete(id)
   return result
 }
@@ -303,7 +342,7 @@ export function reorderCalcs(idsInOrder) {
   arranged.forEach((c, i) => {
     c.sortIndex = i
   })
-  return writeKey(KEY, JSON.stringify(arranged))
+  return writeKey(KEY, () => JSON.stringify(arranged))
 }
 
 export function setLastOpened(id) {
@@ -335,6 +374,10 @@ export function storageAvailable() {
  * position means nothing in another list, and a colour that happened to match
  * a scheme in use on the destination machine would file someone else's work
  * under it.
+ *
+ * `calcType` is NOT stripped. It describes the calculation — which worksheet it
+ * came out of — rather than the device, and without it the file cannot be filed
+ * under the right calculator on the way back in.
  */
 export function exportCalcJSON(calc) {
   const { tag, sortIndex, ...rest } = calc
@@ -367,7 +410,9 @@ export function importCalcJSON(text) {
         'That file is a backup of your whole saved list, not one calculation. Use "Restore backup" to bring it in.',
     }
   }
-  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.samples)) {
+  // A known calcType, or the `samples` array that marks a file exported before
+  // calcType existed. Never "whatever parses" — see looksLikeCalculation().
+  if (!looksLikeCalculation(parsed)) {
     return { ok: false, error: 'That file is not a saved calculation.' }
   }
   delete parsed.tag
@@ -439,7 +484,7 @@ export function importBackupJSON(text) {
   if (parsed.kind !== BACKUP_KIND) {
     return {
       ok: false,
-      error: Array.isArray(parsed.samples)
+      error: looksLikeCalculation(parsed)
         ? 'That file holds one calculation, not a backup. Use "Upload a calculation" to bring it in alongside what you already have.'
         : 'That file is not a backup of your saved calculations.',
     }
@@ -478,7 +523,7 @@ export function importBackupJSON(text) {
  * on screen.
  */
 export function replaceAll(calcs) {
-  const result = writeKey(KEY, JSON.stringify(calcs))
+  const result = writeKey(KEY, () => JSON.stringify(calcs))
   if (result.ok) lastKnownUpdatedAt.clear()
   return result
 }

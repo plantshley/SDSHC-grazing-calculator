@@ -25,7 +25,8 @@ import { stageThumb } from './table.js'
 import { FRAMES } from '../calc.js'
 import { INSTRUCTIONS } from '../data/instructions.js'
 import { FORAGE_TYPES, MIXED, STAGE_PHOTOS, stagesFor, forageById } from '../data/forage.js'
-import { isStepOpen, getPref } from '../prefs.js'
+import { getPref } from '../prefs.js'
+import { renderStepSections, exportRow, paddockShape } from './step-frame.js'
 
 export const STEP_LABELS = [
   'Clip and weigh',
@@ -60,155 +61,15 @@ const STEP_HEADS = [
  *   a step to the set mid-keystroke without a render.
  */
 export function renderSteps(calc, step, showAll, warned = new Set()) {
-  return `
-    <div class="steps">
-      ${[step1, step2, step3, step4, step5]
-        .map((fn, i) => {
-          const [title, infoKeys] = STEP_HEADS[i]
-          const open = showAll ? isStepOpen(i) : i === step
-          return `<section class="box step${showAll ? ' step--collapsible' : ''}"
-            data-step="${i}"${warned.has(i) ? ' data-warned' : ''}${
-            showAll || i === step ? '' : ' hidden'
-          }>
-            ${head(i + 1, title, infoKeys, showAll, open)}
-            <div class="step-body"${showAll && !open ? ' hidden' : ''}>
-              ${fn(calc, showAll)}
-              ${stepMissing(i)}
-              ${showAll ? '' : nav(i)}
-            </div>
-          </section>`
-        })
-        .join('')}
-    </div>`
-}
-
-/**
- * The `?` is a SIBLING of the toggle, never inside it. Nesting one button in
- * another is invalid, and it would mean opening a definition also collapsed the
- * step it was explaining.
- *
- * The caret is at the LEFT end of the toggle rather than the right. Turning the
- * toggle on must not move the `?`: it explains the step title, it sits beside
- * the step title in the wizard, and pushing it out past a caret on the far right
- * makes it read as belonging to the caret instead.
- *
- * Clear is pinned to the far end of the row, in both modes. It empties THIS
- * step and nothing else, which is why it lives on the step's own head rather
- * than in the sticky bar: a control that empties whatever is on screen is one
- * that has to be read carefully every time, and this one names its scope by
- * where it sits.
- *
- * The pill goes AFTER the `?`, not inside the toggle beside the title. Inside,
- * it would sit between the title and the `?` and push the `?` along, which is
- * the same drift the toggle's `flex: 0 1 auto` exists to prevent. The toggle
- * points at it with aria-describedby instead, so a screen reader gets the count
- * with the button rather than only in passing.
- */
-function head(n, title, infoKeys, collapsible, open) {
-  const i = n - 1
-  const label = `<span class="step-n">Step ${n}</span>
-    <span class="title">${esc(title)}</span>`
-
-  const clear = `<button type="button" class="tip danger step-clear" data-action="clear-step"
-    data-step="${i}">Clear</button>`
-
-  if (!collapsible) {
-    return `<div class="step-head">${label}${
-      infoKeys ? sectionInfo(infoKeys, title) : ''
-    }${clear}</div>`
-  }
-
-  // Step 5 collects nothing, so it can never owe anything. See stepMissing().
-  const pill =
-    i === 4 ? '' : `<span class="step-pill" id="stepPill${i}" data-step-pill="${i}" hidden></span>`
-
-  return `
-    <div class="step-head step-head--toggle">
-      <button type="button" class="step-toggle" data-action="toggle-step" data-step="${i}"
-        aria-expanded="${open}"${pill ? ` aria-describedby="stepPill${i}"` : ''}>
-        <span class="step-chev" aria-hidden="true"></span>
-        ${label}
-      </button>
-      ${infoKeys ? sectionInfo(infoKeys, title) : ''}
-      ${pill}
-      ${clear}
-    </div>`
-}
-
-/**
- * What this step still owes, named on the step that asks for it.
- *
- * Shown only for a step the user has already gone past with something
- * outstanding. A step is blank when you arrive on it, so a note saying it is
- * unfinished is telling you what you can already see; said on arrival every
- * time, it is noise, and noise is what people learn to read past.
- *
- * The placeholder is in the page from the start and updateOutputs() decides
- * whether it says anything, off `data-warned` on the section — the same rule as
- * every figure, and for the same reason. It used to be gated here, at render
- * time, which was fine while pressing Next was the only way to go past a step:
- * that presses a button, and a button renders. Under "Show all steps" there is
- * no Next, so a step is gone past by typing in a later one, and a keystroke must
- * not re-render the field being typed into.
- *
- * Step 5 never has one. The result cards name their own outstanding inputs, and
- * a second note above them saying the same thing reads as two problems.
- */
-function stepMissing(i) {
-  if (i === 4) return ''
-  return `<p class="step-missing" data-step-missing="${i}" hidden></p>`
-}
-
-/* Back and Next are the same control at the same size: same height, same font,
-   same min-width, so the pair reads as one thing you move along rather than a
-   button and a link. Back is outlined rather than filled, because --sky is the
-   one loud button on a screen and Next is the one you are meant to press. */
-function nav(i) {
-  const back =
-    i > 0
-      ? '<button type="button" class="btn-step btn-step--back" data-action="prev-step">Back</button>'
-      : ''
-
-  // The last step has nowhere further forward, so the right-hand end of the row
-  // carries the way OUT instead: to the list this calculation can be kept in.
-  // It is a .btn-step like Back, so the pair are the same size at both ends and
-  // the three export links sit centred between them.
-  if (i === 4) {
-    return `
-      <div class="step-nav step-nav--results">
-        ${back}
-        ${exportRow()}
-        <!-- Not set-tab. A calculation that is not in the list yet is written to
-             it on the way, so pressing the button that says "to saved" does not
-             land on a list this calculation is missing from. -->
-        <button type="button" class="btn-step btn-step--back" data-action="go-saved">
-          To Saved
-        </button>
-      </div>`
-  }
-
-  return `
-    <div class="step-nav">
-      ${back}
-      <div class="spacer"></div>
-      <button type="button" class="btn-step btn-step--next" data-action="next-step">Next</button>
-    </div>`
-}
-
-/**
- * The three ways off the last step, as text links rather than buttons.
- *
- * None of them changes a figure, so none of them is the one thing to press on
- * this screen. Ordered the way they are asked for: the image first, because
- * that is the one that gets sent to somebody.
- */
-function exportRow() {
-  return `
-    <div class="export-links">
-      <button type="button" class="tip" data-action="export-png">Save as image</button>
-      <button type="button" class="tip" data-action="export-csv">Export CSV</button>
-      <button type="button" class="tip" data-action="print">Print or save as PDF</button>
-    </div>`
+  return renderStepSections({
+    calcType: 'perennial',
+    bodies: [step1, step2, step3, step4, step5],
+    heads: STEP_HEADS,
+    calc,
+    step,
+    showAll,
+    warned,
+  })
 }
 
 /* ─────────────────────────────── step 1 ────────────────────────────────── */
@@ -725,7 +586,6 @@ function step5(calc, showAll) {
     ${goals.includes('acres') ? paddockShape(calc) : ''}
 
     <div data-results></div>
-    <div data-warnings></div>
 
     ${
       // Under "Show all steps" there is no nav row to carry these, so the last
@@ -736,38 +596,3 @@ function step5(calc, showAll) {
     }`
 }
 
-/**
- * How much ground one day's grazing actually is, in fence.
- *
- * The acres-per-day figure above is the answer; this turns it into the two
- * numbers someone stands in a pasture with. A square uses the least fence for a
- * given area, so that is the default. Entering the side you already have, an
- * existing fence line, solves the other one.
- */
-function paddockShape(calc) {
-  return `
-    <p class="sub-title">Paddock size for one day ${infoButton('paddock', 'Paddock')}</p>
-    <p class="hint">The acres your herd needs each day, laid out as fence. Left
-      blank it is drawn as a square, which uses the least fence for the area. If
-      you are running off an existing fence line, enter the side you already have
-      and the other one is worked out for you.</p>
-
-    <div class="paddock-row">
-      ${numField({
-        label: 'One side',
-        path: 'pasture.paddockWidth',
-        value: calc.pasture?.paddockWidth,
-        suffix: 'ft',
-        placeholder: 'Leave blank for a square',
-        step: '1',
-      })}
-      <span class="paddock-x" aria-hidden="true">&times;</span>
-      <div class="paddock-out">
-        <span class="paddock-out-label">The other side</span>
-        <span class="paddock-out-value" data-out="paddockLength" data-fmt="feet">&mdash;</span>
-      </div>
-    </div>
-    <div class="results">
-      ${readout('Ground needed per day', 'sqFtPerDay', { fmt: 'sqft' })}
-    </div>`
-}

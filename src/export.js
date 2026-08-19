@@ -9,12 +9,15 @@
  * The CSV escaper is carried over from SDSHC-farm-budget unchanged, formula
  * neutralisation included. A pasture called "=cmd" is unlikely, but a leading
  * minus on a figure is not, and Excel executes both.
+ *
+ * This module is the PLUMBING and nothing else. What a calculation actually says
+ * is per worksheet, so it comes off the calculator's descriptor as data —
+ * `csv(calc, res)` gives rows and `image(calc, res)` gives lines — and everything
+ * here works the same whichever one it came from.
  */
 
-import { FORMATTERS } from './ui/format.js'
-import { GOALS } from './calc.js'
 import { exportCalcJSON, exportBackupJSON } from './storage.js'
-import { forageById, MIXED, stagesFor } from './data/forage.js'
+import { calculatorFor } from './calculators.js'
 
 /* ────────────────────────────── plumbing ───────────────────────────────── */
 
@@ -28,12 +31,19 @@ function csvCell(value) {
 
 const csvRows = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\r\n')
 
-function safeFilename(name, ext) {
+/**
+ * The calculation's name, or its worksheet's own stem if it has none.
+ *
+ * The fallback is per worksheet rather than one shared word, so an unnamed file
+ * in a downloads folder still says which of the two it came off.
+ */
+function safeFilename(calc, ext) {
+  const stem = calculatorFor(calc).fileStem
   const base =
-    String(name || 'grazing-calculation')
+    String(calc?.name || stem)
       .replace(/[^a-z0-9]+/gi, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 60) || 'grazing-calculation'
+      .slice(0, 60) || stem
   return `${base}.${ext}`
 }
 
@@ -50,95 +60,22 @@ function download(filename, blob) {
 
 /* ──────────────────────────────── CSV ──────────────────────────────────── */
 
-/** Everything entered and everything computed, in worksheet order. */
+/**
+ * Everything entered and everything computed, in worksheet order.
+ *
+ * The rows come off the calculation's own descriptor. A record with no
+ * `calcType` — one written before there was a second worksheet — resolves to the
+ * perennial descriptor, which is what keeps every stored record and every
+ * existing test reading correctly.
+ */
 export function toCSV(calc, res) {
-  const rows = [
-    ['SDSHC Grazing Calculator'],
-    ['Calculation', calc.name || ''],
-    ['Pasture', calc.pastureName || ''],
-    ['Date', new Date().toLocaleDateString()],
-    ['Working out', calc.goals.map((g) => GOALS.find((x) => x.key === g)?.short ?? g).join(', ')],
-    ['Forage type', forageLabel(calc)],
-    [],
-
-    ['Step 1: clip and weigh'],
-    ['Sample', 'Weight (g)'],
-    ...calc.samples
-      .map((s, i) => [i + 1, s === '' || s == null ? '' : Number(s)])
-      .filter((r) => r[1] !== ''),
-    ['Samples used', res.sampleCount],
-    ['Average weight (g)', round(res.avgGrams)],
-    [],
-
-    ['Step 2: forage available'],
-    ['Frame', frameLabel(calc)],
-    ['Grams to lbs/ac multiplier', round(res.frameMultiplier)],
-    ['Total production (lbs/ac)', round(res.totalProduction)],
-    ['Dry matter source', dryMatterLabel(calc)],
-    ['Dry matter (%)', round(res.dryMatterPct)],
-    ['Available forage (lbs/ac)', round(res.availableForage)],
-    [],
-
-    ['Step 3: usable forage'],
-    ['Forage left behind (lbs/ac)', round(res.amountLeaving)],
-    ['Harvest (%)', round(res.harvestPctEquivalent)],
-    ['Usable forage (lbs/ac)', round(res.usableForage)],
-    [],
-
-    ['Step 4: daily demand'],
-    ['Animal weight (lbs)', round(Number(calc.demand?.animalWeight) || 0)],
-    ['Percent of body weight', round(Number(calc.demand?.bodyWeightPct) || 0)],
-    ['Demand per animal (lbs/day)', round(res.perAnimalDemand)],
-    ['Number of animals', res.numAnimals || ''],
-    ['Demand for the herd (lbs/day)', round(res.herdDemand)],
-    [],
-
-    ['Step 5: results'],
-  ]
-
-  if (res.totalAcres) {
-    rows.push(
-      ['Total acres', round(res.totalAcres)],
-      ['Ungrazeable acres', round(res.ungrazeableAcres)],
-      ['Grazeable acres', round(res.acresAvailable)],
-      ['Total usable forage (lbs)', round(res.totalUsableForage)]
-    )
-  }
-  if (res.desiredDays) rows.push(['Planned grazing days', round(res.desiredDays)])
-
-  if (calc.goals.includes('days')) {
-    rows.push([], ['GRAZING DAYS', round(res.grazingDays)], ['Animal-days', round(res.animalDays)])
-  }
-  if (calc.goals.includes('acres')) {
-    rows.push(
-      [],
-      ['ACRES NEEDED PER DAY', round(res.acresPerDay)],
-      ['Square feet per day', round(res.sqFtPerDay)],
-      ['Paddock (ft x ft)', `${round(res.paddockWidth)} x ${round(res.paddockLength)}`],
-      ['Acres for planned days', round(res.acresForDesiredDays)]
-    )
-  }
-  if (calc.goals.includes('animals')) {
-    rows.push([], ['ANIMALS ALLOWED', Math.floor(res.animalsAllowed)])
-  }
-
-  if (res.warnings?.length) {
-    rows.push([], ['Check these'], ...res.warnings.map((w) => [w]))
-  }
-
-  rows.push(
-    [],
-    ['Based on the SDSHC Graziers Math Worksheet.'],
-    ['Dry matter from NRPH Exhibit 4-2, NRCS, September 1997.']
-  )
-
-  return csvRows(rows)
+  return csvRows(calculatorFor(calc).csv(calc, res))
 }
 
 export function downloadCSV(calc, res) {
   // The BOM makes Excel open UTF-8 correctly on Windows.
   const blob = new Blob(['﻿' + toCSV(calc, res)], { type: 'text/csv;charset=utf-8' })
-  download(safeFilename(calc.name, 'csv'), blob)
+  download(safeFilename(calc, 'csv'), blob)
 }
 
 export function printResults() {
@@ -158,7 +95,7 @@ export function downloadCalcJSON(calc) {
     alert('That calculation could not be written to a file.')
     return
   }
-  download(safeFilename(calc.name, 'json'), new Blob([text], { type: 'application/json' }))
+  download(safeFilename(calc, 'json'), new Blob([text], { type: 'application/json' }))
 }
 
 /**
@@ -197,7 +134,7 @@ const CARD_H = 132
 const CARD_GAP = 20
 
 export function downloadPNG(calc, res) {
-  const lines = imageLines(calc, res)
+  const lines = calculatorFor(calc).image(calc, res)
   const height = PAD * 2 + 150 + (lines.headlines.length ? CARD_H + 26 : 0) + lines.rows.length * 42 + 70
 
   const canvas = document.createElement('canvas')
@@ -295,10 +232,12 @@ export function downloadPNG(calc, res) {
   y += 22
   ctx.fillStyle = muted
   ctx.font = '16px system-ui, sans-serif'
-  ctx.fillText('Based on the SDSHC Graziers Math Worksheet. NRPH Exhibit 4-2, NRCS 1997.', PAD, y)
+  // Which worksheet this came out of, in the image's own words. A picture
+  // landing in a text message has to say what it is a picture OF.
+  ctx.fillText(lines.footnote, PAD, y)
 
   canvas.toBlob((blob) => {
-    if (blob) download(safeFilename(calc.name, 'png'), blob)
+    if (blob) download(safeFilename(calc, 'png'), blob)
     else alert('The image could not be created. Try Print instead.')
   }, 'image/png')
 }
@@ -322,44 +261,6 @@ function fitText(ctx, text, x, y, maxWidth) {
   ctx.fillText(`${s}...`, x, y)
 }
 
-function imageLines(calc, res) {
-  const headlines = []
-  if (calc.goals.includes('days')) {
-    headlines.push({ label: 'Grazing days', value: FORMATTERS.days(res.grazingDays) })
-  }
-  if (calc.goals.includes('acres')) {
-    // The paddock is a NOTE under the figure rather than part of it. Inside the
-    // value it doubled the string's length, and a card sharing a row with two
-    // others has no width to spend on that.
-    headlines.push({
-      label: 'Acres needed per day',
-      value: FORMATTERS.acres(res.acresPerDay),
-      note: `${FORMATTERS.number(res.paddockWidth)} x ${FORMATTERS.number(res.paddockLength)} ft`,
-    })
-  }
-  if (calc.goals.includes('animals')) {
-    headlines.push({ label: 'Animals allowed', value: FORMATTERS.head(res.animalsAllowed) })
-  }
-
-  const rows = [
-    ['Average sample weight', FORMATTERS.grams(res.avgGrams)],
-    ['Total production', FORMATTERS.lbsPerAcre(res.totalProduction)],
-    ['Dry matter', FORMATTERS.pct(res.dryMatterPct)],
-    ['Available forage', FORMATTERS.lbsPerAcre(res.availableForage)],
-    ['Left behind', FORMATTERS.lbsPerAcre(res.amountLeaving)],
-    ['Usable forage', FORMATTERS.lbsPerAcre(res.usableForage)],
-    ['Demand per animal', FORMATTERS.lbsPerDay(res.perAnimalDemand)],
-  ]
-  if (res.numAnimals) rows.push(['Herd demand', FORMATTERS.lbsPerDay(res.herdDemand)])
-  if (res.acresAvailable) rows.push(['Grazeable acres', FORMATTERS.acres(res.acresAvailable)])
-
-  const parts = [calc.pastureName, forageLabel(calc), new Date().toLocaleDateString()].filter(
-    Boolean
-  )
-
-  return { headlines, rows, subtitle: parts.join('  ·  ') }
-}
-
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -368,29 +269,4 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r)
   ctx.arcTo(x, y, x + w, y, r)
   ctx.closePath()
-}
-
-/* ────────────────────────────── labels ─────────────────────────────────── */
-
-const round = (n) => (Number.isFinite(n) ? Math.round(n * 100) / 100 : 0)
-
-function forageLabel(calc) {
-  if (calc.forageType === MIXED.id) return MIXED.label
-  return forageById(calc.forageType)?.label ?? ''
-}
-
-function frameLabel(calc) {
-  const key = calc.frame?.key
-  if (key === 'small') return 'Small hoop, 0.96 sq ft'
-  if (key === 'large') return 'Large hoop, 1.92 sq ft'
-  return `Custom, ${calc.frame?.customArea || '?'} sq ft`
-}
-
-function dryMatterLabel(calc) {
-  const mode = calc.dm?.mode
-  if (mode === 'own') return 'Air-dried own sample'
-  if (mode === 'mix') return 'Weighted mix of types'
-  const typeId = calc.forageType === MIXED.id ? calc.dm?.stageTypeId : calc.forageType
-  const stage = stagesFor(typeId).find((s) => s.key === calc.dm?.stageKey)
-  return stage ? `Chart: ${forageById(typeId)?.label}, ${stage.label}` : 'Chart'
 }

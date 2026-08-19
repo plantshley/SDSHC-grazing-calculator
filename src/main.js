@@ -15,19 +15,25 @@
  * their declaration is evaluated.
  */
 
-import { compute, GOALS, FRAMES } from './calc.js'
 import {
   getCalculation,
   setCalculation,
-  newCalculation,
-  newMixRow,
+  hydrate,
+  getActiveType,
+  setActiveType,
   makeId,
   setPath,
   subscribe,
   notify,
-  resolved,
-  hasSamples,
 } from './state.js'
+import {
+  CALCULATORS,
+  calculatorById,
+  calculatorFor,
+  activeCalculator,
+  computeRecord,
+} from './calculators.js'
+import { DEFAULT_CALC_TYPE } from './schema.js'
 import {
   saveWorking,
   loadWorking,
@@ -50,6 +56,8 @@ import {
   setFont,
   getPref,
   setPref,
+  getWizard,
+  setWizard,
   setNeedChecked,
   setOpenSteps,
   setStepOpen,
@@ -65,35 +73,63 @@ import {
 import { esc } from './ui/format.js'
 import { openInfo, openGuide, openModal, closeModal } from './ui/modals.js'
 import { openPhoto, releasePhotoViewer } from './ui/photo.js'
-import { openDryMatterTable } from './ui/table.js'
-import { renderSetup, renderChips } from './ui/setup.js'
 import { renderStepper } from './ui/stepper.js'
-import { renderSteps, howToPanel, STEP_LABELS } from './ui/steps.js'
-import { renderResults, renderStickyBar, updateOutputs } from './ui/results.js'
-import { renderSaved, openSaveDialog, openEditDialog, openSaveAsDialog } from './ui/saved.js'
-import { renderCoverCrop, wireCoverCrop } from './ui/covercrop.js'
+import { howToPanel } from './ui/steps.js'
+import { renderStickyBar, updateOutputs } from './ui/results.js'
+import {
+  renderSaved,
+  openSaveDialog,
+  openEditDialog,
+  openSaveAsDialog,
+  openNewCalcDialog,
+  filterTerms,
+} from './ui/saved.js'
 import { HOW_TO_SECTIONS } from './data/howto.js'
-import { MIXED } from './data/forage.js'
 
 const app = document.querySelector('#app')
 
-/** True while the landing screen is showing rather than the steps. */
-let setupOpen = true
+/**
+ * Where each calculator's wizard has got to, for this session.
+ *
+ * Per worksheet, because switching tabs must not move the other one's place. All
+ * three are session state exactly as `warnedSteps` alone used to be: they are
+ * about this run through and have no business surviving a reload or travelling
+ * in a saved record.
+ *
+ *  - `setupOpen`   the landing screen is showing rather than the steps.
+ *  - `startedOnce` the steps have been opened at least once. Pressing Change to
+ *                  check which forage type was picked is not starting over, so
+ *                  coming back lands on the step being worked on; only a genuine
+ *                  first start resets to step 1.
+ *  - `warned`      steps gone past with a required input still blank. Only these
+ *                  say so. A step is blank when you ARRIVE on it, so a note on
+ *                  arrival tells you what you can already see, every time, on
+ *                  every step: the kind of warning people learn to read past.
+ */
+const wizards = new Map(
+  CALCULATORS.map((d) => [d.id, { setupOpen: true, startedOnce: false, warned: new Set() }])
+)
+
+const wizardFor = (type) => wizards.get(type) ?? wizards.get(DEFAULT_CALC_TYPE)
+
+/** The wizard for whichever worksheet is on screen. */
+const wz = () => wizardFor(getActiveType())
 
 /**
- * True once the steps have been opened at least once this session.
+ * The calculator a tab shows, or null.
  *
- * Pressing Change to check which forage type was picked is not starting over,
- * so coming back lands on the step that was being worked on. Only a genuine
- * first start resets to step 1.
+ * The Saved tab is not a calculator and must NOT change the active type: it is
+ * the one screen you reach from either worksheet, and "+ New calculation", the
+ * sticky bar and printSavedCalc()'s restore all need to know which one you came
+ * from.
  */
-let startedOnce = false
+const tabType = (tab) => (CALCULATORS.some((d) => d.id === tab) ? tab : null)
 
 /* ──────────────────────────────── render ───────────────────────────────── */
 
 function render() {
-  const calc = getCalculation()
   const tab = getPref('tab')
+  const forTab = tabType(tab)
 
   // Replacing the markup drops focus to the body, so nothing is being typed into
   // any more. Left standing, a stale flag would hold the spread note back until
@@ -102,12 +138,10 @@ function render() {
 
   app.innerHTML = `
     ${header(tab)}
-    ${tab === 'perennial' ? perennial(calc) : ''}
-    ${tab === 'covercrop' ? renderCoverCrop() : ''}
-    ${tab === 'saved' ? renderSaved(listCalcs(), savedFilter) : ''}
-    ${footer(tab)}`
+    ${forTab ? worksheet(calculatorById(forTab)) : ''}
+    ${tab === 'saved' ? renderSaved(listCalcs(), savedFilter, savedKind) : ''}
+    ${footer()}`
 
-  if (tab === 'covercrop') wireCoverCrop(app)
   if (tab === 'saved') restoreFilterFocus()
   refresh()
 }
@@ -117,6 +151,16 @@ function render() {
  * marks a calculation as changed nor survives a reload as if it were data.
  */
 let savedFilter = ''
+
+/**
+ * Which calculator's records the Saved tab is showing, or '' for all of them.
+ *
+ * Held here for the same reason as the search box: it narrows a VIEW of the
+ * list, it is not a fact about any calculation, and it has no business surviving
+ * a reload as if it were data. Somebody coming back to the tab should find every
+ * record they saved, not the subset they last looked at.
+ */
+let savedKind = ''
 
 /**
  * Typing re-renders the list, which replaces the box being typed into.
@@ -134,11 +178,7 @@ function restoreFilterFocus() {
 }
 
 function header(tab) {
-  const tabs = [
-    ['perennial', 'Perennial grazing'],
-    ['covercrop', 'Cover crops'],
-    ['saved', 'Saved'],
-  ]
+  const tabs = [...CALCULATORS.map((d) => [d.id, d.tabLabel]), ['saved', 'Saved']]
   // The `?` sits at the end of the tab strip rather than beside the title. It
   // is the one control on this row that opens something, and next to the h1 it
   // read as punctuation on the heading.
@@ -178,73 +218,66 @@ function header(tab) {
  * a stored record. A second set at the foot of the page would act on the WORKING
  * calculation while the Saved tab is showing a list of records that are not it.
  *
- * The cover crops tab gets its own sentence because the blanket one is not true
- * there: that tab is a JotForm on another origin, and submitting it sends what
- * was typed to JotForm. A promise the app cannot keep on one of its three tabs
- * is worse than no promise at all.
+ * ONE sentence, and it takes no argument. This used to branch on the tab: the
+ * cover crops tab was an embedded JotForm on another origin, and submitting it
+ * sent what was typed to JotForm, so the blanket promise was one the app could
+ * not keep on one of its three tabs. The native cover crop calculator replaced
+ * that tab, and the promise is now true everywhere.
+ *
+ * DO NOT ADD A BRANCH BACK unless something on a tab genuinely leaves the
+ * device. The older JotForm is still linked from the cover crop setup screen,
+ * and that link says for itself where its entries go — a link off this site is
+ * not the same as a form embedded in it, which is exactly the difference that
+ * lets this sentence stand unqualified.
  */
-function footer(tab) {
-  const privacy =
-    tab === 'covercrop'
-      ? `The cover crop form on this tab is hosted by JotForm, and inputs will only be sent to them if you hit the "DO NOT CLICK" button at the bottom. Everything you enter in the rest of this calculator
-         stays on this device.`
-      : 'Everything you enter stays on this device.'
-
+function footer() {
   return `
     <div class="footer">
       <button type="button" class="tip" data-action="how-to">How to use this calculator</button>
       <p class="footer-privacy">
-        ${privacy}
+        Everything you enter stays on this device.
         <button type="button" class="tip" data-info="privacy">Read more</button>
       </p>
       <p>South Dakota Soil Health Coalition</p>
     </div>`
 }
 
-function perennial(calc) {
-  if (setupOpen) return renderSetup(calc, startedOnce)
+/**
+ * One worksheet, whichever it is: the landing screen, or the chips, the stepper,
+ * the steps and the sticky bar.
+ *
+ * Everything that differs between calculators comes off the descriptor. What is
+ * left here — that a setup screen comes before steps, that the stepper is hidden
+ * under "Show all steps", that the bar knows whether this record is in the list —
+ * is true of any worksheet this app will ever have.
+ */
+function worksheet(desc) {
+  const calc = getCalculation(desc.id)
+  const wizard = wizardFor(desc.id)
+  if (wizard.setupOpen) return desc.renderSetup(calc, wizard.startedOnce)
 
   const showAll = getPref('showAll')
-  const step = clampStep(getPref('step'))
+  const { step: stored, maxStep } = getWizard(desc.id)
+  const step = clampStep(stored, desc)
   // Whether this calculation is already IN the saved list, not whether it has a
   // name. A duplicate opened and then cleared still carries a name.
   const saved = listCalcs().some((c) => c.id === calc.id)
 
   return `
-    ${renderChips(calc)}
-    ${showAll ? '' : renderStepper(STEP_LABELS, step, getPref('maxStep'))}
-    ${renderSteps(calc, step, showAll, warnedSteps)}
+    ${desc.renderChips(calc)}
+    ${showAll ? '' : renderStepper(desc.stepLabels, step, maxStep)}
+    ${desc.renderSteps(calc, step, showAll, wizard.warned)}
     ${renderStickyBar(showAll, calc, saved)}`
 }
 
-function clampStep(n) {
-  return Math.min(Math.max(Number(n) || 0, 0), STEP_LABELS.length - 1)
+function clampStep(n, desc = activeCalculator()) {
+  return Math.min(Math.max(Number(n) || 0, 0), desc.stepLabels.length - 1)
 }
 
-/**
- * Which branches of the calculation each step's Clear empties, in step order.
- *
- * Named here rather than derived from the markup, because "what this step is
- * for" is a fact about the worksheet and a step that renders a figure it does
- * not own must not be able to clear it. The values come from newCalculation(),
- * so a new field is blanked correctly by adding it to the factory and nothing
- * else. STEP_INPUTS in calc.js is the same idea for a different question:
- * which inputs a step COLLECTS, for saying what is still outstanding.
- */
-const STEP_FIELDS = [['samples'], ['frame', 'dm'], ['usable'], ['demand'], ['pasture']]
-
-/**
- * Steps the user has gone past with a required input still blank.
- *
- * Only these say so — the note in the step body, and the count on its head while
- * it is folded shut. A step is blank when you arrive on it, so a note on arrival
- * is telling you what you can already see, every time, on every step: the kind of
- * warning people learn to read past, which is worse than none at all.
- *
- * Session state, not a preference. It is about this run through the worksheet
- * and has no business surviving a reload or travelling in a saved record.
- */
-const warnedSteps = new Set()
+/** Where the wizard on screen has got to, and how to move it. */
+const step = () => getWizard(getActiveType()).step
+const maxStep = () => getWizard(getActiveType()).maxStep
+const setStep = (patch) => setWizard(getActiveType(), patch)
 
 /**
  * Everything before `upto` has been gone past.
@@ -267,9 +300,10 @@ const warnedSteps = new Set()
  * get the same attribute back from renderSteps().
  */
 function markPassed(upto) {
+  const warned = wz().warned
   for (let j = 0; j < upto; j += 1) {
-    if (warnedSteps.has(j)) continue
-    warnedSteps.add(j)
+    if (warned.has(j)) continue
+    warned.add(j)
     app.querySelector(`.step[data-step="${j}"]`)?.setAttribute('data-warned', '')
   }
 }
@@ -299,9 +333,10 @@ function markStepsBefore(el) {
  * @returns {boolean} true to go ahead.
  */
 function mayLeaveStep(from) {
-  if (!(compute(resolved()).missingByStep?.[from] ?? []).length) return true
-  if (warnedSteps.has(from)) return true
-  warnedSteps.add(from)
+  if (!(computeRecord(getCalculation()).missingByStep?.[from] ?? []).length) return true
+  const warned = wz().warned
+  if (warned.has(from)) return true
+  warned.add(from)
   render()
   return false
 }
@@ -436,7 +471,7 @@ function syncSavedRecord(calc) {
   const stored = getCalcById(calc.id)
   if (!stored) return { ok: true }
 
-  const record = { ...structuredClone(calc), results: compute(resolved(calc)) }
+  const record = { ...structuredClone(calc), results: computeRecord(calc) }
   if (fingerprint(stored) === fingerprint(record)) return { ok: true }
 
   const result = saveCalc(record)
@@ -481,15 +516,19 @@ subscribe(() => {
  * every keystroke.
  */
 function refresh() {
-  const res = compute(resolved())
+  const desc = activeCalculator()
+  const calc = getCalculation()
+  const res = computeRecord(calc)
 
   const slot = app.querySelector('[data-results]')
   if (slot && !slot.dataset.built) {
-    slot.innerHTML = renderResults(getCalculation())
+    slot.innerHTML = desc.renderResults(calc)
     slot.dataset.built = '1'
   }
 
-  updateOutputs(res, app, { spreadNote: !editingSamples })
+  // The label map travels with the worksheet: a shortfall has to read in the
+  // words the form on screen used, not the other worksheet's.
+  updateOutputs(res, app, { spreadNote: !editingSamples, labels: desc.inputLabels })
   paintAutosave()
   return res
 }
@@ -538,6 +577,20 @@ app.addEventListener('focusin', endSampleEntry)
 
 /* ─────────────────────── writing by path, one listener ─────────────────── */
 
+/**
+ * What a calculator's own handlers are given.
+ *
+ * render() and the #app element are passed rather than imported, because this
+ * module owns the page and a UI module reaching back into it would close a
+ * cycle. One object, built once: the handlers are called on every keystroke.
+ */
+const ctx = {
+  render: () => render(),
+  closeModal: () => closeModal(),
+  root: app,
+}
+
+
 app.addEventListener('input', (e) => {
   if (e.target.hasAttribute?.('data-saved-filter')) {
     savedFilter = e.target.value
@@ -548,7 +601,7 @@ app.addEventListener('input', (e) => {
   const path = e.target.dataset?.path
   if (!path) return
   setPath(getCalculation(), path, e.target.value)
-  if (path === 'frame.customArea') syncFramePill(e.target.value)
+  activeCalculator().handleInput?.(e.target, path, ctx)
   markStepsBefore(e.target)
   // Set BEFORE notify(), which is what repaints the page. A weight being typed
   // leaves the spread note as it stands until that box is left; typing anywhere
@@ -556,24 +609,6 @@ app.addEventListener('input', (e) => {
   editingSamples = isSampleBox(e.target)
   notify()
 })
-
-/**
- * Typing an area of your own IS "Other frame", so the pill follows the box.
- *
- * Updated in place rather than by re-rendering: a render here would replace the
- * input mid-number and take the caret with it, which is the same reason
- * updateOutputs() exists instead of re-rendering the result cards.
- */
-function syncFramePill(value) {
-  const calc = getCalculation()
-  const preset = FRAMES.find((f) => f.key === calc.frame?.key)
-  if (!preset || preset.area == null || String(preset.area) === String(value)) return
-
-  calc.frame.key = 'custom'
-  for (const seg of app.querySelectorAll('[data-action="set-frame"]')) {
-    seg.setAttribute('aria-pressed', String(seg.dataset.mode === 'custom'))
-  }
-}
 
 // <select> fires change rather than input in older Safari, so both are wired.
 app.addEventListener('change', (e) => {
@@ -583,19 +618,6 @@ app.addEventListener('change', (e) => {
   // is inert there.
   markStepsBefore(el)
 
-  if (el.dataset?.path && el.tagName === 'SELECT') {
-    setPath(getCalculation(), el.dataset.path, el.value)
-    // Changing a mix row's forage type invalidates the stage chosen under it.
-    if (/^dm\.mix\.\d+\.typeId$/.test(el.dataset.path)) {
-      setPath(getCalculation(), el.dataset.path.replace('typeId', 'stageKey'), '')
-      notify()
-      render()
-      return
-    }
-    notify()
-    return
-  }
-
   // The "what you will need" ticks. A device preference, deliberately not part
   // of the calculation, so this writes to prefs and does not notify().
   if (el.dataset?.need !== undefined) {
@@ -603,67 +625,37 @@ app.addEventListener('change', (e) => {
     return
   }
 
-  const action = el.dataset?.action
-  if (action === 'toggle-goal') {
+  // The goals are the one answer every worksheet asks for in the same words.
+  if (el.dataset?.action === 'toggle-goal') {
     const calc = getCalculation()
     const goals = new Set(calc.goals)
     if (el.checked) goals.add(el.value)
     else goals.delete(el.value)
     // Kept in the canonical order rather than the order they were clicked, so
     // the result cards, the checklist and the CSV always read the same way.
-    calc.goals = GOALS.map((g) => g.key).filter((k) => goals.has(k))
+    // The ACTIVE calculator's list. Both worksheets happen to ask for the same
+    // three goals in the same order today, so a hard-coded import works by
+    // coincidence — and would silently drop any goal one of them did not share,
+    // leaving a ticked box reflected nowhere.
+    calc.goals = activeCalculator()
+      .goals.map((g) => g.key)
+      .filter((k) => goals.has(k))
     notify()
     render()
-  } else if (action === 'set-forage') {
-    chooseForage(el.value)
-  } else if (action === 'set-stage') {
-    const calc = getCalculation()
-    calc.dm.stageKey = el.value
-    calc.dm.stageTypeId = calc.forageType
-    notify()
+    return
   }
+
+  // The value goes in FIRST, so a worksheet reacting to a select is reacting to
+  // a record that already holds what was chosen. Dispatching first and writing
+  // afterwards silently drops the answer on any select the descriptor claims.
+  const isSelect = el.dataset?.path && el.tagName === 'SELECT'
+  if (isSelect) setPath(getCalculation(), el.dataset.path, el.value)
+
+  // Whatever this worksheet alone knows how to do about it.
+  if (activeCalculator().handleChange?.(el, ctx)) return
+
+  if (isSelect) notify()
 })
-
-/**
- * Choose a forage type, from the card or from the photo viewer.
- *
- * A stage belongs to a ROW of the chart. Keeping it across a change of row
- * would leave a forb stage selected on a grass, where it resolves to nothing
- * and reads on screen as a dry matter of zero.
- */
-function chooseForage(id) {
-  const calc = getCalculation()
-  calc.forageType = id
-  calc.dm.stageKey = ''
-  calc.dm.stageTypeId = ''
-
-  // The mix builder follows too, but only its UNUSED rows. A share entered
-  // against a type is a deliberate statement about the stand and changing the
-  // headline answer must not rewrite it; a row with no share is one the builder
-  // filled in from the setup screen and never heard about again.
-  for (const row of calc.dm.mix ?? []) {
-    if (row.share === '' || row.share == null) {
-      row.typeId = defaultMixType(calc)
-      // The stage belongs to the ROW. Kept across a change of row it resolves
-      // to nothing and reads on screen as a dry matter of zero.
-      row.stageKey = ''
-    }
-  }
-
-  notify()
-  render()
-}
-
-/**
- * The row of the chart a new mix row starts on.
- *
- * "Mixed or not sure" is the one answer that names no row, and it is also the
- * answer most likely to lead here, so it defaults to nothing rather than to the
- * first type in the list.
- */
-function defaultMixType(calc) {
-  return calc.forageType === MIXED.id ? '' : calc.forageType || ''
-}
 
 /**
  * Ask before throwing away work that is not in the saved list.
@@ -674,7 +666,10 @@ function defaultMixType(calc) {
  * question is not "have you saved recently", it is "is this one in the list at
  * all": if it is, the figures on screen are a copy of a record that survives.
  *
- * An untouched form is not work, so it goes without asking.
+ * An untouched form is not work, so it goes without asking. What counts as
+ * touched is per worksheet — there are no clipped samples on a cover crop sheet —
+ * so `started()` comes off the descriptor for the record being REPLACED, which is
+ * not necessarily the one on screen.
  *
  * The browser's own dialog, deliberately. A modal of ours could label its buttons
  * "Continue" and "Go back" instead of OK and Cancel, and that was tried: it costs
@@ -683,10 +678,8 @@ function defaultMixType(calc) {
  *
  * @returns {boolean} true to go ahead.
  */
-function confirmLeavingUnsaved(what) {
-  const calc = getCalculation()
-  const started = hasSamples(calc) || calc.goals.length > 0 || !!calc.forageType
-  if (!started) return true
+function confirmLeavingUnsaved(what, calc = getCalculation()) {
+  if (!calculatorFor(calc).started(calc)) return true
   if (listCalcs().some((c) => c.id === calc.id)) return true
 
   return confirm(
@@ -709,6 +702,22 @@ function confirmLeavingUnsaved(what) {
  * see and did not mean.
  */
 let draggingId = null
+
+/**
+ * The list is hiding cards, by either route.
+ *
+ * Reordering is refused while it is. Dropping a card between two others in a
+ * list that is showing half its rows writes an order the user cannot see and did
+ * not mean, and that is as true of the calculator pills as it is of the search
+ * box — filtering to Cover crop and dragging one card would silently reposition
+ * it against perennial records nobody could see.
+ */
+// filterTerms(), NOT savedFilter.trim(). saved.js decides what counts as a
+// filter and drops a lone comma to no terms at all, so `,` in the box leaves the
+// list unfiltered, the cards draggable and the hint saying so — while this said
+// "narrowed" and made every drag do nothing. Two answers to one question is the
+// bug; there is only one answer and it lives in saved.js.
+const narrowed = () => filterTerms(savedFilter).length > 0 || !!savedKind
 
 /** The card the pointer is over, or the gap at the end of the row. */
 function dropTarget(list, clientX, clientY, dragged) {
@@ -737,7 +746,7 @@ function commitOrder(list) {
 
 app.addEventListener('dragstart', (e) => {
   const card = e.target.closest?.('.saved-card')
-  if (!card || savedFilter.trim()) return
+  if (!card || narrowed()) return
   draggingId = card.dataset.calcId
   card.classList.add('dragging')
   if (e.dataTransfer) {
@@ -781,7 +790,7 @@ app.addEventListener('pointerdown', (e) => {
   const grip = e.target.closest?.('.saved-grip')
   const card = grip?.closest('.saved-card')
   const list = card?.closest('[data-saved-list]')
-  if (!list || savedFilter.trim()) return
+  if (!list || narrowed()) return
 
   e.preventDefault()
   touchDrag = { card, list }
@@ -828,7 +837,7 @@ app.addEventListener('click', (e) => {
   if (!section || e.target.closest('button, a, input, select, textarea, label')) return
   const body = section.querySelector('.step-body')
   if (!body?.hidden) return
-  setStepOpen(clampStep(section.dataset.step), true)
+  setStepOpen(getActiveType(), clampStep(section.dataset.step), true)
   render()
 })
 
@@ -853,29 +862,38 @@ document.addEventListener('click', (e) => {
 function handleAction(action, btn) {
   const calc = getCalculation()
 
+  // Whatever only the worksheet on screen knows how to do. Tried first so a
+  // calculator can own an action name; everything below is true of all of them.
+  if (tabType(getPref('tab')) && activeCalculator().handleAction?.(action, btn, ctx)) return
+
   switch (action) {
     /* chrome */
-    case 'set-tab':
+    case 'set-tab': {
       // The last keystroke may still be inside the 400ms debounce, and the Saved
       // tab is about to draw the record that write updates. Waiting would put a
       // list on screen that is one edit behind and then never redraw it.
       flushSave()
-      setPref('tab', btn.dataset.tab)
+      const tab = btn.dataset.tab
+      setPref('tab', tab)
+      // The Saved tab is not a calculator, so it leaves the active one alone:
+      // that is what "+ New calculation" and the sticky bar read to know which
+      // worksheet you came from.
+      if (tabType(tab)) setActiveType(tab)
       render()
       break
+    }
     case 'how-to':
       openGuide('How to use this calculator', HOW_TO_SECTIONS, { collapsible: true })
       break
 
     /* setup */
     case 'start':
-      setupOpen = false
+      wz().setupOpen = false
       // Only a first start goes to step 1. Coming back from Change picks up
       // where the user left off, which is what the button now says it does.
-      if (!startedOnce) {
-        setPref('step', 0)
-        setPref('maxStep', 0)
-        startedOnce = true
+      if (!wz().startedOnce) {
+        setStep({ step: 0, maxStep: 0 })
+        wz().startedOnce = true
       }
       render()
       // The forage chart is eight rows of photographs, so this is pressed from
@@ -886,22 +904,33 @@ function handleAction(action, btn) {
       scrollToWork(workTarget())
       break
     case 'edit-setup':
-      setupOpen = true
+      wz().setupOpen = true
       render()
+      break
+    case 'choose-new-calc':
+      // From the Saved tab, where neither worksheet is on screen to be meant.
+      openNewCalcDialog()
       break
     case 'new-calc': {
       // Everything goes, including the goals and the forage type, which is what
-      // separates this from a step's Clear. Saved records are untouched.
-      if (!confirmLeavingUnsaved('Starting a new calculation')) return
-      clearWorking()
+      // separates this from a step's Clear. Saved records are untouched, and so
+      // is the OTHER worksheet: this drops the calculation you are in.
+      //
+      // `data-kind` is set only by the chooser. From a worksheet's chip row
+      // there is no question to ask: it is the worksheet you are standing in.
+      const desc = btn.dataset.kind ? calculatorById(btn.dataset.kind) : activeCalculator()
+      closeModal()
+      if (!confirmLeavingUnsaved('Starting a new calculation', getCalculation(desc.id))) return
+      clearWorking(desc.id)
       // A different worksheet has not been warned about anything yet.
-      warnedSteps.clear()
-      setCalculation(newCalculation())
-      setupOpen = true
-      startedOnce = false
-      setPref('tab', 'perennial')
-      setPref('step', 0)
-      setPref('maxStep', 0)
+      const wizard = wizardFor(desc.id)
+      wizard.warned.clear()
+      wizard.setupOpen = true
+      wizard.startedOnce = false
+      setCalculation(desc.newCalculation(), desc.id)
+      setActiveType(desc.id)
+      setPref('tab', desc.id)
+      setWizard(desc.id, { step: 0, maxStep: 0 })
       render()
       scrollToTop()
       break
@@ -909,17 +938,16 @@ function handleAction(action, btn) {
 
     /* stepping */
     case 'next-step': {
-      if (!mayLeaveStep(clampStep(getPref('step')))) break
-      const next = clampStep(getPref('step') + 1)
-      setPref('step', next)
-      setPref('maxStep', Math.max(getPref('maxStep'), next))
+      if (!mayLeaveStep(clampStep(step()))) break
+      const next = clampStep(step() + 1)
+      setStep({ step: next, maxStep: Math.max(maxStep(), next) })
       markPassed(next)
       render()
       scrollToWork(workTarget())
       break
     }
     case 'prev-step':
-      setPref('step', clampStep(getPref('step') - 1))
+      setStep({ step: clampStep(step() - 1) })
       render()
       scrollToWork(workTarget())
       break
@@ -930,10 +958,9 @@ function handleAction(action, btn) {
       const to = clampStep(btn.dataset.step)
       // Forward only. Going BACK to check a figure is not leaving a step
       // unfinished, it is the thing the stepper is for.
-      const from = clampStep(getPref('step'))
+      const from = clampStep(step())
       if (to > from && !mayLeaveStep(from)) break
-      setPref('step', to)
-      setPref('maxStep', Math.max(getPref('maxStep'), to))
+      setStep({ step: to, maxStep: Math.max(maxStep(), to) })
       // Forward only, again. Arriving back on step 2 to check a figure does not
       // mean step 1 has been gone past — it means the opposite.
       if (to > from) markPassed(to)
@@ -943,21 +970,24 @@ function handleAction(action, btn) {
     }
     case 'toggle-show-all': {
       const now = !getPref('showAll')
+      // A way of WORKING, not a place in a worksheet, so it stays global and
+      // both calculators follow it.
       setPref('showAll', now)
       if (now) {
+        const here = clampStep(step())
         // Everything reached, so returning to the wizard cannot lock a step the
         // user has already been reading.
-        setPref('maxStep', STEP_LABELS.length - 1)
+        setStep({ maxStep: activeCalculator().stepLabels.length - 1 })
         // And everything behind where they got to has now been gone past: the
         // steps are all on the page at once, folded, and a step that was filled
         // in on the way through was never bumped, so without this a shortfall
         // that appears later — a Clear, a figure taken back out — would have
         // nothing to say it on.
-        markPassed(clampStep(getPref('step')))
+        markPassed(here)
         // Five sections expanded is a very long page. The reason to turn this
         // on is usually to reach ONE earlier figure, so only the step being
         // left starts open.
-        setOpenSteps([clampStep(getPref('step'))])
+        setOpenSteps(getActiveType(), [here])
       }
       render()
       // Turning it on, the landing place is the step this left open just above:
@@ -971,7 +1001,7 @@ function handleAction(action, btn) {
     case 'toggle-step': {
       const i = clampStep(btn.dataset.step)
       const opening = btn.getAttribute('aria-expanded') !== 'true'
-      setStepOpen(i, opening)
+      setStepOpen(getActiveType(), i, opening)
       // Unfolding a step further down the page is going past the ones above it.
       // Folding one away is going past THAT one as well — it is the caret's way
       // of saying the same thing Next says, and the count lands on the head the
@@ -986,104 +1016,9 @@ function handleAction(action, btn) {
       break
     }
 
-    /* step 1 */
-    case 'add-sample':
-      calc.samples.push('')
-      notify()
-      render()
-      break
-    case 'remove-sample':
-      if (calc.samples.length > 1) calc.samples.pop()
-      notify()
-      render()
-      break
-
-    /* step 2 */
-    case 'set-frame': {
-      const was = FRAMES.find((f) => f.key === calc.frame.key)
-      calc.frame.key = btn.dataset.mode
-      // A preset is a shortcut to a number, not a replacement for one. It fills
-      // the box in so the figure being used is on screen and can be measured
-      // against the hoop in the pickup.
-      const preset = FRAMES.find((f) => f.key === calc.frame.key)
-      if (preset?.area != null) calc.frame.customArea = String(preset.area)
-      // Leaving a preset for "Other frame" empties the box, because the figure
-      // in it is the preset's and not the user's. Left there it reads as an
-      // answer, and 0.96 sq ft is a plausible enough number for somebody's own
-      // frame that nothing on screen would say otherwise. Blank is the app's way
-      // of saying a question is still outstanding, which this one now is.
-      //
-      // Only when LEAVING a preset. Pressing "Other frame" while already on it
-      // is not a change of mind about the frame, and must not wipe a measurement
-      // that was typed in.
-      else if (was?.area != null) calc.frame.customArea = ''
-      notify()
-      render()
-      break
-    }
-    case 'set-dm-mode':
-      calc.dm.mode = btn.dataset.mode
-      // Entering the builder from a screen that already named a forage type
-      // should not ask for it again. Only EMPTY rows are filled: a row the user
-      // has already set is theirs.
-      if (calc.dm.mode === 'mix') {
-        for (const row of calc.dm.mix) if (!row.typeId) row.typeId = defaultMixType(calc)
-      }
-      notify()
-      render()
-      break
-    case 'toggle-stage-photos':
-      setPref('showStagePhotos', !getPref('showStagePhotos'))
-      render()
-      break
-    case 'open-chart':
-      openDryMatterTable({
-        group: null,
-        typeId: calc.forageType === MIXED.id ? calc.dm.stageTypeId : calc.forageType,
-        stageKey: calc.dm.stageKey,
-      })
-      break
-    case 'open-chart-picker':
-      openDryMatterTable({
-        group: null,
-        typeId: calc.dm.stageTypeId,
-        stageKey: calc.dm.stageKey,
-        pickable: true,
-      })
-      break
-    case 'pick-cell':
-      calc.dm.stageTypeId = btn.dataset.typeId
-      calc.dm.stageKey = btn.dataset.stageKey
-      notify()
-      closeModal()
-      render()
-      break
-    case 'add-mix':
-      calc.dm.mix.push(newMixRow(defaultMixType(calc)))
-      notify()
-      render()
-      break
-    case 'remove-mix':
-      calc.dm.mix.splice(Number(btn.dataset.index), 1)
-      if (!calc.dm.mix.length) calc.dm.mix.push(newMixRow())
-      notify()
-      render()
-      break
-
-    /* step 3 */
-    case 'set-usable-mode':
-      calc.usable.mode = btn.dataset.mode
-      notify()
-      render()
-      break
-
-    /* photos */
+    /* photos — the viewer is the same control whatever it is showing */
     case 'open-photo':
       openPhoto(btn.dataset.photoSet, Number(btn.dataset.photoIndex))
-      break
-    case 'pick-forage':
-      closeModal()
-      chooseForage(btn.dataset.value)
       break
 
     /* exports */
@@ -1164,8 +1099,15 @@ function handleAction(action, btn) {
       scrollToTop()
       break
     }
+    case 'set-saved-kind':
+      savedKind = btn.dataset.kind ?? ''
+      render()
+      break
     case 'clear-saved-filter':
+      // Both narrowings, because one Clear beside two of them that only undid
+      // one would leave a list still hiding cards with nothing saying why.
       savedFilter = ''
+      savedKind = ''
       render()
       break
 
@@ -1190,7 +1132,7 @@ function handleAction(action, btn) {
       // `results`. A record written before a correction to the model still
       // carries the figures it was saved with, and a file leaving the app has
       // to carry the right ones. Same rule as reopening one.
-      const res = compute(resolved(found))
+      const res = computeRecord(found)
       if (action === 'save-as-png') downloadPNG(found, res)
       else downloadCSV(found, res)
       break
@@ -1238,15 +1180,13 @@ function handleAction(action, btn) {
       // One step at a time, from the Clear on that step's own head. A single
       // button that emptied the whole worksheet had to be read carefully every
       // time; this one names its scope by where it sits, so it needs no confirm.
-      const i = clampStep(btn.dataset.step)
-      const fresh = newCalculation()
-      for (const key of STEP_FIELDS[i]) calc[key] = fresh[key]
-      // The mix rows come back blank with the rest of step 2, so they take the
-      // forage type the setup screen already named, the same as entering the
-      // builder does.
-      if (STEP_FIELDS[i].includes('dm')) {
-        for (const row of calc.dm.mix) row.typeId = defaultMixType(calc)
-      }
+      const desc = activeCalculator()
+      const i = clampStep(btn.dataset.step, desc)
+      const fresh = desc.newCalculation()
+      for (const key of desc.stepFields[i] ?? []) calc[key] = fresh[key]
+      // Whatever this worksheet cannot leave blank — the mix rows take back the
+      // forage type the setup screen already named.
+      desc.afterClearStep?.(calc, i)
       notify()
       render()
       break
@@ -1280,13 +1220,19 @@ function handleAction(action, btn) {
  * @returns {boolean} true if the record is now the working calculation.
  */
 function openSavedCalc(found) {
-  if (!confirmLeavingUnsaved('Opening a saved calculation')) return false
-  setCalculation(structuredClone(found))
-  warnedSteps.clear()
-  setupOpen = false
-  startedOnce = true
-  setPref('tab', 'perennial')
-  setPref('maxStep', STEP_LABELS.length - 1)
+  // Which worksheet this record came out of decides where it lands, and which
+  // working copy it replaces. From the Saved tab it may well not be the one that
+  // was last on screen.
+  const desc = calculatorFor(found)
+  if (!confirmLeavingUnsaved('Opening a saved calculation', getCalculation(desc.id))) return false
+
+  setCalculation(structuredClone(found), desc.id)
+  const wizard = wizardFor(desc.id)
+  wizard.warned.clear()
+  wizard.setupOpen = false
+  wizard.startedOnce = true
+  setPref('tab', desc.id)
+  setWizard(desc.id, { maxStep: desc.stepLabels.length - 1 })
   return true
 }
 
@@ -1308,27 +1254,38 @@ function openSavedCalc(found) {
  * without the event get the synchronous version, which is what they behave like.
  */
 function printSavedCalc(found) {
+  const borrowed = calculatorFor(found).id
+  const wizard = wizardFor(borrowed)
   const before = {
-    calc: getCalculation(),
+    // The calculator that was ON SCREEN, which the Saved tab has not changed.
+    type: getActiveType(),
     tab: getPref('tab'),
-    setup: setupOpen,
-    started: startedOnce,
+    // The slot ABOUT TO BE OVERWRITTEN, which is not necessarily that one:
+    // printing a cover crop record while the perennial sheet is active clobbers
+    // the COVER CROP working copy. Reading getCalculation() with no argument
+    // here saves the wrong record and loses the right one.
+    calc: getCalculation(borrowed),
+    setup: wizard.setupOpen,
+    started: wizard.startedOnce,
   }
 
   // The step and maxStep prefs are left alone. Print forces every step visible
   // whatever the wizard is showing, so moving them would only disturb the place
   // the user is coming back to.
-  setCalculation(structuredClone(found))
-  setupOpen = false
-  startedOnce = true
-  setPref('tab', 'perennial')
+  setCalculation(structuredClone(found), borrowed)
+  wizard.setupOpen = false
+  wizard.startedOnce = true
+  setPref('tab', borrowed)
   render()
 
   const restore = () => {
     window.removeEventListener('afterprint', restore)
-    setCalculation(before.calc)
-    setupOpen = before.setup
-    startedOnce = before.started
+    setCalculation(before.calc, borrowed)
+    // AFTER setCalculation, which makes the slot it wrote the active one. Before
+    // it, this is overwritten and the user comes back to the wrong worksheet.
+    setActiveType(before.type)
+    wizard.setupOpen = before.setup
+    wizard.startedOnce = before.started
     setPref('tab', before.tab)
     render()
   }
@@ -1365,6 +1322,21 @@ function pickJSONFile(onText) {
 
 /** "1 calculation", "3 calculations", for a dialog where the count is the point. */
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+/**
+ * " (9 perennial, 3 cover crop)", or nothing when they are all one kind.
+ *
+ * One backup covers both calculators, so "12 will be replaced by 15" hides the
+ * question somebody actually has: whether the file they are about to restore has
+ * the cover crop work in it. Silent on a single-kind list, where the breakdown
+ * would only repeat the total.
+ */
+function byKind(list) {
+  const counts = CALCULATORS.map((d) => [d, list.filter((c) => calculatorFor(c).id === d.id).length])
+  const present = counts.filter(([, n]) => n > 0)
+  if (present.length < 2) return ''
+  return ` (${present.map(([d, n]) => `${n} ${d.shortName.toLowerCase()}`).join(', ')})`
+}
 
 /** A name nothing already in the list is using. */
 function nameForUpload(name, taken) {
@@ -1429,10 +1401,14 @@ function restoreFromFile() {
       return
     }
 
-    const have = listCalcs().length
-    const arriving = `This backup holds ${plural(result.calcs.length, 'calculation')}.`
-    const losing = have
-      ? `Restoring it deletes the ${plural(have, 'calculation')} saved on this device now.`
+    const here = listCalcs()
+    const arriving = `This backup holds ${plural(result.calcs.length, 'calculation')}${byKind(
+      result.calcs
+    )}.`
+    const losing = here.length
+      ? `Restoring it deletes the ${plural(here.length, 'calculation')}${byKind(
+          here
+        )} saved on this device now.`
       : 'There is nothing saved on this device now, so nothing is lost.'
     if (!confirm(`${arriving}\n\n${losing}\n\nThis cannot be undone. Restore anyway?`)) return
 
@@ -1454,7 +1430,7 @@ function restoreFromFile() {
  * the model is later corrected. Reopening always recomputes from the inputs.
  */
 function persist(calc) {
-  const record = { ...structuredClone(calc), results: compute(resolved(calc)) }
+  const record = { ...structuredClone(calc), results: computeRecord(calc) }
   let result = saveCalc(record)
 
   if (!result.ok && result.error === 'Conflict') {
@@ -1515,7 +1491,7 @@ function workTarget() {
   const open = [...app.querySelectorAll('.step')].find(
     (section) => !section.querySelector('.step-body')?.hidden
   )
-  return open ?? app.querySelector(`.step[data-step="${clampStep(getPref('step'))}"]`)
+  return open ?? app.querySelector(`.step[data-step="${clampStep(step())}"]`)
 }
 
 /**
@@ -1567,16 +1543,29 @@ const overlayWatcher = new MutationObserver(() => {
 applyTheme()
 applyFont()
 
-const restored = loadWorking()
-if (restored) {
-  setCalculation(restored)
+// Every calculator's working copy comes back, not just the one whose tab is
+// showing: the other one is what somebody finds when they switch, and finding it
+// blank is the failure this whole shape exists to prevent.
+//
+// hydrate() rather than setCalculation(), which notifies — restoring is not a
+// change, and announcing it would schedule an autosave per slot, rewriting what
+// was just read.
+for (const desc of CALCULATORS) {
+  const restored = loadWorking(desc.id)
+  if (!restored) continue
+  hydrate(restored, desc.id)
+  const wizard = wizardFor(desc.id)
   // Someone with work in progress goes back to it rather than to the landing
   // screen they already answered.
-  setupOpen = !(restored.goals?.length && restored.forageType)
+  wizard.setupOpen = !desc.setupAnswered(restored)
   // Work in progress means the steps have been seen before, so pressing Change
   // and coming back must not throw away the step they were on.
-  startedOnce = !setupOpen
+  wizard.startedOnce = !wizard.setupOpen
 }
+
+// The tab decides which worksheet is on screen. The Saved tab names no
+// calculator, so it falls back rather than leaving the active one undefined.
+setActiveType(tabType(getPref('tab')) ?? DEFAULT_CALC_TYPE)
 
 overlayWatcher.observe(document.body, {
   attributes: true,

@@ -11,21 +11,60 @@
  * not a reason to take the page down.
  */
 
+import { CALC_TYPE_IDS, DEFAULT_CALC_TYPE } from './schema.js'
+
 const KEY = 'sdshc-gc-prefs'
+
+/**
+ * Where one calculator's wizard has got to.
+ *
+ * Per calculator, not global: a PLACE IN A WORKSHEET belongs to that worksheet,
+ * so switching tabs must not move the other one. A WAY OF WORKING does not —
+ * `showAll`, the theme and the font are the same choice whichever worksheet is
+ * on screen, and they stay at the top level.
+ */
+const WIZARD_DEFAULT = { step: 0, maxStep: 0, openSteps: [] }
+
+const wizardDefaults = () =>
+  Object.fromEntries(CALC_TYPE_IDS.map((id) => [id, { ...WIZARD_DEFAULT }]))
 
 const DEFAULTS = {
   theme: null, // null means "follow the system"
   font: 'browser',
   tab: 'perennial',
-  step: 0,
-  maxStep: 0,
   showAll: false,
   // Off. There is one photographed species and it stands in for four rows of
   // the chart, so the photos are an aid someone asks for rather than the first
   // thing the stage picker puts in front of them.
   showStagePhotos: false,
-  openSteps: [],
   checkedNeeds: [],
+  wizard: {},
+}
+
+/**
+ * v1 stored `step`, `maxStep` and `openSteps` flat, and they described the only
+ * calculator there was. They belong to perennial.
+ *
+ * Kept rather than dropped as dead code: somebody who has not opened the app
+ * since the second calculator landed still has the flat keys, and losing them
+ * puts them back on step 1 of a worksheet they were halfway through.
+ */
+function migratePrefs(stored) {
+  const flat = ['step', 'maxStep', 'openSteps']
+  if (!flat.some((k) => stored[k] !== undefined)) return false
+
+  stored.wizard = {
+    ...stored.wizard,
+    [DEFAULT_CALC_TYPE]: {
+      step: stored.step ?? 0,
+      maxStep: stored.maxStep ?? 0,
+      openSteps: Array.isArray(stored.openSteps) ? stored.openSteps : [],
+      // A block already written by this build wins over the v1 keys.
+      ...(stored.wizard?.[DEFAULT_CALC_TYPE] ?? {}),
+    },
+  }
+  for (const k of flat) delete stored[k]
+  return true
 }
 
 let cache = null
@@ -38,7 +77,21 @@ function read() {
   } catch {
     stored = {}
   }
-  cache = { ...DEFAULTS, ...(stored && typeof stored === 'object' ? stored : {}) }
+  if (!stored || typeof stored !== 'object') stored = {}
+
+  const migrated = migratePrefs(stored)
+
+  // `wizard` is the one key the shallow spread is not good enough for: a stored
+  // block holding only perennial would otherwise leave every other calculator
+  // undefined, and getWizard() would hand back nothing.
+  cache = {
+    ...DEFAULTS,
+    ...stored,
+    wizard: { ...wizardDefaults(), ...(stored.wizard ?? {}) },
+  }
+  // Normalise on disk too, so a session that changes nothing still drops the
+  // v1 keys rather than migrating them again on every load.
+  if (migrated) write()
   return cache
 }
 
@@ -155,6 +208,19 @@ export function setFont(choice) {
   return applyFont()
 }
 
+/* ─────────────────────── where each wizard has got to ──────────────────── */
+
+/** Never undefined, whatever is stored — a caller reads `.step` off this. */
+export function getWizard(type) {
+  return { ...WIZARD_DEFAULT, ...(read().wizard?.[type] ?? {}) }
+}
+
+export function setWizard(type, patch) {
+  read()
+  cache.wizard = { ...cache.wizard, [type]: { ...getWizard(type), ...patch } }
+  write()
+}
+
 /* ──────────────────────── collapsible panel state ──────────────────────── */
 
 /**
@@ -163,19 +229,19 @@ export function setFont(choice) {
  * Stored rather than derived so a producer who opens step 2 to check a figure
  * still finds it open after typing into step 4, which re-renders the page.
  */
-export function isStepOpen(index) {
-  return (getPref('openSteps') ?? []).includes(index)
+export function isStepOpen(type, index) {
+  return getWizard(type).openSteps.includes(index)
 }
 
-export function setStepOpen(index, open) {
-  const list = new Set(getPref('openSteps') ?? [])
+export function setStepOpen(type, index, open) {
+  const list = new Set(getWizard(type).openSteps)
   if (open) list.add(index)
   else list.delete(index)
-  setPref('openSteps', [...list])
+  setWizard(type, { openSteps: [...list] })
 }
 
-export function setOpenSteps(indexes) {
-  setPref('openSteps', [...indexes])
+export function setOpenSteps(type, indexes) {
+  setWizard(type, { openSteps: [...indexes] })
 }
 
 /* ───────────────────── the "what you will need" ticks ──────────────────── */

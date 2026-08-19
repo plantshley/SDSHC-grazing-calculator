@@ -14,21 +14,23 @@
 
 import { SCHEMA_VERSION, DEFAULT_BODY_WEIGHT_PCT } from './calc.js'
 import { dryMatterFor } from './data/forage.js'
+import { DEFAULT_CALC_TYPE } from './schema.js'
+import { makeId } from './ids.js'
+import { newCoverCropCalculation } from './state-covercrop.js'
 
-let idCounter = 0
-
-export function makeId(prefix) {
-  idCounter += 1
-  return `${prefix}-${Date.now().toString(36)}-${idCounter}`
-}
+// Lives in its own leaf module so the second calculator's factory can mint an id
+// without importing this one. Re-exported so every existing caller is unchanged.
+export { makeId }
 
 /** The worksheet prints ten blanks. Five is the usual number actually clipped. */
 const DEFAULT_SAMPLE_ROWS = 5
 
-export function newCalculation(name = 'My grazing calculation') {
+export function newCalculation(name = 'My perennial calculation') {
   const now = new Date().toISOString()
   return {
     schemaVersion: SCHEMA_VERSION,
+    /** Which worksheet this record came out of. See schema.js. */
+    calcType: 'perennial',
     id: makeId('calc'),
     name,
     pastureName: '',
@@ -127,18 +129,76 @@ export function setPath(obj, path, value) {
   target[last] = value
 }
 
-/* ─────────────────────────── the working copy ──────────────────────────── */
+/* ─────────────────────────── the working copies ─────────────────────────── */
 
-let current = newCalculation()
-const subscribers = new Set()
-
-export function getCalculation() {
-  return current
+/**
+ * One working calculation PER calculator, and the one currently on screen.
+ *
+ * Switching tabs must not destroy the other worksheet's work, so each type keeps
+ * its own copy. They are created lazily: somebody who never opens the second
+ * calculator never gets a record for it written anywhere.
+ *
+ * The factory table is here rather than read off the registry in calculators.js
+ * because this module has to be able to make either working copy without
+ * reaching the UI.
+ */
+const FACTORIES = {
+  perennial: newCalculation,
+  covercrop: newCoverCropCalculation,
 }
 
-export function setCalculation(calc) {
-  current = calc
-  notify()
+const working = new Map()
+let activeType = DEFAULT_CALC_TYPE
+const subscribers = new Set()
+
+export function getActiveType() {
+  return activeType
+}
+
+export function setActiveType(type) {
+  if (FACTORIES[type]) activeType = type
+  return activeType
+}
+
+/** No argument means "the one on screen", which is what every caller wanted. */
+export function getCalculation(type = activeType) {
+  if (!working.has(type)) working.set(type, (FACTORIES[type] ?? newCalculation)())
+  return working.get(type)
+}
+
+/**
+ * Put a calculation in the slot it BELONGS to, and make that slot the active one.
+ *
+ * Both halves matter. The type comes off the record because a saved record being
+ * opened or borrowed for printing may not be of the type on screen. Making it
+ * active is what stops notify() firing about record X while the autosave reads
+ * whatever else happens to be on screen — the two must never be different
+ * records.
+ *
+ * printSavedCalc() puts the active type back explicitly afterwards, and has to
+ * do it AFTER its own setCalculation() call for exactly this reason.
+ */
+export function setCalculation(calc, type = calc?.calcType ?? activeType) {
+  // DEFAULT_CALC_TYPE, the same answer hydrate() gives, rather than whatever is
+  // on screen. Unreachable today — migrate() coerces calcType before a record
+  // gets here — but two functions disagreeing about "unknown type" is what bites
+  // the first caller that bypasses storage.
+  const slot = FACTORIES[type] ? type : DEFAULT_CALC_TYPE
+  working.set(slot, calc)
+  activeType = slot
+  notify(slot)
+}
+
+/**
+ * Seed a slot without announcing it.
+ *
+ * Boot restores every calculator's working copy, and setCalculation() would
+ * schedule an autosave for each — rewriting what was just read, and for the slot
+ * that is not on screen. Restoring is not a change.
+ */
+export function hydrate(calc, type = calc?.calcType ?? DEFAULT_CALC_TYPE) {
+  if (!calc) return
+  working.set(FACTORIES[type] ? type : DEFAULT_CALC_TYPE, calc)
 }
 
 export function subscribe(fn) {
@@ -146,9 +206,10 @@ export function subscribe(fn) {
   return () => subscribers.delete(fn)
 }
 
-export function notify() {
-  current.updatedAt = new Date().toISOString()
-  for (const fn of subscribers) fn(current)
+export function notify(type = activeType) {
+  const calc = getCalculation(type)
+  calc.updatedAt = new Date().toISOString()
+  for (const fn of subscribers) fn(calc)
 }
 
 /* ────────────────────────── resolving for the model ────────────────────── */
@@ -163,7 +224,7 @@ export function notify() {
  * leave a copy of Exhibit 4-2 scattered through every saved calculation, and a
  * correction to the table would not reach records already written.
  */
-export function resolved(calc = current) {
+export function resolved(calc = getCalculation()) {
   const dm = calc.dm ?? {}
   let stagePct = ''
 
@@ -195,6 +256,6 @@ export function resolved(calc = current) {
  * as "valid": a partly filled worksheet still shows every sub-result it can,
  * because watching them appear is how someone checks they are on track.
  */
-export function hasSamples(calc = current) {
+export function hasSamples(calc = getCalculation()) {
   return (calc.samples ?? []).some((s) => s !== '' && s != null)
 }

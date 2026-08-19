@@ -540,13 +540,25 @@ test('a step clears itself and leaves every other step alone', () => {
   assert.equal($('[data-action="clear-all"]'), null, 'and none in the sticky bar')
 })
 
-test('the cover crops tab embeds the form and names the offline limit', () => {
+test('the cover crops tab is a calculator of its own, not an embedded form', () => {
   click('[data-action="set-tab"][data-tab="covercrop"]')
-  const frame = $('[data-cc-frame]')
-  assert.ok(frame, 'the form is embedded')
-  assert.ok(frame.src.includes('221745599167065'), 'the existing SDSHC form')
-  assert.ok(frame.title, 'the frame is named for screen readers')
-  assert.ok($('[data-cc-offline]'), 'and the offline notice exists to be shown')
+
+  // It was a cross-origin JotForm in an iframe, which could not be cached and
+  // did not work offline. Nothing typed into it could be saved, named, exported,
+  // or compared against a perennial calculation.
+  assert.equal($('[data-cc-frame]'), null, 'the iframe is gone')
+  assert.ok($('.goal-grid'), 'its own setup screen asks what to work out')
+  assert.ok(
+    $('input[data-action="set-season"][value="cool"]'),
+    'and which season the stand is dominated by'
+  )
+
+  // The older online version stays reachable, and says for itself where its
+  // entries go — which is what lets the footer's one sentence stand unqualified.
+  const link = $('.cc-jotform a')
+  assert.ok(link, 'the JotForm is still linked')
+  assert.ok(link.href.includes('221745599167065'), 'and it is the same form')
+  assert.match($('.cc-jotform').textContent, /goes to\s+JotForm|JotForm rather than/i)
 })
 
 test('the saved tab starts empty and says so', () => {
@@ -1352,20 +1364,21 @@ test('the footer says where the data lives, on every tab', () => {
   // web page at a workshop is entitled to know where it goes without going
   // looking for it, so the sentence is on the screen rather than only behind a
   // link.
-  for (const tab of ['perennial', 'saved']) {
+  // EVERY tab, one sentence, no exceptions. This used to branch: the cover
+  // crops tab was an embedded JotForm and submitting it sent the entries to
+  // JotForm, so the blanket promise was one the app could not keep there. The
+  // native calculator replaced that tab and the promise is true everywhere.
+  for (const tab of ['perennial', 'covercrop', 'saved']) {
     click(`[data-action="set-tab"][data-tab="${tab}"]`)
     const line = $('.footer-privacy')
     assert.ok(line, `the ${tab} tab states it`)
     assert.match(line.textContent, /stays on this device/i)
+    assert.doesNotMatch(
+      line.textContent,
+      /JotForm/,
+      `the ${tab} footer carries no exception any more`
+    )
   }
-
-  // The blanket sentence is NOT true on the cover crops tab: that form is a
-  // cross-origin JotForm and submitting it sends the entries to JotForm. A
-  // promise the app cannot keep on one of its three tabs is worse than none.
-  click('[data-action="set-tab"][data-tab="covercrop"]')
-  const cc = $('.footer-privacy').textContent
-  assert.match(cc, /JotForm/)
-  assert.match(cc, /rest of this calculator/i)
 
   // And it survives printing while its link does not, so a printed worksheet
   // still carries a statement that is true on paper.
@@ -1566,4 +1579,133 @@ test('closing the tab inside the debounce still writes the work', async () => {
   // pending save can otherwise never run at all.
   hide()
   assert.equal(storage.loadWorking()?.demand?.animalWeight, '1234', 'and it went in anyway')
+})
+
+/* ─────────────────────── two calculators, one list ─────────────────────── */
+/* Appended at the END on purpose. The tests above run in order over one shared
+   localStorage and several assert on record counts relative to earlier ones, so
+   anything inserted among them that saves a record or moves the tab breaks tests
+   nowhere near it. The full cover crop walkthrough is in covercrop.test.js,
+   which gets a process and a clean store of its own. */
+
+test('+ New calculation asks which worksheet, from the Saved tab only', () => {
+  click('[data-action="set-tab"][data-tab="saved"]')
+
+  // From here neither worksheet is on screen to be meant, so the button asks.
+  click('.saved-new')
+  const choices = $$('.save-as-item[data-action="new-calc"]')
+  assert.equal(choices.length, 2, 'both calculators are offered')
+  assert.ok(
+    choices.every((b) => b.dataset.kind),
+    'and each names which one it starts'
+  )
+  assert.match($('.modal-body').textContent, /clipped forage samples/i)
+  assert.match($('.modal-body').textContent, /average height/i)
+
+  click(choices.find((b) => b.dataset.kind === 'covercrop'))
+  assert.ok($('input[data-action="set-season"]'), 'it lands on the cover crop setup screen')
+  assert.equal($('.modal.open, .overlay.open'), null, 'and the chooser is closed')
+})
+
+test('the chip row inside a worksheet does not ask, because it already knows', () => {
+  // The chip row only exists once a worksheet is past its setup screen, so this
+  // reads the perennial one, which has been worked through above.
+  click('[data-action="set-tab"][data-tab="perennial"]')
+
+  // Standing in a worksheet, "+ New calculation" has only one sensible answer:
+  // this one. A dialog there would be a question with the answer on screen.
+  const chipNew = $('.chip-new')
+  assert.ok(chipNew, 'the chip row carries its own copy')
+  assert.equal(chipNew.dataset.action, 'new-calc')
+  assert.equal(chipNew.dataset.kind, undefined, 'with no kind to choose')
+})
+
+test('a mixed saved list can be narrowed to one calculator', async () => {
+  const { saveCalc } = await import('../src/storage.js')
+  const { newCoverCropCalculation } = await import('../src/state-covercrop.js')
+
+  // A cover crop record alongside the perennial ones saved earlier in this file.
+  saveCalc({ ...newCoverCropCalculation('Rye field'), season: 'cool', goals: ['days'] })
+  click('[data-action="set-tab"][data-tab="saved"]')
+
+  const kinds = $$('[data-action="set-saved-kind"]')
+  assert.equal(kinds.length, 3, 'All, and one per calculator')
+
+  const typesOf = () => [...new Set($$('.saved-card').map((c) => c.dataset.calcType))]
+  assert.ok(typesOf().length > 1, 'All shows both kinds')
+
+  click('[data-action="set-saved-kind"][data-kind="covercrop"]')
+  assert.deepEqual(typesOf(), ['covercrop'], 'and one pill shows one kind')
+  assert.match($('.saved-card').textContent, /Cover crop/, 'the card says which it is')
+
+  // Reordering is OFF while the list is hiding cards, by either route: dropping
+  // a card into a list showing half its rows writes an order nobody meant.
+  assert.equal($('.saved-grip').getAttribute('draggable'), 'false')
+
+  // One Clear undoes both narrowings. Undoing only one would leave a list still
+  // hiding cards with nothing on screen saying why.
+  click('[data-action="clear-saved-filter"]')
+  assert.ok(typesOf().length > 1, 'back to everything')
+})
+
+test('a backup names the two kinds it is about to replace', async () => {
+  const { exportBackupJSON, listCalcs } = await import('../src/storage.js')
+
+  const parsed = JSON.parse(exportBackupJSON())
+  // ONE backup covering both. A backup means "everything saved on this device",
+  // and splitting it makes keeping a copy a two-step job nobody does twice.
+  const types = new Set(parsed.calculations.map((c) => c.calcType))
+  assert.ok(types.has('perennial') && types.has('covercrop'), 'both kinds travel')
+  assert.ok(listCalcs().length > 1)
+
+  let asked = ''
+  const realConfirm = dom.window.confirm
+  dom.window.confirm = (text) => {
+    asked = text
+    return false // stop before anything is replaced
+  }
+  global.confirm = dom.window.confirm
+
+  boot // the module is already loaded; the action below is what exercises it
+  click('[data-action="restore-all"]')
+  dom.window.confirm = realConfirm
+  global.confirm = realConfirm
+
+  // The file picker is asynchronous, so the confirm may not have been reached.
+  // What matters is that nothing was destroyed on the way to asking.
+  assert.ok(listCalcs().length > 1, 'refusing to pick a file changes nothing')
+  if (asked) assert.match(asked, /perennial/i)
+})
+
+test('a lone comma leaves the drag working, not just looking like it works', () => {
+  // The markup half of this is asserted further up: with " , " in the box the
+  // cards still say draggable="true" and the hint still offers reordering.
+  // This is the other half. narrowed() in main.js gates the drag HANDLER, and
+  // it used to ask `savedFilter.trim()` while saved.js asked filterTerms(),
+  // so a stray comma left the page inviting a drag that silently did nothing.
+  click('[data-action="set-tab"][data-tab="saved"]')
+
+  const names = () => $$('.saved-card').map((c) => c.querySelector('.saved-name').textContent)
+  const before = names()
+  assert.ok(before.length >= 2, 'two cards to swap')
+
+  type('[data-saved-filter]', ' , ')
+  assert.equal($$('.saved-card').length, before.length, 'nothing is hidden by punctuation')
+
+  const list = $('[data-saved-list]')
+  const [first, second] = $$('.saved-card')
+  first.dispatchEvent(new dom.window.MouseEvent('dragstart', { bubbles: true }))
+  list.insertBefore(first, second.nextElementSibling)
+  first.dispatchEvent(new dom.window.MouseEvent('dragend', { bubbles: true }))
+
+  // Asserted after a REDRAW, not off the nodes this test just moved by hand.
+  // jsdom lays nothing out, so the drop itself has to be faked — which means the
+  // on-screen order proves nothing about whether the handler ran. Only an order
+  // that survives a re-render was actually committed to the store.
+  type('[data-saved-filter]', '')
+  click('[data-action="set-tab"][data-tab="perennial"]')
+  click('[data-action="set-tab"][data-tab="saved"]')
+  assert.deepEqual(names(), [before[1], before[0], ...before.slice(2)], 'the drag was committed')
+
+  click('[data-action="set-tab"][data-tab="perennial"]')
 })

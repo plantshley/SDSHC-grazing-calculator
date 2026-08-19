@@ -239,6 +239,64 @@ export const DEFINITIONS = {
     ],
   },
 
+  /* ──────────────────── the cover crop worksheet ───────────────────────── */
+
+  ccSeason: {
+    title: 'Which season dominates',
+    body: [
+      'Cover crops put on growth at very different rates depending on what is in them, so the production estimate is different for each.',
+      'Warm-season stands are sorghum-sudan, pearl millet, sunn hemp, and cowpeas. Cool-season stands are cereal rye, oats, barley, peas, turnips, and radish.',
+      'Judge it on what is actually standing out there, not on what went in the drill. A mix that came up mostly rye is a cool-season stand.',
+      'Use the mix estimate when neither dominates. It applies a flat rate to every inch of height rather than treating the first few inches separately.',
+    ],
+  },
+
+  ccHeight: {
+    title: 'Average height',
+    body: [
+      'The average height of the standing growth across the whole field, in inches.',
+      'Take readings in several places across the field rather than one reading in one spot. Do not measure the tallest seed heads, and do not skip the thin places. Both belong in the average.',
+      'Every figure in this worksheet is derived from this one measurement, so the accuracy of the result depends on it.',
+    ],
+  },
+
+  ccTotalProduction: {
+    title: 'Total air-dry production',
+    body: [
+      'What the whole standing crop is worth, in pounds per acre, before anything is taken off for what you will leave behind.',
+      'It is worked out from the height you measured and the estimate for the season that dominates: a figure for the first four inches, then a figure for every inch above that. The mix estimate is a flat rate for every inch instead.',
+      'Air-dry, so it is already the dry part. There is no separate dry matter step on this worksheet.',
+    ],
+  },
+
+  ccResidual: {
+    title: 'Minimum residual height',
+    body: [
+      'The height you plan to leave standing when the animals come off.',
+      'Four inches is the usual starting point. Leave more on erodible ground, in a dry year, or where you want the regrowth.',
+      'The residual keeps the soil covered and leaves the plant enough leaf area to regrow. Grazing below it costs production in the following season.',
+      'The production estimate is applied twice, once at the stand height and once at the residual height. The difference between the two is what is available to graze.',
+    ],
+  },
+
+  ccAvailableForage: {
+    title: 'Available forage',
+    body: [
+      'Total production minus the residual you plan to leave. Pounds per acre.',
+      'This is not the same as usable forage. Available forage is everything standing above your residual height. Usable forage is the share of that the animals eat, after what is trampled, fouled, or passed over.',
+    ],
+  },
+
+  ccUtilization: {
+    title: 'Percent utilization',
+    body: [
+      'The share of the available forage that actually gets eaten.',
+      'The rest is trampled, fouled, bedded on, or passed over. It stays on the field as residue, but it is not feed and must not be counted as feed.',
+      'The shorter the animals are on one piece, the higher it goes. Half a day to a day is 80%. Two or three days is 75%. Four days is 70%, five days is 65%, and anything from six to thirty days is 60%.',
+      'Fencing off a smaller area is how the occupation period gets shortened. That is why the paddock figures on the last step are worth having.',
+    ],
+  },
+
   /* ─────────────────────────── the saved tab ───────────────────────────── */
 
   backupFile: {
@@ -270,7 +328,16 @@ export const DEFINITIONS = {
       'To move one to another device, or to hand it to somebody else, use "Save as" on its card to download a calculation file, and "Upload a calculation" on the Saved tab to read it back in.',
       'To keep a copy of everything at once, use "Export backup" on the Saved tab. Those files are the only things that ever leave this device, and only when you download them yourself.',
       'Because the calculations live in this browser, clearing your browsing data deletes them. Export a backup for anything you want to keep.',
-      'The one exception is the Grazing Cover Crops tab. That form is hosted by JotForm rather than by this calculator, so submitting it sends your entries to them. Nothing you type on the perennial grazing tab goes near it.',
+      // This paragraph used to carry an exception: the cover crops tab was an
+      // embedded JotForm, and submitting it sent the entries to JotForm. The
+      // native cover crop calculator replaced it, so the blanket promise above
+      // is now true of every tab and the exception is gone.
+      //
+      // The older JotForm is still linked from the cover crop setup screen, and
+      // the link says for itself where its entries go. It is a link off this
+      // site rather than a part of it, which is the difference that lets the
+      // sentence above stand unqualified.
+      'The setup screen for cover crops links to SDSHC’s older online version of that worksheet. That one is hosted by JotForm, so anything submitted there goes to them. It is a separate website, and nothing you enter in this calculator is sent to it.',
     ],
   },
 }

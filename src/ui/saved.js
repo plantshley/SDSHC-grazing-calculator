@@ -14,7 +14,7 @@
 import { esc, FORMATTERS } from './format.js'
 import { infoButton } from './fields.js'
 import { openModal, modalError } from './modals.js'
-import { forageById, MIXED } from '../data/forage.js'
+import { CALCULATORS, calculatorFor } from '../calculators.js'
 
 /**
  * The swatches on offer, from the shared design system. Red is not among them.
@@ -75,16 +75,23 @@ export function swatchGrid(current, { name = 'Color' } = {}) {
     </div>`
 }
 
-export function renderSaved(list, filter = '') {
+/**
+ * @param {string} kind  '' for every calculator, or one calculator's id.
+ */
+export function renderSaved(list, filter = '', kind = '') {
   const terms = filterTerms(filter)
-  const filtering = terms.length > 0
-  const shown = filtering ? list.filter((c) => matches(c, terms)) : list
+  const byKind = kind ? list.filter((c) => calculatorFor(c).id === kind) : list
+  // Reordering is off while EITHER narrowing is on, for the one reason: dropping
+  // a card between two others in a list that is hiding half its rows writes an
+  // order the user cannot see and did not mean.
+  const filtering = terms.length > 0 || !!kind
+  const shown = terms.length ? byKind.filter((c) => matches(c, terms)) : byKind
 
   if (!list.length) {
     return `
       <div class="box">
         ${savedHead('')}
-        <p class="empty-note">Nothing saved yet. Work through the calculator and
+        <p class="empty-note">Nothing saved yet. Work through either calculator and
           press Save to keep a copy you can come back to.</p>
       </div>`
   }
@@ -93,11 +100,30 @@ export function renderSaved(list, filter = '') {
   // siblings of the file controls that way, which is the only arrangement in
   // which CSS `order` can put those controls below the hint on a phone and
   // beside "+ New calculation" on a desktop.
+  // One list holding two kinds of calculation, with a one-tap way to see only
+  // one of them. Two SEPARATE lists were the alternative and were not taken:
+  // each would need its own head, its own "+ New", and its own sort order, which
+  // is a second set of furniture on a phone to solve a problem the list only has
+  // once somebody has more than a handful of each.
+  const kinds = [['', 'All'], ...CALCULATORS.map((d) => [d.id, d.shortName])]
+  const kindRow =
+    list.some((c) => calculatorFor(c).id !== calculatorFor(list[0]).id) || kind
+      ? `<div class="saved-kinds" role="group" aria-label="Show which calculator">
+           ${kinds
+             .map(
+               ([key, label]) => `<button type="button" class="mode-seg" data-action="set-saved-kind"
+                 data-kind="${esc(key)}" aria-pressed="${key === kind}">${esc(label)}</button>`
+             )
+             .join('')}
+         </div>`
+      : ''
+
   const filterRow = `
     <div class="saved-tools">
       <input type="search" class="saved-filter" data-saved-filter
         value="${esc(filter)}" placeholder="Filter name, pasture, forage, or date saved"
         aria-label="Filter saved calculations" />
+      ${kindRow}
       ${
         filtering
           ? '<button type="button" class="tip" data-action="clear-saved-filter">Clear</button>'
@@ -124,9 +150,38 @@ export function renderSaved(list, filter = '') {
           ? `<div class="saved-list" data-saved-list>
                ${shown.map((c) => cardFor(c, filtering)).join('')}
              </div>`
-          : `<p class="empty-note">No saved calculation matches ${esc(terms.join(', '))}.</p>`
+          : `<p class="empty-note">No saved calculation matches ${esc(
+              [kind ? kinds.find(([k]) => k === kind)?.[1] : '', terms.join(', ')]
+                .filter(Boolean)
+                .join(', ')
+            )}.</p>`
       }
     </div>`
+}
+
+/**
+ * Which calculator a new calculation is for.
+ *
+ * A chooser rather than two buttons on the head. "+ New calculation" is one
+ * question with two answers, which is what a dialog is for, and the head already
+ * carries four controls on a row that wraps twice on a phone.
+ *
+ * The chips row inside a worksheet does NOT ask: there the answer is the
+ * worksheet you are standing in.
+ */
+export function openNewCalcDialog() {
+  openModal(
+    'New calculation',
+    `<div class="save-as">
+      ${CALCULATORS.map(
+        (d) => `
+        <button type="button" class="save-as-item" data-action="new-calc" data-kind="${esc(d.id)}">
+          <span class="save-as-title">${esc(d.tabLabel)}</span>
+          <span class="save-as-body">${esc(d.newCalcBlurb)}</span>
+        </button>`
+      ).join('')}
+    </div>`
+  )
 }
 
 /**
@@ -157,7 +212,10 @@ function savedHead(hint, filterRow = '') {
         <button type="button" class="tip" data-action="upload-calc">Upload a calculation</button>
         ${infoButton('backupFile', 'a backup')}
       </span>
-      <button type="button" class="btn-add btn-add-inline saved-new" data-action="new-calc">
+      <!-- Asks WHICH calculator, because this is the one place the answer is not
+           already on screen. Inside a worksheet the chip row's copy of this
+           button knows: it is the worksheet you are standing in. -->
+      <button type="button" class="btn-add btn-add-inline saved-new" data-action="choose-new-calc">
         + New calculation
       </button>
       ${filterRow}
@@ -189,11 +247,14 @@ export function filterTerms(filter) {
  * The date is matched as it is DISPLAYED, not as it is stored. Someone typing
  * "2026" or "8/12" is reading the line on the card, and the ISO timestamp
  * underneath it would match neither of those the way they expect.
+ *
+ * The calculator's name is in the haystack too, so "cover crop" typed into the
+ * box narrows the list the same way the pills do. The pills are the one-tap
+ * version; this is for somebody already typing.
  */
 function matches(calc, terms) {
-  const forage =
-    calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label ?? ''
-  const hay = [calc.name, calc.pastureName, forage, shortDate(calc.updatedAt)]
+  const desc = calculatorFor(calc)
+  const hay = [calc.name, calc.pastureName, desc.shortName, ...desc.savedMeta(calc), shortDate(calc.updatedAt)]
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
@@ -202,12 +263,11 @@ function matches(calc, terms) {
 
 function cardFor(calc, filtering) {
   const res = calc.results ?? {}
+  const desc = calculatorFor(calc)
+
   // The goals are NOT listed here. Every one of them is a labelled figure two
   // lines further down, so naming them first said the same thing twice in a
   // card whose whole problem is height.
-  const forage =
-    calc.forageType === MIXED.id ? MIXED.label : forageById(calc.forageType)?.label ?? ''
-
   const figures = []
   if (calc.goals?.includes('days')) {
     figures.push(`Grazing days: <b>${esc(figure('days', res.grazingDays))}</b>`)
@@ -223,7 +283,7 @@ function cardFor(calc, filtering) {
 
   return `
     <div class="saved-card ${tag ? `fld-c-${esc(tag)}` : 'saved-card--untagged'}"
-      data-calc-id="${esc(calc.id)}">
+      data-calc-id="${esc(calc.id)}" data-calc-type="${esc(desc.id)}">
       <div class="saved-top">
         <span class="saved-grip" title="Drag to reorder" aria-hidden="true"
           draggable="${!filtering}"></span>
@@ -231,12 +291,25 @@ function cardFor(calc, filtering) {
           <div class="saved-name">${esc(calc.name || 'Untitled')}</div>
           <div class="saved-meta">
             ${esc(
-              [calc.pastureName, forage, `saved ${shortDate(calc.updatedAt)}`]
+              [calc.pastureName, ...desc.savedMeta(calc), `saved ${shortDate(calc.updatedAt)}`]
                 .filter(Boolean)
                 .join(' · ')
             )}
           </div>
         </div>
+        <!-- Which calculator produced the figures below, in the card's top
+             corner rather than in the meta line. The goal list was taken off
+             this card because every goal was a labelled figure two lines down;
+             this is the opposite case, and it is what earns the badge its
+             place: nothing else on a card in a mixed list says whether
+             "Grazing days: 25" came off clipped samples or off a yardstick.
+
+             In the corner rather than in front of the pasture name because it
+             is a label on the whole card, not one more field on the meta line,
+             and because it is the same word on every card of a kind — down the
+             right-hand edge it reads as a column to skim rather than as a
+             prefix to read past on every row. -->
+        <span class="saved-kind saved-kind--${esc(desc.id)}">${esc(desc.shortName)}</span>
       </div>
       <div class="saved-figs">${figures.join('<br />')}</div>
       <!-- Pinned to the bottom of the card by .saved-actions{margin-top:auto},

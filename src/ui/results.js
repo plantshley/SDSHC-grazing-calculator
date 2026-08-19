@@ -207,8 +207,19 @@ export function renderStickyBar(showAll, calc, saved = false) {
  *
  * `spreadNote: false` leaves the sample spread note alone — not hidden, untouched
  * — while a weight is part typed. See the note beside `[data-spread-note]` below.
+ *
+ * `labels` is the map from an input key to the words the form uses for it. It is
+ * per worksheet, because "still needed: frame area" means nothing on a worksheet
+ * with no frame — without it a second calculator's shortfall note prints raw
+ * keys. It defaults to the perennial map so every existing caller is unchanged.
  */
-export function updateOutputs(res, root = document, { spreadNote = true } = {}) {
+export function updateOutputs(
+  res,
+  root = document,
+  { spreadNote = true, labels: labelMap = INPUT_LABELS } = {}
+) {
+  const labels = (keys) => keys.map((k) => (labelMap[k] ?? k).toLowerCase()).join(', ')
+
   for (const el of root.querySelectorAll('[data-out]')) {
     const key = el.dataset.out
     const fmt = FORMATTERS[el.dataset.fmt] ?? FORMATTERS.number
@@ -293,19 +304,27 @@ export function updateOutputs(res, root = document, { spreadNote = true } = {}) 
     }
   }
 
-  const warn = root.querySelector('[data-warnings]')
-  if (warn) {
-    warn.innerHTML = res.warnings?.length
-      ? `<ul class="warn-list">${res.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>`
+  // A warning goes on the step that raised it, beside the field that caused it.
+  // Every one of them used to land in a single list on step 5, which meant the
+  // only place a producer could read "check the two heights" was three steps
+  // after the heights had scrolled off the screen, and in the wizard, where one
+  // step is on screen at a time, it named boxes they could not see.
+  //
+  // Each box finds its own step off the enclosing section, the same way
+  // [data-step-missing] does, so nothing has to be passed in and the two
+  // worksheets share one mechanism. A box outside a step falls back to the whole
+  // list rather than rendering nothing.
+  for (const box of root.querySelectorAll('[data-warnings]')) {
+    const i = Number(box.closest('.step')?.dataset.step)
+    const list = Number.isFinite(i)
+      ? (res.warningsByStep?.[i] ?? [])
+      : (res.warnings ?? [])
+    box.innerHTML = list.length
+      ? `<ul class="warn-list">${list.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>`
       : ''
   }
 
   updateHeadline(res, root)
-}
-
-/** Outstanding input keys, in the words the form uses for them. */
-function labels(keys) {
-  return keys.map((k) => (INPUT_LABELS[k] ?? k).toLowerCase()).join(', ')
 }
 
 /**

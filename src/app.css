@@ -296,6 +296,20 @@
   margin-bottom: 1px;
 }
 
+/* The same fix from the other side. A `.field-label` whose text is a bare
+   <span> rather than a <label> — the growth stage picker, the occupation period
+   picker — has no margins for the rule above to match, so the `?` sat a few
+   pixels BELOW the text it explains instead of beside it. Giving the span the
+   label's own margins makes the two boxes the same shape again, which is the
+   only thing that centres their text against each other.
+
+   `.field-aside` is excluded: it is pinned to the far end of the row by
+   `margin-left: auto` and carries its own 44px target. */
+.field-label > span:not(.field-aside) {
+  margin-top: 9px;
+  margin-bottom: 1px;
+}
+
 .tab {
   position: relative;
   display: flex;
@@ -521,6 +535,33 @@
   margin: 0 0 22px;
 }
 
+/* The cover crop setup asks two questions that do not depend on each other, so
+   from 900px up they sit side by side instead of one under the other. Stacked,
+   the season cards and the Start button both fell below the fold on a laptop,
+   which made a two-question screen read as a one-question screen.
+
+   900px is the app's desktop boundary — the same one `.topbar-title` uses — and
+   not a fourth number. Below it the grid collapses to one column and the blocks
+   are back in their original order.
+
+   The perennial setup keeps a single column: its second question is eight
+   forage cards, which need the full width of the card to stay legible. */
+@media (min-width: 900px) {
+  .setup-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px 28px;
+    align-items: start;
+  }
+
+  /* Stacked, one per row. Three goal cards across half a page are narrower than
+     their own labels, and the column has the height to spend: the season cards
+     opposite are taller than three stacked goals. */
+  .setup-split .goal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* The question and its hint are two blocks in the same column, so neither takes
    an indent of its own: their text has to begin on the same vertical line or
    the hint reads as belonging to something else. */
@@ -675,6 +716,20 @@
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 8px;
   align-items: stretch;
+}
+
+/* The cover crop setup borrows the same grid for three seasons rather than eight
+   forage types, so it needs three columns and not eight. It stays one row at
+   every width: three cards is the whole question, and two-and-one reads as a
+   list that ran out rather than as a set to choose from.
+
+   Written `.forage-grid.season-grid`, two classes deep on purpose. Both the base
+   rule above and the two `.forage-grid` breakpoints below it are one class each,
+   and all three sit LATER in this file than any single-class override could — so
+   at equal specificity the eight-column chart layout wins and the seasons sit in
+   the left three-eighths of their block. Same trap as `.stage-grid.period-grid`. */
+.forage-grid.season-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .forage-cell {
@@ -1945,6 +2000,34 @@ body:has(.sticky-bar) {
   min-width: 0;
 }
 
+/* The utilization mode pill, level with the input beside it and NOT moving when
+   the mode changes.
+
+   Both columns are a `.field`: a one-line `.field-label`, then a 44px control —
+   `.mode-pill` sets `--pill-h: 44px` and styles.css gives every input the same
+   `min-height`. So `align-items: start` on the grid puts both label rows on the
+   same line, both controls start on the same line, and two boxes of the same
+   height starting together are centred against each other.
+
+   That is why the pill gets a visible label rather than only an aria-label. The
+   label is what holds its position: without a row of its own the pill would sit
+   level with the OTHER column's label, and it would move as the right-hand
+   column changed between the one input and the six-card picker, whose labels are
+   different lengths.
+
+   Do not swap this for `align-items: center` on `.dm-split`. That centres each
+   column against the tallest, so the pill lands halfway down a six-card picker
+   in one mode and beside a single input in the other, and `.dm-split` is shared
+   with the perennial sheet's dry matter step, where the right column is a chart
+   or a mix builder. */
+.util-mode {
+  min-width: 0;
+}
+
+.util-mode .mode-pill {
+  margin-bottom: 0;
+}
+
 .dm-mode {
   position: relative;
   display: flex;
@@ -2023,6 +2106,34 @@ body:has(.sticky-bar) {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
+}
+
+/* Six occupation periods on one row. They are a SCALE, shortest to longest, and
+   the percentage falls as you read along it; wrapping the sixth onto a line of
+   its own breaks the sequence the picker is a picture of, the same reason the
+   five growth stages hold their row.
+
+   Grid stretches its items by default, so one row also means all six cards are
+   the height of the tallest without anything having to measure them.
+
+   Both rules are written `.stage-grid.period-grid`, two classes deep on purpose:
+   the phone rule for `.stage-grid` sits LATER in this file, and at one class each
+   the later selector would win and put these back to two columns. */
+.stage-grid.period-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+/* Below the app's narrow boundary, three and three. Six across half a desktop is
+   about 90px a card, which wraps "6 to 30 days" onto three lines and leaves the
+   row taller than it is wide. Three and three keeps the scale reading left to
+   right and then top to bottom, which is the next best thing to one row.
+
+   899px, the same boundary `.topbar-title` and the cover crop setup use, rather
+   than a fourth number. */
+@media (max-width: 899px) {
+  .stage-grid.period-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .stage-card .pick-title {
@@ -2251,14 +2362,16 @@ body:has(.sticky-bar) {
   line-height: 1.5;
 }
 
-/* ---- cover crops tab ---------------------------------------------------- */
+/* ---- cover crops ---------------------------------------------------------
+   The link to SDSHC's older online version of this worksheet, at the foot of
+   the cover crop setup screen. Ruled off rather than merely spaced: it is the
+   one thing on that screen that leads OFF this site, and the rule is what stops
+   it reading as another instruction in the sequence above it. */
 
-.cc-frame {
-  width: 100%;
-  min-height: 70dvh;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
+.cc-jotform {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
 .offline-note {
@@ -2410,9 +2523,75 @@ body:has(.sticky-bar) {
   margin: 12px 0 0;
 }
 
+/* `flex: 1 1 0`, NOT `1 1 auto`. styles.css gives every input `width: 100%`, and
+   `flex-basis: auto` reads that as the basis: the box asked for the whole row on
+   its own and pushed the segments onto a second line, whatever they were sized
+   at. A zero basis makes it take what is left instead.
+
+   `min-width` on top of that, because `flex-shrink` would otherwise let it go to
+   nothing beside a long set of segments. Below the min it wraps, which is what
+   the phone rule wants anyway. */
 .saved-filter {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-width: 15rem;
+}
+
+/* One list holding two kinds of calculation, and a one-tap way to see only one.
+   The segments are .mode-seg, the same control the worksheets use for their own
+   modes, so this reads as a choice between states rather than as three more
+   buttons that might do something.
+
+   It sits at the right-hand end of the filter row, because it is the same job as
+   the box beside it: both narrow the list, and a control on a row of its own
+   reads as a different kind of thing.
+
+   `grid-auto-columns: 1fr` over `width: max-content` is what makes the three
+   segments equal: the track sizing takes the WIDEST label and gives every column
+   that width, and the container is then only as wide as it has to be. A flex row
+   would size each segment to its own text and leave "All" a third the width of
+   "Cover crop". */
+.saved-kinds {
+  flex: 0 0 auto;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.saved-kinds .mode-seg {
   min-width: 0;
+  border: 0;
+  border-radius: 0;
+  text-align: center;
+}
+
+.saved-kinds .mode-seg + .mode-seg {
+  border-left: 1px solid var(--border);
+}
+
+/* Wrapping, so a phone puts the segments under the box rather than squeezing
+   the box down to nothing beside them. */
+.saved-tools {
+  flex-wrap: wrap;
+}
+
+/* On a phone the two take a row each: side by side, neither the box nor the
+   three segments has the width to be read. The segments centre on their row
+   rather than sitting against the left edge, because they are one control with
+   nothing on the other end of the row to be balanced against. */
+@media (max-width: 640px) {
+  .saved-filter {
+    flex: 0 0 100%;
+  }
+
+  .saved-kinds {
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 /* Sits under the box it describes, not in the hint at the top of the tab. The
@@ -2521,6 +2700,39 @@ body:has(.sticky-bar) {
   color: var(--muted);
   margin-top: 2px;
   line-height: 1.35;
+}
+
+/* Which calculator produced the figures on this card.
+
+   Top right, on the same line as the name, and out of the meta line entirely. It
+   is a label on the whole card rather than one more field about the pasture, and
+   it is the same word on every card of a kind: down the right-hand edge that
+   reads as a column to skim, where in front of the pasture name it was a prefix
+   to read past on every row.
+
+   Carried by a tinted chip rather than by colour alone — the two badges differ
+   in their WORDS first, and the tint only makes the list scannable once somebody
+   knows what they are looking for.
+
+   `flex: 0 0 auto` keeps it off the name's line-wrapping: `.saved-headings` is
+   the flexible child and takes the squeeze. */
+.saved-kind {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  background: var(--info-bg);
+  color: var(--text);
+}
+
+/* --sky is the one loud button per screen and the KPI card edge, so it is not
+   used here. These are labels, not actions. */
+.saved-kind--covercrop {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
 }
 
 .saved-figs {
@@ -2712,6 +2924,7 @@ body:has(.sticky-bar) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
+
 
   .stage-card {
     padding: 8px;
