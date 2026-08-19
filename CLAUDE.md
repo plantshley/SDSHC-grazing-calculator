@@ -178,6 +178,14 @@ silently. `step-frame.js` gives every step a `[data-warnings]` box and
 index off the enclosing `.step` exactly as `[data-step-missing]` does. **The flat
 list stays** and is what the CSV and the share image carry, as one block.
 
+A folded head carries **`[data-step-warn-pill]`** beside `[data-step-pill]`, same
+`.step-pill` class and same shut-body-only rule. Two differences from the missing
+count, both deliberate: it is on the **last step too**, which asks for the acres
+and so can raise a warning though it can never owe an answer; and it is **not
+gated on `data-warned`**, because that gate exists for a step you have not
+reached yet and a warning is about something already typed. The toggle's
+`aria-describedby` names both pills.
+
 Both the note and the count are placeholders refreshed by `updateOutputs()`, not
 markup built at render time: `[data-step-missing]` in the body, and
 `[data-step-pill]` on a collapsible head. The gate is `data-warned` on the

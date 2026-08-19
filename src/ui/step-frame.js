@@ -104,15 +104,24 @@ function head(i, last, title, infoKeys, collapsible, open) {
   const pill =
     i === last ? '' : `<span class="step-pill" id="stepPill${i}" data-step-pill="${i}" hidden></span>`
 
+  // The warning count is on EVERY step, the last one included: step 5 asks for
+  // the acres, so it can raise a warning even though it can never owe an answer.
+  // Same class, so the two counts are one kind of thing and the phone rules that
+  // key off `.step-pill` cover both without being told.
+  const warnPill = `<span class="step-pill" id="stepWarn${i}" data-step-warn-pill="${i}" hidden></span>`
+
+  const describedBy = [pill ? `stepPill${i}` : '', `stepWarn${i}`].filter(Boolean).join(' ')
+
   return `
     <div class="step-head step-head--toggle">
       <button type="button" class="step-toggle" data-action="toggle-step" data-step="${i}"
-        aria-expanded="${open}"${pill ? ` aria-describedby="stepPill${i}"` : ''}>
+        aria-expanded="${open}" aria-describedby="${describedBy}">
         <span class="step-chev" aria-hidden="true"></span>
         ${label}
       </button>
       ${infoKeys ? sectionInfo(infoKeys, title) : ''}
       ${pill}
+      ${warnPill}
       ${clear}
     </div>`
 }

@@ -435,3 +435,45 @@ test('a warning appears on its own step, not in a list at the end', async () => 
   type('[data-path="demand.bodyWeightPct"]', '2.6')
   prefs.setPref('showAll', false)
 })
+
+test('a folded step head carries a warning count, beside the missing count', async () => {
+  const prefs = await import('../src/prefs.js')
+  prefs.setPref('showAll', true)
+  toTab('perennial')
+  toTab('covercrop')
+
+  const pillsOn = (i) =>
+    [...document.querySelectorAll(`.step[data-step="${i}"] .step-pill`)]
+      .filter((p) => !p.hidden)
+      .map((p) => p.textContent)
+
+  const fold = (i) => {
+    const body = $(`.step[data-step="${i}"] .step-body`)
+    if (!body.hidden) click(`.step[data-step="${i}"] [data-action="toggle-step"]`)
+  }
+
+  // Step 4 owes an animal count AND has a rate nobody feeds.
+  type('[data-path="demand.bodyWeightPct"]', '40')
+  type('[data-path="demand.numAnimals"]', '')
+  for (const i of [0, 1, 2, 3, 4]) fold(i)
+
+  assert.deepEqual(pillsOn(3), ['1 missing', '1 warning'], 'both counts, in that order')
+  assert.equal(
+    $('.step[data-step="3"] .step-toggle').getAttribute('aria-describedby'),
+    'stepPill3 stepWarn3',
+    'and the toggle names both to a screen reader'
+  )
+
+  // Unfolding puts the warnings themselves on screen, so the count stands down:
+  // one problem said twice in one box reads as two.
+  click('.step[data-step="3"] [data-action="toggle-step"]')
+  assert.deepEqual(pillsOn(3), [], 'no count over an open body')
+  assert.ok($('.step[data-step="3"] [data-warnings] li'), 'the warning itself is there instead')
+
+  type('[data-path="demand.numAnimals"]', '100')
+  type('[data-path="demand.bodyWeightPct"]', '2.6')
+  fold(3)
+  assert.deepEqual(pillsOn(3), [], 'and both clear once the entries are fixed')
+
+  prefs.setPref('showAll', false)
+})

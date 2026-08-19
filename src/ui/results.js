@@ -258,6 +258,22 @@ export function updateOutputs(
     if (!el.hidden) el.textContent = `${outstanding.length} missing`
   }
 
+  // The warning count, under the same shut-body rule and for the same reason:
+  // the warnings themselves are in the body, and one problem said twice in one
+  // box reads as two.
+  //
+  // NOT gated on `data-warned`, which is the one way it differs from the count
+  // beside it. That gate exists because a step is blank when you arrive on it,
+  // so being told it is unfinished before you have been there is telling you
+  // what you can already see. A warning is about something already typed, so it
+  // is earned the moment it exists.
+  for (const el of root.querySelectorAll('[data-step-warn-pill]')) {
+    const n = res.warningsByStep?.[Number(el.dataset.stepWarnPill)]?.length ?? 0
+    const shut = !!el.closest('.step')?.querySelector('.step-body')?.hidden
+    el.hidden = !shut || !n
+    if (!el.hidden) el.textContent = `${n} warning${n === 1 ? '' : 's'}`
+  }
+
   for (const el of root.querySelectorAll('[data-formula]')) {
     // The formula describes a calculation that has not happened yet, so it is
     // hidden alongside the answer rather than printing a row of zeroes.

@@ -300,6 +300,27 @@ slicing needs no cooperation from the primitives and cannot disagree with itself
 every warning as one thing, and an export is read away from the page where the
 per-step split means nothing.
 
+Moving the warnings onto their steps created the problem the missing-count pill
+already had: under "Show all steps" a folded step's warnings are in the page,
+still correct, and out of sight. So the head carries a second count, in the same
+`.step-pill` styling, for the same reason and under the same shut-body-only rule
+— with the body open the warnings are two lines below the head, and one problem
+said twice in one box reads as two.
+
+It differs from the count beside it in exactly two ways, and both are the point:
+
+- **It is on the last step as well.** The missing count never is, because the
+  result cards name their own outstanding inputs. But step 5 asks for the acres,
+  so it can raise a warning while still being unable to owe an answer.
+- **It is not gated on `data-warned`.** That gate exists because a step is blank
+  when you arrive on it, so being told it is unfinished before you have been
+  there is telling you what you can already see. A warning is about something
+  already typed. There is nothing premature about it.
+
+Reusing `.step-pill` rather than making a second style is not laziness: the phone
+rules that wrap the head and indent the count key off `.step-pill`, and a second
+class would have needed all of them again or would have silently missed them.
+
 The one cost: in the wizard, standing on step 5, a warning raised on step 1 is no
 longer on screen. That is the trade taken deliberately — the warning is there to
 be *acted on*, and it can only be acted on where the field is. Under "Show all
