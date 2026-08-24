@@ -347,6 +347,26 @@ function shortDate(iso) {
 /* ─────────────────────────────── dialogs ───────────────────────────────── */
 
 /**
+ * How long a name may be.
+ *
+ * The Return button on the setup screen carries the name in full — no clipping
+ * and no wrapping, because half a name identifies a calculation no better than
+ * none does. That leaves the length of the name as the only thing holding the
+ * button inside the card, so it is capped here rather than papered over there.
+ *
+ * 40 is measured off the tightest case: at 621px, the narrowest screen that
+ * still shows the long label, the card's inside is about 559px and "Return to "
+ * plus the arrow plus the button's padding take about 160 of it. 40 characters
+ * of ordinary mixed-case text is roughly 360, which fits. A name of 40 capitals
+ * would not, and that is the one this cap is content to let overhang.
+ *
+ * The input stops accepting at the limit rather than complaining after the
+ * fact: there is nothing to correct, and a name that long is already being
+ * typed past the point where it reads as a label.
+ */
+const NAME_MAX = 40
+
+/**
  * Name, pasture, and color. ONE dialog, used by Save, by "Edit saved" in the
  * sticky bar, and by Edit on a card in the list.
  *
@@ -366,8 +386,8 @@ export function openSaveDialog(calc, onSave, { title = 'Save calculation', confi
     `<div class="field-row">
        <div class="field">
          <div class="field-label"><label for="save-name">Name</label></div>
-         <input id="save-name" type="text" value="${esc(calc.name || '')}"
-           placeholder="North pasture, June" />
+         <input id="save-name" type="text" maxlength="${NAME_MAX}"
+           value="${esc(calc.name || '')}" placeholder="North pasture, June" />
        </div>
        <div class="field">
          <div class="field-label"><label for="save-pasture">Pasture (optional)</label></div>

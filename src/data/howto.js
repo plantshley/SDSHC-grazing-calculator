@@ -11,19 +11,20 @@ export const HOW_TO_SECTIONS = [
     body: [
       'This is two SDSHC worksheets as calculators. Each works out how long a piece will feed your herd, how many acres you need, or how many animals you can run.',
       'Perennial grazing is the Graziers Math Worksheet, for native range and tame pasture. It works from clipped forage samples, so it measures what is growing rather than reading a stocking rate off a table.',
-      'Cover crop grazing is the Grazing Cover Crops worksheet, for annual cover crops. It works from the average height of the stand.',
+      'Cover crop grazing is the Grazing Cover Crops Worksheet, for annual cover crops. It works from the average height of the stand.',
       'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it. The steps and the numbers match the paper worksheets, so you can follow along with a printed copy.',
+      'Every ? button explains a term. Tapping one never changes your numbers.',
     ],
   },
   {
     heading: 'Before you start: perennial grazing',
-    body: ['You will need to be out in the pasture for the first part of this.'],
+    body: ['You will need to be out in the pasture for the first part of this. Tools and information you may need include:'],
     steps: [
       'A clipping hoop or frame, and its area in square feet.',
       'Scissors or hand shears, and bags for the samples.',
       'A scale that reads grams.',
       'A dry place to leave the samples until they stop losing weight.',
-      'Your average animal weight and herd size, and your pasture acres.',
+      'Your average animal weight, herd size, and pasture acres.',
     ],
   },
   {
@@ -40,7 +41,7 @@ export const HOW_TO_SECTIONS = [
   },
   {
     heading: 'Before you start: cover crop grazing',
-    body: ['Nothing is clipped, weighed, or dried. Production is estimated from the height of the stand.'],
+    body: ['Nothing is clipped, weighed, or dried. Production is estimated from the height of the stand. Tools and information you may need include:'],
     steps: [
       'A yardstick or a tape measure.',
       'Which season dominates the standing growth: warm, cool, or a mix.',
@@ -64,7 +65,7 @@ export const HOW_TO_SECTIONS = [
   {
     heading: 'Reading the results',
     body: [
-      'Every step shows its own sub-result, so you can see where a number came from and catch a bad entry early.',
+      'Every step shows its own sub-result, so you can see where a number came from and catch any errors.',
       'The bar at the bottom of the screen keeps the running figures in view while you work.',
       'Turn on "Show all steps" to see the whole worksheet on one page. Printing always shows all five steps, whichever one is open.',
     ],
@@ -74,17 +75,17 @@ export const HOW_TO_SECTIONS = [
     body: [
       'That your samples represent the pasture. Clip several spots away from water, gates, and shade.',
       'That the herd grazes the area evenly. Real animals do not, so treat the answers as planning figures and keep checking your residual on the ground.',
-      'That this season is this season. Rainfall moves forage production a long way year to year, so resample rather than reusing last year’s answer.',
+      'That this season is this season. Rainfall can greatly impact forage production year to year, so resample rather than reusing last year’s results.',
     ],
   },
   {
     heading: 'Saving your work',
     body: [
       'Your entries save on this device as you type, so closing the page will not lose them.',
-      'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season. Once a calculation is saved, that button becomes Edit saved and writes your changes back to the same copy.',
-      'Clear, on a step, empties that step and nothing else. New calculation starts the calculator you are in over from its setup screen. Neither touches anything you have saved.',
-      'Both calculators save into one list. Each card is tagged with the calculator it came from, and the buttons beside the filter box show one kind at a time.',
-      'Save as, on a card in the Saved tab, writes one calculation out as an image, a spreadsheet, a printout, or a file. Upload a calculation reads a file back in alongside what you already have.',
+      'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season. Once a calculation is saved, that button becomes "Edit saved" and writes your changes back to the same copy.',
+      'Clear, on a step, empties that step only. New calculation starts the calculator you are in over from its setup screen. Neither will impact anything you have saved.',
+      'Both calculators save into one list. Each card is tagged with the calculator it came from, and you can use the filter buttons on the saved tab toshow one kind at a time.',
+      'Save as, on a card in the Saved tab, writes one calculation out as an image, a spreadsheet, a printout, or a calculation file. Upload a calculation reads a calculation file back in alongside what you already have.',
       'Export backup, on the Saved tab, downloads every saved calculation of both kinds as one file. Restore backup reads it back and replaces everything on the tab, so the calculator says how many are arriving and how many are going before it does anything.',
       'Nothing is uploaded anywhere. Everything stays in this browser, which also means clearing your browser data will remove it. Export a backup for anything you want to keep.',
     ],

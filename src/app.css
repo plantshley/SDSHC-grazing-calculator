@@ -1352,21 +1352,34 @@ body:has(.sticky-bar) {
 }
 
 /* The name of the saved calculation being returned to, inside the Return
-   button. Capped and clipped: a name is whatever the producer typed, and "North
-   pasture rotation, second pass, May" ran the one button on the screen out past
-   the card. Ellipsis rather than a wrap, because the button is a single line
-   and a two-line button beside a one-line warning is not the same control.
+   button. Whole, on one line, and never clipped.
 
-   inline-block for the clipping to apply at all — text-overflow needs a box —
-   and vertical-align: bottom to keep the arrow after it on the text baseline
-   rather than lifted by the inline-block's own. */
+   It was capped at 22ch with an ellipsis, which is the obvious way to stop a
+   long name running the one button on the screen out past the card, and it is
+   the wrong one: the name is the entire reason the button says more than
+   "Return", and "North pasture rotat..." identifies a calculation no better
+   than no name at all. Wrapping to a second line is not the answer either — a
+   two-line button beside a one-line warning stops reading as the same control.
+   So the button is simply as wide as the name it carries.
+
+   inline-block and vertical-align: bottom keep the arrow after it on the text
+   baseline rather than lifted by the inline box's own. */
 .btn-name {
   display: inline-block;
-  max-width: 22ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
+}
+
+/* "Return" must not come away from the name either — nowrap on the name alone
+   still leaves the space in front of it as a break the button can take.
+
+   No shrinking, so the button's box is always as wide as its label. Flex would
+   otherwise squeeze it against the spacer and the nowrap label would spill out
+   past the blue, which is the one failure worse than the button being wide. The
+   spacer beside it has nothing in it and gives the width up first. */
+.step-nav--start .btn-main {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* The phone half of the pair above. Hidden by default and shown only where
@@ -2867,8 +2880,12 @@ body:has(.sticky-bar) {
     display: none;
   }
 
+  /* Sized to its label and not stretched across the row. `0 0 auto` and not
+     `0 1 auto`: this starts 20px above where .btn-word is hidden, so there is a
+     sliver of width where the button still carries the name and shrinking it
+     would push that label out past the blue. */
   .step-nav--start .btn-main {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
   }
 }
 

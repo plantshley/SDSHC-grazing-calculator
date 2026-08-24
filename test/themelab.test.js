@@ -491,14 +491,14 @@ describe('pasting CSS in', () => {
     // Keeping it would put a declaration in the store that no swatch reaches,
     // that applyAll() never writes, and that Copy CSS hands to the next browser.
     const msg = paste(':root { --sky: #e07b39; --not-a-token: #fff; --also-not: red; }')
-    assert.match(msg, /2 ignored \(2 unknown, 0 not a colour\)/)
+    assert.match(msg, /2 ignored \(2 unknown, 0 not a color\)/)
     assert.deepEqual(Object.keys(store().themes[0].light), ['--sky'])
   })
 
   test('a value that is not a colour is dropped, and var() is not one of them', () => {
     const msg = paste(':root { --sky: #gg0011; --olive: var(--sky); --radius: 10px; }')
     assert.match(msg, /1 unknown|0 unknown/)
-    assert.match(msg, /1 not a colour/)
+    assert.match(msg, /1 not a color/)
     const t = store().themes[0]
     assert.ok(!('--sky' in t.light), 'the malformed hex went')
     assert.equal(t.light['--olive'], 'var(--sky)', 'an alias is a real declaration and resolves')

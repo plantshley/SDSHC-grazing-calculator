@@ -25,8 +25,8 @@ export const DEFINITIONS = {
     title: 'Clipping a sample',
     body: [
       'Drop your hoop or frame on a spot that represents the stand, then clip all the standing forage inside it down to ground level.',
-      'Take at least five samples from different spots. Rangeland varies a lot over short distances, and one sample from a good patch will overstate the whole pasture.',
-      'Clip standing forage only. Litter and old residue lying on the ground are not forage an animal will graze, so leaving them out keeps the estimate honest. This is armor for the soil and it should stay where it is.',
+      'Ideally take at least five samples from different spots. Rangeland varies a lot over short distances, so one sample may not be representative of the whole pasture.',
+      'Clip standing forage only. Litter and old residue lying on the ground are not forage an animal will graze, so leave them out. This is armor for the soil and it should stay where it is.',
       'Avoid clipping right next to water, fence lines, gates, or shade. Those spots are grazed differently from the rest of the pasture.',
     ],
   },
@@ -38,7 +38,7 @@ export const DEFINITIONS = {
       // NRPH: "The weight of a substance, usually vegetation, after it has been
       // allowed to dry to equilibrium with the atmosphere, usually without
       // artificial heat."
-      'Air drying means leaving the sample out until it stops losing weight. Do not use an oven or a heater. Artificial heat drives off more than air drying does, and every figure in this worksheet is built on air-dry weight.',
+      'Air drying means leaving the sample out until it stops losing weight. Do not use an oven or a heater. Every figure in this worksheet is built on air-dry weight.',
       'You can dry and weigh your own samples, or use the growth stage chart to look up a typical figure for your forage type.',
     ],
     source: NRPH,
@@ -48,7 +48,7 @@ export const DEFINITIONS = {
     title: 'Spread between samples',
     body: [
       'The gap between your lightest and heaviest sample, next to the average.',
-      'A wide spread means the stand is patchy and the average is resting on very little. It is recommended to clip a few more spots to improve the estimate accuracy.',
+      'A wide spread means the stand is patchy, so it is recommended to clip a few more spots to improve the estimate accuracy.',
     ],
   },
 
@@ -57,7 +57,7 @@ export const DEFINITIONS = {
   frame: {
     title: 'Clipping frame or hoop',
     body: [
-      'The known area you clip inside. Its size is what turns a handful of grass into pounds per acre, so it has to be right.',
+      'The known area you clip inside. It is usually a round hoop or a square frame, and the area is in square feet.',
       'The two standard NRCS hoops are 0.96 square feet and 1.92 square feet. The worksheet multiplies grams by 100 for the small hoop and by 50 for the large one.',
       'If you use something else, measure its area in square feet and enter it. A square frame is easy: a 12 inch by 12 inch frame is 1 square foot.',
     ],
@@ -96,7 +96,7 @@ export const DEFINITIONS = {
     title: 'Forage type',
     body: [
       'Which row of the dry matter chart applies to your stand. Cool season and warm season grasses cure at different rates, and forbs use a different set of stages again.',
-      'Most South Dakota rangeland is a mix. Pick the type that makes up most of what you clipped. If nothing dominates, choose "Mixed or not sure" and pick any cell from the full chart, or build a weighted mix.',
+      'Most South Dakota rangeland is a mix. Pick the type that makes up most of what you clipped. If nothing dominates, choose "Mixed or not sure" and pick any cell from the full growth stages chart in step 2, or build a weighted mix.',
       'Your clipped sample already contains the mix physically. The forage type only decides which dry matter figure gets applied to it.',
     ],
   },
@@ -104,7 +104,7 @@ export const DEFINITIONS = {
   mixBuilder: {
     title: 'Weighted mix',
     body: [
-      'For a stand where two or three forage types each make up a real share.',
+      'For a stand where two or three forage types each make up a clear share.',
       'Enter each type, its growth stage, and roughly what percent of the stand it is. The result is each dry matter figure weighted by its share.',
       'The shares are treated as weights, so 60 and 30 gives the same answer as 67 and 33. If they do not total 100 the calculator still works, and it will say so in case you meant to add another row.',
     ],
@@ -302,7 +302,7 @@ export const DEFINITIONS = {
   backupFile: {
     title: 'Backups and calculation files',
     body: [
-      'A backup is a .json file holding everything on the Saved tab at once: every saved calculation, its colour, and the order you dragged them into. "Export backup" downloads it.',
+      'A backup is a .json file holding everything on the Saved tab at once: every saved calculation, its color, and the order you dragged them into. "Export backup" downloads it.',
       'A calculation file is a .json file holding one calculation. "Save as" on a card writes one, and "Upload a calculation" reads one back in alongside what you already have. Use it to move one calculation to another device or to hand it to somebody else.',
       'Your calculations live in this browser, so clearing your browsing data deletes them, and so does replacing the device. A backup is how you get them back.',
       '"Restore backup" replaces everything on the Saved tab with what is in the file. Calculations saved on this device that are not in the file are deleted, and there is no undo. The calculator states how many are arriving and how many are going before it does anything.',

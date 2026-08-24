@@ -130,7 +130,7 @@ const GROUPS = [
     // ship; saved.js offers ELEVEN of them, holding grey back because grey is
     // already what an untagged card looks like. The lab shows all twelve, since
     // the grey pair is still painted — by an untagged card.
-    name: 'Saved-card colours',
+    name: 'Saved-card colors',
     folded: true,
     // The twelve inks ship the SAME in both themes on purpose, and only the
     // washes flip. Mirroring is therefore a no-op on an ink pair (no lightness
@@ -839,7 +839,7 @@ function importCSS(text) {
     return {
       ok: false,
       message: found.unknown || found.rejected
-        ? `Nothing usable: ${found.unknown} name${found.unknown === 1 ? '' : 's'} this app does not use, ${found.rejected} value${found.rejected === 1 ? '' : 's'} that is not a colour.`
+        ? `Nothing usable: ${found.unknown} name${found.unknown === 1 ? '' : 's'} this app does not use, ${found.rejected} value${found.rejected === 1 ? '' : 's'} that is not a color.`
         : 'Nothing found. This wants declarations like --sky: #0fb2e2, inside a :root or [data-theme="dark"] block or on their own.',
     }
   }
@@ -868,7 +868,7 @@ function importCSS(text) {
     theme,
     message:
       `Saved “${theme.name}”: ${lit} light, ${drk} dark.` +
-      (dropped ? ` ${dropped} ignored (${found.unknown} unknown, ${found.rejected} not a colour).` : '') +
+      (dropped ? ` ${dropped} ignored (${found.unknown} unknown, ${found.rejected} not a color).` : '') +
       ' Press Apply to put it on the page.',
   }
 }
@@ -1369,13 +1369,13 @@ function ensurePanel() {
       <button type="button" class="tl-btn tl-x" data-tl-close title="Close (Esc)">&#10005;</button>
     </div>
     <div class="tl-tabs" role="tablist">
-      <button type="button" class="tl-tab" role="tab" data-tl-tab="colors" aria-selected="true">Colours</button>
+      <button type="button" class="tl-tab" role="tab" data-tl-tab="colors" aria-selected="true">Colors</button>
       <button type="button" class="tl-tab" role="tab" data-tl-tab="themes" aria-selected="false">Saved themes</button>
     </div>
     <div class="tl-pane" data-tl-pane="colors">
       <div class="tl-bar">
         <button type="button" class="tl-btn" data-tl-mirror aria-pressed="false">Mirror to dark</button>
-        <button type="button" class="tl-btn" data-tl-remirror title="Re-derive every dark colour, including ones set by hand">Re-mirror all</button>
+        <button type="button" class="tl-btn" data-tl-remirror title="Re-derive every dark color, including ones set by hand">Re-mirror all</button>
         <button type="button" class="tl-btn" data-tl-copy="changes">Copy changes</button>
         <button type="button" class="tl-btn" data-tl-copy="full">Copy full palette</button>
         <button type="button" class="tl-btn tl-danger" data-tl-reset-theme>Reset this theme</button>
@@ -1464,7 +1464,7 @@ function clusterBlock(cluster, notes) {
   wrap.className = 'tl-cluster'
   wrap.dataset.tlCluster = cluster.tokens.join(' ')
 
-  const master = row(cluster.tokens[0], 'color', `${cluster.tokens.length} variables share this colour`, {
+  const master = row(cluster.tokens[0], 'color', `${cluster.tokens.length} variables share this color`, {
     master: cluster.tokens,
     label: `${cluster.tokens[0]} +${cluster.tokens.length - 1}`,
   })
@@ -1507,7 +1507,7 @@ function row(name, kind, note, o = {}) {
   const swatch = document.createElement('input')
   swatch.type = 'color'
   swatch.className = 'tl-swatch'
-  swatch.setAttribute('aria-label', `${o.label || name} colour`)
+  swatch.setAttribute('aria-label', `${o.label || name} color`)
   if (kind === 'text') swatch.style.visibility = 'hidden'
 
   const mid = document.createElement('div')
@@ -1679,7 +1679,7 @@ function renderShelf() {
     const empty = document.createElement('p')
     empty.className = 'tl-empty'
     empty.textContent =
-      'Nothing saved yet. Change some colours on the Colours tab, then name the palette above and save it. A saved theme holds both light and dark, including anything you pinned.'
+      'Nothing saved yet. Change some colors on the Colors tab, then name the palette above and save it. A saved theme holds both light and dark, including anything you pinned.'
     shelfEl.appendChild(empty)
     return
   }
@@ -1834,7 +1834,7 @@ function onThemeClick(t) {
 }
 
 /**
- * The same output the Colours tab writes, for a theme that is not applied, with
+ * The same output the Colors tab writes, for a theme that is not applied, with
  * the theme's name on the front of it.
  *
  * The name is a CSS comment, so the block still pastes into styles.css without

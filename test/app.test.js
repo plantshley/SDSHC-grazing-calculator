@@ -473,6 +473,28 @@ test('Change and back again returns to the step being worked on', () => {
   assert.equal(open[0].dataset.step, '3', 'the step survived the detour')
 })
 
+test('the Return button carries the name whole, however long it is', async () => {
+  const { startNav } = await import('../src/ui/step-frame.js')
+  const parse = (html) => {
+    const box = document.createElement('div')
+    box.innerHTML = html
+    return box
+  }
+
+  // The name box caps at 40 characters, so the longest one that can reach this
+  // button is the case that matters: it used to be cut off at 22.
+  for (const name of ['North pasture', 'North pasture rotation, second pass, May']) {
+    const row = parse(startNav({ ready: true, warn: '', returning: true, name }))
+    assert.equal(row.querySelector('.btn-name').textContent, name, `${name} is in the button whole`)
+
+    const label = row.querySelector('[data-action="start"]').textContent
+    assert.ok(!label.includes('…') && !label.includes('...'), 'and nothing is clipped')
+
+    // The phone copy, which app.css shows only where .btn-word is hidden.
+    assert.equal(row.querySelector('.start-return-name').textContent, `(${name})`)
+  }
+})
+
 test('changing the forage type clears a stage that no longer applies', () => {
   click('[data-action="edit-setup"]')
   choose('input[data-action="set-forage"][value="succulentForb"]')
@@ -599,6 +621,9 @@ test('a calculation can be named and saved', () => {
 
   click('.sticky-bar [data-action="save-calc"]')
   assert.ok($('#save-name'), 'the save dialog opens')
+
+  // The cap that keeps a name inside the Return button on the setup screen.
+  assert.equal($('#save-name').getAttribute('maxlength'), '40')
 
   $('#save-name').value = 'North pasture, June'
   $('#save-pasture').value = 'North quarter'

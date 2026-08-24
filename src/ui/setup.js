@@ -9,6 +9,7 @@
 
 import { esc } from './format.js'
 import { pickCard, sectionInfo } from './fields.js'
+import { startNav } from './step-frame.js'
 import { photoThumb } from './photo.js'
 import { registerForageSet } from './table.js'
 import { GOALS, INPUT_LABELS, checklistForGoals } from '../calc.js'
@@ -106,34 +107,12 @@ export function renderSetup(calc, returning = false) {
 
       ${renderChecklist(calc.goals)}
 
-      <!-- The reason the button is disabled sits ON the row with the button,
-           reading as the caption to it rather than as a note dropped underneath
-           after the fact. It carries the warning wash for the same reason: it is
-           the one thing standing between here and the calculation. -->
-      <div class="step-nav step-nav--start">
-        ${
-          ready
-            ? '<div class="spacer"></div>'
-            : `<p class="start-warn">Choose at least one answer and a forage type to begin.</p>`
-        }
-        <!-- Coming back from Change is not starting over. The button says so,
-             and main.js leaves the current step where it was.
-
-             The name goes INSIDE .btn-word, which app.css drops below 620px:
-             on a phone the button reads "Return →" and the name moves to the
-             line underneath instead of squeezing the one control on the row.
-             Only one of the two is ever displayed. -->
-        <button type="button" class="btn-main" data-action="start" ${ready ? '' : 'disabled'}>
-          ${
-            returning
-              ? `Return<span class="btn-word"> to ${
-                  name ? `<span class="btn-name">${esc(name)}</span>` : 'calculation'
-                }</span> &rarr;`
-              : 'Start<span class="btn-word"> calculating</span> &rarr;'
-          }
-        </button>
-        ${name ? `<p class="start-return-name">(${esc(name)})</p>` : ''}
-      </div>
+      ${startNav({
+        ready,
+        warn: 'Choose at least one answer and a forage type to begin.',
+        returning,
+        name,
+      })}
     </div>`
 }
 

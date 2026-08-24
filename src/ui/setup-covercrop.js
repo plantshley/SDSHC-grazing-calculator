@@ -14,6 +14,7 @@
 
 import { esc } from './format.js'
 import { pickCard, sectionInfo } from './fields.js'
+import { startNav } from './step-frame.js'
 import { photoThumb, registerPhotoSet } from './photo.js'
 import { checklistForGoals } from '../calc.js'
 import { GOALS, GOAL_INPUTS, INPUT_LABELS } from '../calc-covercrop.js'
@@ -134,33 +135,22 @@ export function renderSetup(calc, returning = false) {
 
       ${renderChecklist(calc.goals)}
 
-      <div class="step-nav step-nav--start">
-        ${
-          ready
-            ? '<div class="spacer"></div>'
-            : `<p class="start-warn">Choose at least one answer and a season to begin.</p>`
-        }
-        <button type="button" class="btn-main" data-action="start" ${ready ? '' : 'disabled'}>
-          ${
-            returning
-              ? `Return<span class="btn-word"> to ${
-                  name ? `<span class="btn-name">${esc(name)}</span>` : 'calculation'
-                }</span> &rarr;`
-              : 'Start<span class="btn-word"> calculating</span> &rarr;'
-          }
-        </button>
-        ${name ? `<p class="start-return-name">(${esc(name)})</p>` : ''}
-      </div>
+      ${startNav({
+        ready,
+        warn: 'Choose at least one answer and a season to begin.',
+        returning,
+        name,
+      })}
 
       <!-- The online form this tab used to be. Somebody may have a half-filled
            one open, or want the emailed copy it sends, so it stays reachable.
            It carries its own warning: it is hosted by JotForm, which is exactly
            the thing the footer's one sentence can no longer be asked to cover. -->
       <p class="hint cc-jotform">
-        SDSHC's older online version of this worksheet is still up as a
-        <a href="${JOTFORM_URL}" target="_blank" rel="noopener noreferrer">JotForm</a>.
-        It needs an internet connection, and anything submitted there goes to
-        JotForm rather than staying on this device.
+        This cover crop grazing calculator is still up as a
+        <a href="${JOTFORM_URL}" target="_blank" rel="noopener noreferrer">JotForm</a>
+        if you prefer that version. It needs an internet connection, and anything submitted there goes to
+        JotForm rather than staying on your device.
       </p>
     </div>`
 }

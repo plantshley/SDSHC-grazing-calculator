@@ -188,6 +188,46 @@ function nav(i, last) {
 }
 
 /**
+ * The row that leads off the setup screen and into the worksheet.
+ *
+ * Shared by both setup renderers rather than written twice: it is the same
+ * control saying the same thing, and the only difference between the two copies
+ * was the sentence naming what is still unanswered.
+ *
+ * The warning takes the place of the spacer rather than sitting under the
+ * button, so it reads as the caption to it.
+ *
+ * The name of the calculation being returned to goes in the button WHOLE. It is
+ * the whole reason the button says more than "Return", and half a name with an
+ * ellipsis after it identifies a calculation no better than none does — so
+ * nothing caps it and .btn-name holds it on one line. The copy underneath is
+ * for the phone: below 620px `.btn-word` is hidden, the button reads
+ * "Return ->", and that line is the only place the name is left.
+ *
+ * @param {object} o
+ * @param {boolean} o.ready      both setup questions answered
+ * @param {string} o.warn        what is still outstanding, when they are not
+ * @param {boolean} o.returning  the steps have been opened at least once
+ * @param {string} o.name        the saved calculation's name, or ''
+ */
+export function startNav({ ready, warn, returning, name }) {
+  const label = returning
+    ? `Return<span class="btn-word"> to ${
+        name ? `<span class="btn-name">${esc(name)}</span>` : 'calculation'
+      }</span> &rarr;`
+    : 'Start<span class="btn-word"> calculating</span> &rarr;'
+
+  return `
+    <div class="step-nav step-nav--start">
+      ${ready ? '<div class="spacer"></div>' : `<p class="start-warn">${esc(warn)}</p>`}
+      <button type="button" class="btn-main" data-action="start" ${ready ? '' : 'disabled'}>
+        ${label}
+      </button>
+      ${name ? `<p class="start-return-name">(${esc(name)})</p>` : ''}
+    </div>`
+}
+
+/**
  * The three ways off the last step, as text links rather than buttons.
  *
  * None of them changes a figure, so none of them is the one thing to press on
