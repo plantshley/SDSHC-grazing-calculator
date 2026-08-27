@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Analytics 4 Reference Guide - SDSHC Calculators</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kalnia+Glaze:wght@100..700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #4a4a4a;
+            background: linear-gradient(135deg, #ffd1dc 0%, #e0b0ff 50%, #ffc8dd 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #fff5f7 0%, #fef6fb 100%);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 3px solid rgba(255, 182, 243, 0.5);
+        }
+
+        header {
+            background: linear-gradient(135deg, #ffb6f0 0%, #d4a5ff 50%, #ffccf9 100%);
+            color: #663366;
+            padding: 40px;
+            text-align: center;
+        }
+
+        header h1 { font-family: 'Kalnia Glaze', serif; font-size: 2.5em; margin-bottom: 10px; }
+        header p { font-size: 1.2em; opacity: 0.9; }
+
+        .content { padding: 40px; }
+
+        h2 {
+            color: #c084fc;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #f9a8d4;
+            font-size: 2em;
+        }
+
+        h3 { color: #d946ef; margin-top: 30px; margin-bottom: 15px; font-size: 1.5em; }
+        h4 { color: #a855f7; margin-top: 20px; margin-bottom: 10px; font-size: 1.2em; }
+
+        .event-section {
+            background: linear-gradient(135deg, #fef3f9 0%, #fdf4ff 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid #f9a8d4;
+        }
+
+        .parameter-list {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 10px 0;
+            border: 1px solid rgba(249, 168, 212, 0.2);
+        }
+
+        .parameter-item {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            margin: 8px 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #fef9fc 0%, #fdf6ff 100%);
+            border-radius: 8px;
+            border: 1px solid rgba(232, 121, 249, 0.15);
+        }
+
+        .parameter-name {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #e879f9 0%, #d8b4fe 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            margin-right: 10px;
+            font-weight: bold;
+            min-width: 220px;
+        }
+
+        .parameter-desc { color: #555; flex: 1 1 300px; }
+
+        .priority-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .high-priority { background: linear-gradient(135deg, #fda4af 0%, #fb7185 100%); color: white; }
+        .medium-priority { background: linear-gradient(135deg, #ffc4df 0%, #f1a8ff 100%); color: #ffffff; }
+        .low-priority { background: linear-gradient(135deg, #d8b4fe 0%, #c084fc 100%); color: white; }
+
+        .app-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-left: 8px;
+            vertical-align: middle;
+            letter-spacing: 0.02em;
+        }
+
+        .app-grazing { background: #cdeccd; color: #2f6b34; }
+        .app-budget { background: #d6e4fb; color: #2b4f8a; }
+        .app-both { background: #f6e2b8; color: #7a5410; }
+
+        .query-box {
+            background: linear-gradient(135deg, #fff0f9 0%, #fef3fb 100%);
+            color: #7c3668;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            border: 2px solid #f9a8d4;
+        }
+
+        .query-title { color: #c084fc; font-weight: bold; margin-bottom: 10px; font-size: 1.1em; }
+        .query-details { margin-left: 20px; line-height: 1.8; }
+
+        .tip-box {
+            background: linear-gradient(135deg, #fff5f0 0%, #ffe9e0 100%);
+            border-left: 5px solid #ffb89d;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .tip-box strong { color: #b45309; }
+
+        .warn-box {
+            background: linear-gradient(135deg, #fff0f0 0%, #ffe4e4 100%);
+            border-left: 5px solid #fb7185;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .warn-box strong { color: #be123c; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: rgba(255, 255, 255, 0.75);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        th {
+            background: linear-gradient(135deg, #e879f9 0%, #d8b4fe 100%);
+            color: white;
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 0.95em;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-top: 1px solid rgba(232, 121, 249, 0.15);
+            vertical-align: top;
+            font-size: 0.95em;
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        ol, ul { margin-left: 30px; margin-top: 10px; margin-bottom: 10px; }
+        li { margin: 8px 0; }
+
+        .section-nav {
+            background: linear-gradient(135deg, #ffe9f5 0%, #f8e9ff 100%);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border: 2px solid #f9a8d4;
+        }
+
+        .section-nav a {
+            color: #c084fc;
+            text-decoration: none;
+            font-weight: bold;
+            margin-right: 20px;
+            display: inline-block;
+            margin-bottom: 6px;
+        }
+
+        .section-nav a:hover { color: #d946ef; text-decoration: underline; }
+
+        .emoji { font-size: 1.3em; margin-right: 8px; }
+
+        footer {
+            background: linear-gradient(135deg, #ffd1f7 0%, #e8c5ff 100%);
+            color: #d946ef;
+            text-align: center;
+            padding: 20px;
+            font-size: 0.9em;
+        }
+
+        code {
+            background: rgba(232, 121, 249, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        @media print {
+            body { background: white; }
+            .container { box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Google Analytics 4 Reference Guide</h1>
+            <p>SDSHC Grazing Calculator &amp; Farm Plan Budget</p>
+        </header>
+
+        <div class="content">
+            <div class="section-nav">
+                <strong>Quick Navigation:</strong><br><br>
+                <a href="#setup">Property Setup</a>
+                <a href="#sample-queries">Sample Queries</a>
+                <a href="#events-shared">Shared Events</a>
+                <a href="#events-grazing">Grazing Events</a>
+                <a href="#events-budget">Budget Events</a>
+                <a href="#all-parameters">All Parameters</a>
+                <a href="#priority-list">Dimensions to Register</a>
+                <a href="#register">How to Register</a>
+                <a href="#files">Implementation Details</a>
+                <a href="#limits">Known Limits</a>
+            </div>
+
+            <!-- ────────────────────────── SETUP ────────────────────────── -->
+            <h2 id="setup"><span class="emoji">🌷</span>Property Setup</h2>
+
+            <p>One GA4 property holds both calculators, as two web data streams. Custom
+            dimensions are registered at the <strong>property</strong> level, so every
+            dimension in this guide is registered once and works for both sites.</p>
+
+            <div class="table-wrap">
+            <table>
+                <tr><th>Site</th><th>URL</th><th>Stream</th><th>Measurement ID</th></tr>
+                <tr>
+                    <td>Grazing Calculator</td>
+                    <td><code>plantshley.github.io/SDSHC-grazing-calculator/</code></td>
+                    <td>Grazing Calculator</td>
+                    <td><code>G-4HVP5HPZG4</code></td>
+                </tr>
+                <tr>
+                    <td>Farm Plan Budget</td>
+                    <td><code>plantshley.github.io/SDSHC-farm-budget/</code></td>
+                    <td>Farm Plan Budget</td>
+                    <td><code>G-H3X4G4WPYH</code></td>
+                </tr>
+            </table>
+            </div>
+
+            <h3>Why the shared hostname does not conflate anything</h3>
+
+            <p>Both sites live on <code>plantshley.github.io</code>, along with every other
+            GitHub Pages repo on that account. None of those others is tagged, so none of
+            them sends anything. <strong>The Measurement ID is the filter, not the stream
+            URL.</strong> The URL typed into GA is a label only.</p>
+
+            <p>The SDSHC Games Hub has been running <code>G-P08D60FD2Y</code> on the same
+            hostname in its own separate property for months, which is the working proof.</p>
+
+            <div class="tip-box">
+                <strong>Cookies are shared, data is not.</strong> Because
+                <code>github.io</code> is on the browsers' Public Suffix List, the
+                <code>_ga</code> cookie lands on <code>plantshley.github.io</code> and is
+                shared across every path there. A producer who uses both calculators
+                therefore counts as <em>one</em> person in this property rather than two,
+                which is exactly what one property with two streams is for. Do not set a
+                <code>cookie_path</code> to isolate them: it would split that producer in
+                half and break the combined count.
+            </div>
+
+            <h3>Property settings that matter</h3>
+            <ul>
+                <li><strong>Data retention: 14 months.</strong> GA defaults to 2 and it is
+                    <em>not</em> retroactive. Already set.</li>
+                <li><strong>Google Signals: leave off.</strong> Off by default in a new
+                    property. It powers ads remarketing and demographics, neither of which
+                    these tools need, and switching it on triggers data thresholding that
+                    hides report rows at low traffic.</li>
+                <li><strong>Timezone Central, currency USD.</strong></li>
+                <li><strong>Enhanced measurement: on.</strong> Only three of its seven
+                    options can ever fire here. See <a href="#limits">Known Limits</a>.</li>
+            </ul>
+
+            <!-- ────────────────────── SAMPLE QUERIES ────────────────────── -->
+            <h2 id="sample-queries"><span class="emoji">💐</span>Sample Queries You Can Run</h2>
+
+            <p>Most of these live in <strong>Explore &rarr; Free form</strong>. Add the
+            dimension on the left, the metric <em>Event count</em> or <em>Total users</em>
+            in the middle, and a filter on <code>Event name</code>.</p>
+
+            <div class="query-box">
+                <div class="query-title">Which grazing worksheet gets used more?</div>
+                <div class="query-details">
+                    Event name = <code>worksheet_start</code><br>
+                    Dimension: <code>worksheet</code><br>
+                    Metric: Event count
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Where do people give up on a worksheet?</div>
+                <div class="query-details">
+                    Event name = <code>step_advance</code><br>
+                    Dimension: <code>step</code>, secondary <code>worksheet</code><br>
+                    Metric: Total users<br>
+                    <em>Read the drop between step 2 and step 3, not the raw counts.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">What fraction of starts actually finish?</div>
+                <div class="query-details">
+                    Compare Total users on <code>worksheet_start</code> against
+                    <code>results_complete</code>, split by <code>worksheet</code>.<br>
+                    <em>Or build it as an Exploration &rarr; Funnel with those two steps.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Which terms confuse people?</div>
+                <div class="query-details">
+                    Event name = <code>definition_open</code><br>
+                    Dimension: <code>definition_id</code><br>
+                    Metric: Event count<br>
+                    <em>The most actionable report in either property. It tells you what to
+                    reword in the app AND on the printed worksheet.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Do producers pick one forage type or "mixed"?</div>
+                <div class="query-details">
+                    Event name = <code>results_complete</code><br>
+                    Dimension: <code>forage_type</code><br>
+                    Metric: Event count
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">What are producers actually calculating for?</div>
+                <div class="query-details">
+                    Event name = <code>results_complete</code><br>
+                    Dimension: <code>goals</code><br>
+                    Metric: Event count<br>
+                    <em>Seven possible values. For a per-goal total instead, filter
+                    <code>goals</code> <strong>contains</strong> <code>days</code>.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Which entry mode do people prefer?</div>
+                <div class="query-details">
+                    Event name = <code>mode_select</code><br>
+                    Dimension: <code>control</code>, secondary <code>choice</code><br>
+                    Metric: Event count<br>
+                    <em>One report covers every segmented control in both apps: dry matter,
+                    frame size, occupation period, cost line mode, yield unit, and the
+                    two basis pickers.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Did anyone need more than four enterprises?</div>
+                <div class="query-details">
+                    Event name = <code>enterprise_added</code><br>
+                    Dimension: <code>count</code><br>
+                    Metric: Event count<br>
+                    <em>The spreadsheet capped at four. Anything above 4 here is the app
+                    earning its keep.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Are the typical values any good?</div>
+                <div class="query-details">
+                    Compare Event count on <code>typical_value_open</code> against
+                    <code>typical_value_applied</code>, split by <code>typical_key</code>.<br>
+                    <em>A key with many opens and few applies is a shipped figure that does
+                    not match real operations. That is a data problem worth fixing in
+                    <code>data/typical-values.js</code>.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Do the forage photos earn their install size?</div>
+                <div class="query-details">
+                    Event name = <code>photo_open</code><br>
+                    Dimension: <code>set</code><br>
+                    Metric: Total users<br>
+                    <em>The images are precached, so they are the app's offline install
+                    weight. If nobody opens them, that budget is buying nothing.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">How many people install it as an app?</div>
+                <div class="query-details">
+                    Dimension: <code>display_mode</code> (user-scoped)<br>
+                    Metric: Total users<br>
+                    <em>Plus the <code>pwa_installed</code> event for the moment of
+                    installing.</em>
+                </div>
+            </div>
+
+            <div class="query-box">
+                <div class="query-title">Does anyone use the mono font or dark theme?</div>
+                <div class="query-details">
+                    Dimension: <code>font</code> or <code>theme</code> (user-scoped)<br>
+                    Metric: Total users
+                </div>
+            </div>
+
+            <div class="warn-box">
+                <strong>Do not use theme_change / font_change to answer that last one.</strong>
+                Those events only fire when somebody touches the control. A producer who
+                set mono six months ago and has been happy ever since fires nothing, so the
+                change events would show mono as near-dead however popular it is. That is
+                why <code>theme</code> and <code>font</code> are also sent as user
+                properties on every load. Use the user properties for proportions and the
+                events for "does anyone go looking for the setting".
+            </div>
+
+            <!-- ────────────────────── SHARED EVENTS ────────────────────── -->
+            <h2 id="events-shared"><span class="emoji">🌸</span>Events in Both Apps</h2>
+
+            <div class="event-section">
+                <h3><span class="emoji">📖</span>definition_open <span class="app-badge app-both">BOTH</span></h3>
+                <p>A round <code>?</code> was opened. Read-only by construction, so this
+                never coincides with a value changing.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">definition_id</span><span class="parameter-desc">The definition key, e.g. <code>dryMatter</code>, <code>utilization</code>, <code>grossMargin</code>. If a <code>?</code> opens several at once, only the <strong>first</strong> is sent: it heads the panel, and sending the joined list would make every combination its own dimension value.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">worksheet</span><span class="parameter-desc">Grazing only. Which worksheet was on screen.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">🎚️</span>mode_select <span class="app-badge app-both">BOTH</span></h3>
+                <p>Any segmented control, in either app. One event name rather than eight,
+                so a single report breaks down every entry-mode decision at once.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">control</span><span class="parameter-desc">Which control. See the table below.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">choice</span><span class="parameter-desc">Which option was picked.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">context</span><span class="parameter-desc">Budget only. Which line the control belongs to, e.g. <code>seed</code>, <code>fertilizer</code>.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">worksheet</span><span class="parameter-desc">Grazing only.</span></div>
+                </div>
+                <div class="table-wrap">
+                <table>
+                    <tr><th>App</th><th><code>control</code></th><th><code>choice</code> values</th></tr>
+                    <tr><td>Grazing</td><td><code>dry_matter</code></td><td><code>stage</code>, <code>own</code>, <code>mix</code></td></tr>
+                    <tr><td>Grazing</td><td><code>frame</code></td><td>the frame preset keys, plus <code>custom</code></td></tr>
+                    <tr><td>Grazing</td><td><code>occupation_period</code></td><td>the occupation period keys</td></tr>
+                    <tr><td>Grazing</td><td><code>saved_filter</code></td><td><code>all</code>, <code>perennial</code>, <code>covercrop</code></td></tr>
+                    <tr><td>Budget</td><td><code>cost_line_mode</code></td><td><code>unit</code>, <code>perAcre</code>, <code>population</code>, <code>total</code></td></tr>
+                    <tr><td>Budget</td><td><code>preharvest_mode</code></td><td><code>auto</code>, <code>manual</code></td></tr>
+                    <tr><td>Budget</td><td><code>yield_unit</code></td><td><code>bu</code>, <code>ton</code>, <code>cwt</code>, <code>lb</code>, <code>bale</code>, <code>AUM</code></td></tr>
+                    <tr><td>Budget</td><td><code>fixed_basis</code></td><td>the cost basis keys</td></tr>
+                    <tr><td>Budget</td><td><code>labour_basis</code></td><td>the hours basis keys</td></tr>
+                </table>
+                </div>
+                <div class="tip-box">
+                    <strong>Typing over a frame preset counts too.</strong> In the grazing
+                    calculator, typing your own area into the box moves the pill to "Other
+                    frame" with no click. That fires <code>mode_select</code> with
+                    <code>choice: custom</code>. Without it, custom frames would have looked
+                    far less used than they are, because typing a measurement is the
+                    commoner of the two routes into that mode.
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">💾</span>export_file <span class="app-badge app-both">BOTH</span></h3>
+                <p>Every download and every print. <strong>This has to be tracked by hand.</strong>
+                Both apps download through <code>URL.createObjectURL()</code>, and GA4's
+                automatic <code>file_download</code> only matches file extensions in an
+                <code>href</code>, so it never sees a blob.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">format</span><span class="parameter-desc"><code>png</code>, <code>csv</code>, <code>json</code>, <code>print</code></span></div>
+                    <div class="parameter-item"><span class="parameter-name">scope</span><span class="parameter-desc"><code>working</code> (the thing on screen), <code>saved</code> (from a card), <code>backup</code> (everything at once), <code>compare</code> (budget only)</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">⚠️</span>warning_shown <span class="app-badge app-both">BOTH</span></h3>
+                <p>A plausibility warning appeared. Fires once per warning per calculation,
+                not once per keystroke.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">warning_id</span><span class="parameter-desc">A slug of the warning's first six words, e.g. <code>animal-weight-cannot-be-below-zero</code>.</span></div>
+                </div>
+                <div class="warn-box">
+                    <strong>Rewording a warning starts a new dimension value.</strong> Both
+                    models raise warnings as finished sentences, and the flat list is what
+                    the CSV and the share image carry, so there is no id to send. The slug
+                    is derived from the sentence itself. If you change a warning's opening
+                    words, the old value stops accruing and a new one begins. Nothing
+                    errors and nothing warns you. Giving warnings real ids would mean
+                    changing what <code>warnings</code> holds, which every consumer reads.
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">📚</span>guide_open <span class="app-badge app-both">BOTH</span></h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">source</span><span class="parameter-desc"><code>footer</code> or <code>step</code></span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">🎨</span>theme_change &amp; font_change <span class="app-badge app-both">BOTH</span></h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">choice</span><span class="parameter-desc">theme: <code>light</code>, <code>dark</code>. font: <code>browser</code>, <code>classic</code>, <code>mono</code>. Always the <em>resolved</em> value, so an unset theme reports what the system gave it rather than a blank.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">📱</span>pwa_installed <span class="app-badge app-both">BOTH</span></h3>
+                <p>Fired off the browser's <code>appinstalled</code> event. No parameters.</p>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">📥</span>backup_restored &amp; calc_imported / scenario_imported <span class="app-badge app-both">BOTH</span></h3>
+                <p>A file was read back in. No parameters beyond <code>worksheet</code> in
+                the grazing calculator.</p>
+            </div>
+
+            <!-- ────────────────────── GRAZING EVENTS ────────────────────── -->
+            <h2 id="events-grazing"><span class="emoji">🌾</span>Grazing Calculator Only</h2>
+
+            <div class="event-section">
+                <h3><span class="emoji">🚜</span>worksheet_start</h3>
+                <p>Start or Return pressed on a setup screen.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">worksheet</span><span class="parameter-desc"><code>perennial</code> or <code>covercrop</code></span></div>
+                    <div class="parameter-item"><span class="parameter-name">goals</span><span class="parameter-desc">Sorted and comma-joined, e.g. <code>acres,days</code>. Seven possible values.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">forage_type</span><span class="parameter-desc">Perennial only. A forage key, or <code>mixed</code>.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">season</span><span class="parameter-desc">Cover crop only. The season key.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">➡️</span>step_advance</h3>
+                <p>Moving <em>forward</em> through the worksheet, and only forward.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">worksheet</span><span class="parameter-desc"><code>perennial</code> or <code>covercrop</code></span></div>
+                    <div class="parameter-item"><span class="parameter-name">step</span><span class="parameter-desc">1 to 5. One-based, matching what the stepper says on screen.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">method</span><span class="parameter-desc"><code>next</code> (the Next button) or <code>stepper</code> (a circle in the strip). Tells you whether the stepper is used at all.</span></div>
+                </div>
+                <div class="tip-box">
+                    <strong>Going back is deliberately not counted.</strong> Returning to
+                    step 2 to check a figure is what the stepper is for, and counting it
+                    would inflate the funnel with the same step twice. Moves blocked by the
+                    speed bump in <code>mayLeaveStep()</code> are not counted either, since
+                    they never happened.
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">✅</span>results_complete</h3>
+                <p>Every selected goal has an answer. Fires <strong>once per
+                calculation</strong>. Same parameters as <code>worksheet_start</code>, so
+                the two make a two-step funnel.</p>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">🏷️</span>calc_saved</h3>
+                <p>A calculation was written to the Saved list. Fired from the dialog's
+                apply callback, not the Save button, because that dialog can be cancelled.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">first_save</span><span class="parameter-desc"><code>yes</code> on a first save, <code>no</code> when "Edit saved" rewrites the figures.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">worksheet</span><span class="parameter-desc">Plus <code>goals</code>, <code>forage_type</code> or <code>season</code>.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">📷</span>photo_open</h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">set</span><span class="parameter-desc">Which viewer set: the forage chart, the growth stage photos, or the cover crop seasons.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">📋</span>show_all_steps</h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">state</span><span class="parameter-desc"><code>on</code> or <code>off</code>. Says whether the whole-sheet mode is worth maintaining.</span></div>
+                </div>
+            </div>
+
+            <!-- ────────────────────── BUDGET EVENTS ────────────────────── -->
+            <h2 id="events-budget"><span class="emoji">💵</span>Farm Plan Budget Only</h2>
+
+            <div class="event-section">
+                <h3><span class="emoji">🆕</span>scenario_start</h3>
+                <p>A new budget was begun. No parameters.</p>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">✅</span>budget_complete</h3>
+                <p>Revenue <em>and</em> cost are both above zero, so the profit line means
+                something. Fires once per scenario.</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">enterprises</span><span class="parameter-desc">How many enterprises the budget holds.</span></div>
+                </div>
+                <div class="tip-box">
+                    <strong>This one is a judgement call.</strong> The budget has no
+                    unanswered-goal concept the way the grazing calculator does, so
+                    "complete" had to be defined. Revenue alone is half a budget, and its
+                    profit line is just the revenue over again, which is why both sides are
+                    required. Treat it as a good proxy rather than a hard fact.
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">🌱</span>enterprise_added</h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">count</span><span class="parameter-desc">How many enterprises the budget now has, counted after the row lands.</span></div>
+                </div>
+                <p>The spreadsheet capped at four enterprises and removing that cap is a
+                stated reason this app exists. This is the figure that judges the decision.</p>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">⚖️</span>compare_run</h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">count</span><span class="parameter-desc">How many budgets were compared. Never below 2, since the app refuses fewer.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">📊</span>typical_value_open &amp; typical_value_applied</h3>
+                <p>The picker was opened, and separately, a figure from it was actually
+                written into a box. <strong>The gap between the two is the number worth
+                having.</strong> Somebody who opens the picker and closes it again is
+                telling you the shipped figure did not fit their operation, which is a
+                different and more useful signal than "nobody uses typical values".</p>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">typical_key</span><span class="parameter-desc">Which figure, e.g. <code>seedsPerBag</code>, <code>usefulLifeEquipment</code>.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">category</span><span class="parameter-desc">The picker's category filter, when it has one.</span></div>
+                </div>
+            </div>
+
+            <div class="event-section">
+                <h3><span class="emoji">🗂️</span>folder_created &amp; scenario_saved</h3>
+                <div class="parameter-list">
+                    <div class="parameter-item"><span class="parameter-name">enterprises</span><span class="parameter-desc">On <code>scenario_saved</code>: how many the budget holds.</span></div>
+                    <div class="parameter-item"><span class="parameter-name">first_save</span><span class="parameter-desc"><code>yes</code> or <code>no</code>. Fired only after the save succeeds, so a conflict prompt that was cancelled does not count.</span></div>
+                </div>
+            </div>
+
+            <!-- ────────────────────── ALL PARAMETERS ────────────────────── -->
+            <h2 id="all-parameters"><span class="emoji">🦋</span>All Parameters (Alphabetical)</h2>
+
+            <div class="table-wrap">
+            <table>
+                <tr><th>Parameter</th><th>Scope</th><th>App</th><th>Values</th></tr>
+                <tr><td><code>category</code></td><td>Event</td><td>Budget</td><td>Typical-value picker category</td></tr>
+                <tr><td><code>choice</code></td><td>Event</td><td>Both</td><td>The option picked in a <code>mode_select</code>, <code>theme_change</code>, or <code>font_change</code></td></tr>
+                <tr><td><code>context</code></td><td>Event</td><td>Budget</td><td>Which line a control belongs to</td></tr>
+                <tr><td><code>control</code></td><td>Event</td><td>Both</td><td>Which segmented control</td></tr>
+                <tr><td><code>count</code></td><td>Event</td><td>Budget</td><td>Number of enterprises or compared budgets</td></tr>
+                <tr><td><code>definition_id</code></td><td>Event</td><td>Both</td><td>Which <code>?</code> was opened</td></tr>
+                <tr><td><code>display_mode</code></td><td><strong>User</strong></td><td>Both</td><td><code>browser</code>, <code>standalone</code></td></tr>
+                <tr><td><code>enterprises</code></td><td>Event</td><td>Budget</td><td>Enterprise count on a save or completion</td></tr>
+                <tr><td><code>first_save</code></td><td>Event</td><td>Both</td><td><code>yes</code>, <code>no</code></td></tr>
+                <tr><td><code>font</code></td><td><strong>User</strong></td><td>Both</td><td><code>browser</code>, <code>classic</code>, <code>mono</code></td></tr>
+                <tr><td><code>forage_type</code></td><td>Event</td><td>Grazing</td><td>A forage key, or <code>mixed</code></td></tr>
+                <tr><td><code>format</code></td><td>Event</td><td>Both</td><td><code>png</code>, <code>csv</code>, <code>json</code>, <code>print</code></td></tr>
+                <tr><td><code>goals</code></td><td>Event</td><td>Grazing</td><td>Sorted, comma-joined goal keys</td></tr>
+                <tr><td><code>method</code></td><td>Event</td><td>Grazing</td><td><code>next</code>, <code>stepper</code></td></tr>
+                <tr><td><code>scope</code></td><td>Event</td><td>Both</td><td><code>working</code>, <code>saved</code>, <code>backup</code>, <code>compare</code></td></tr>
+                <tr><td><code>season</code></td><td>Event</td><td>Grazing</td><td>Cover crop season key</td></tr>
+                <tr><td><code>set</code></td><td>Event</td><td>Grazing</td><td>Which photo viewer set</td></tr>
+                <tr><td><code>source</code></td><td>Event</td><td>Both</td><td><code>footer</code>, <code>step</code></td></tr>
+                <tr><td><code>state</code></td><td>Event</td><td>Grazing</td><td><code>on</code>, <code>off</code></td></tr>
+                <tr><td><code>step</code></td><td>Event</td><td>Grazing</td><td>1 to 5</td></tr>
+                <tr><td><code>theme</code></td><td><strong>User</strong></td><td>Both</td><td><code>light</code>, <code>dark</code></td></tr>
+                <tr><td><code>typical_key</code></td><td>Event</td><td>Budget</td><td>Which typical value</td></tr>
+                <tr><td><code>warning_id</code></td><td>Event</td><td>Both</td><td>Slug of the warning's first six words</td></tr>
+                <tr><td><code>worksheet</code></td><td>Event</td><td>Grazing</td><td><code>perennial</code>, <code>covercrop</code></td></tr>
+            </table>
+            </div>
+
+            <!-- ────────────────────── PRIORITY LIST ────────────────────── -->
+            <h2 id="priority-list"><span class="emoji">⭐</span>Custom Dimensions to Register</h2>
+
+            <div class="warn-box">
+                <strong>Register these before you want the data.</strong> A custom dimension
+                only populates from the moment it is registered. It is not backfilled, and
+                events sent before registration keep their parameter but can never be
+                reported on. Everything below is one property-level registration covering
+                both streams.
+            </div>
+
+            <h3><span class="emoji">💖</span>High Priority (Register These First)</h3>
+            <div class="parameter-list">
+                <div class="parameter-item"><span class="parameter-name">worksheet</span><span class="parameter-desc">Perennial vs cover crop, on nearly every grazing event<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">definition_id</span><span class="parameter-desc">Which terms confuse people. The most actionable dimension here<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">step</span><span class="parameter-desc">The abandonment funnel<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">control</span><span class="parameter-desc">Which segmented control<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">choice</span><span class="parameter-desc">Useless without <code>control</code>, and vice versa<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">goals</span><span class="parameter-desc">What producers use the calculator for<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">forage_type</span><span class="parameter-desc">Single type vs mixed<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">typical_key</span><span class="parameter-desc">Which shipped figures fit real operations<span class="priority-badge high-priority">HIGH</span></span></div>
+            </div>
+
+            <h3><span class="emoji">🌟</span>Medium Priority (Good Insights)</h3>
+            <div class="parameter-list">
+                <div class="parameter-item"><span class="parameter-name">format</span><span class="parameter-desc">Which export people reach for<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">scope</span><span class="parameter-desc">Working copy vs saved card vs whole backup<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">count</span><span class="parameter-desc">Enterprises past four, budgets compared<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">context</span><span class="parameter-desc">Which cost line reached for the escape hatch<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">warning_id</span><span class="parameter-desc">Which warnings fire in the field<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">season</span><span class="parameter-desc">Cover crop equivalent of forage type<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">method</span><span class="parameter-desc">Next button vs stepper circle<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">enterprises</span><span class="parameter-desc">Budget size at save and completion<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+            </div>
+
+            <h3><span class="emoji">🌱</span>Low Priority (Nice to Have)</h3>
+            <div class="parameter-list">
+                <div class="parameter-item"><span class="parameter-name">set</span><span class="parameter-desc">Which photo set<span class="priority-badge low-priority">LOW</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">state</span><span class="parameter-desc">Show all steps on or off<span class="priority-badge low-priority">LOW</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">source</span><span class="parameter-desc">Where the how-to was opened from<span class="priority-badge low-priority">LOW</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">first_save</span><span class="parameter-desc">First save vs re-save<span class="priority-badge low-priority">LOW</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">category</span><span class="parameter-desc">Typical-value picker category<span class="priority-badge low-priority">LOW</span></span></div>
+            </div>
+
+            <h3><span class="emoji">👤</span>User-Scoped (Register as User, not Event)</h3>
+            <div class="parameter-list">
+                <div class="parameter-item"><span class="parameter-name">theme</span><span class="parameter-desc">Light or dark, for everyone, not just those who toggled<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">font</span><span class="parameter-desc">Browser, classic, or mono<span class="priority-badge high-priority">HIGH</span></span></div>
+                <div class="parameter-item"><span class="parameter-name">display_mode</span><span class="parameter-desc">Installed app vs browser tab<span class="priority-badge medium-priority">MEDIUM</span></span></div>
+            </div>
+
+            <p>That is 21 event-scoped and 3 user-scoped, against GA4 limits of 50 and 25.
+            Comfortable room to add more later.</p>
+
+            <!-- ────────────────────── HOW TO REGISTER ────────────────────── -->
+            <h2 id="register"><span class="emoji">🎀</span>How to Register a Custom Dimension</h2>
+
+            <ol>
+                <li>Open <strong>Admin</strong> (the gear icon).</li>
+                <li>Under <em>Data display</em>, choose <strong>Custom definitions</strong>.</li>
+                <li><strong>Create custom dimension</strong>.</li>
+                <li><strong>Dimension name</strong>: what you want to see in reports, e.g.
+                    "Worksheet". This is a label and can be changed later.</li>
+                <li><strong>Scope</strong>: <em>Event</em> for everything except
+                    <code>theme</code>, <code>font</code>, and <code>display_mode</code>,
+                    which are <em>User</em>.</li>
+                <li><strong>Event parameter</strong> (or <strong>User property</strong>):
+                    the exact name from the tables above, lowercase, spelled precisely.
+                    A typo here produces a dimension that silently stays empty forever.</li>
+                <li>Save. Data begins accruing from now, never backwards.</li>
+            </ol>
+
+            <div class="tip-box">
+                <strong>Give it 24 to 48 hours before judging it.</strong> A newly registered
+                dimension often shows <code>(not set)</code> at first while GA catches up.
+                For an immediate check, use <strong>Admin &rarr; DebugView</strong> with the
+                site open, or the <strong>Realtime</strong> report.
+            </div>
+
+            <!-- ────────────────────── IMPLEMENTATION ────────────────────── -->
+            <h2 id="files"><span class="emoji">🔧</span>Implementation Details</h2>
+
+            <h3>Files</h3>
+            <div class="table-wrap">
+            <table>
+                <tr><th>Repo</th><th>File</th><th>What it does</th></tr>
+                <tr><td>Grazing</td><td><code>src/analytics.js</code></td><td>New. The whole module: boot, opt-out, <code>track()</code>, <code>trackOnce()</code>, user properties</td></tr>
+                <tr><td>Grazing</td><td><code>src/main.js</code></td><td><code>TRACKED_ACTIONS</code> allowlist, <code>trackAction()</code>, <code>trackProgress()</code>, <code>calcParams()</code>, <code>warningId()</code>, plus calls at boot, in the info listener, in the change listener, and in the step and save cases</td></tr>
+                <tr><td>Grazing</td><td><code>src/ui/actions-perennial.js</code></td><td>One call in <code>syncFramePill()</code></td></tr>
+                <tr><td>Budget</td><td><code>src/analytics.js</code></td><td>New. Same module, different Measurement ID and opt-out key</td></tr>
+                <tr><td>Budget</td><td><code>src/main.js</code></td><td><code>TRACKED_ACTIONS</code>, <code>TRACKED_SELECTS</code>, <code>trackAction()</code>, <code>trackProgress()</code>, <code>warningId()</code>, plus calls at boot, in the info listener, the typical listener, the change listener, and the save case</td></tr>
+                <tr><td>Budget</td><td><code>src/prefs.js</code></td><td>Theme and font tracking; <code>initPrefs()</code> now returns the resolved pair</td></tr>
+                <tr><td>Budget</td><td><code>src/ui/modals.js</code></td><td>One call for <code>typical_value_applied</code></td></tr>
+            </table>
+            </div>
+
+            <h3>The four rules the module lives by</h3>
+            <ol>
+                <li><strong>Nothing a producer typed ever leaves the device.</strong> Only
+                    structure goes out. No dollar figures, no crop names, no pasture names,
+                    no saved records.</li>
+                <li><strong>It never throws and never blocks.</strong> Every entry point is
+                    wrapped in <code>try/catch</code>. Analytics that can break the
+                    calculator is worse than no analytics.</li>
+                <li><strong>Production on the real host only.</strong>
+                    <code>npm run dev</code> and local previews send nothing.</li>
+                <li><strong><code>calc.js</code> never learns the module exists.</strong>
+                    Both models stay pure.</li>
+            </ol>
+
+            <h3>Turning off your own traffic</h3>
+            <p>Visit either live site once with <code>?noga=1</code> on the end:</p>
+            <div class="query-box">
+                https://plantshley.github.io/SDSHC-grazing-calculator/?noga=1<br>
+                https://plantshley.github.io/SDSHC-farm-budget/?noga=1
+            </div>
+            <p>That browser stops reporting for good. <code>?noga=0</code> turns it back on.
+            Each site has its own flag, so do both, and do it on every browser and phone you
+            test with.</p>
+            <p>This is used instead of a GA internal-traffic IP filter because a residential
+            IP is dynamic and does not cover a phone on cell data, so an IP filter goes
+            stale silently. At twenty real users a month, fifteen deploy checks would
+            otherwise be nearly half the data.</p>
+
+            <h3>Checking a call site is wired, without polluting the reports</h3>
+            <p>Run <code>npm run dev</code> and open the browser console. In development the
+            module sets <code>window.__gaDebug</code> and logs every call as
+            <code>[ga] event_name {params}</code> without sending anything.</p>
+
+            <h3>Privacy copy</h3>
+            <p>Three places in each app carry the promise and they move together: the footer
+            sentence, the <code>privacy</code> definition, and the how-to's saving section.
+            All six were narrowed when this landed, from "Everything you enter stays on this
+            device" to "Your figures stay on this device", plus a sentence naming what is
+            counted. The old wording would no longer have been true, because the worksheet
+            you open and the options you pick are now sent.</p>
+
+            <!-- ────────────────────── LIMITS ────────────────────── -->
+            <h2 id="limits"><span class="emoji">🚧</span>Known Limits</h2>
+
+            <div class="warn-box">
+                <strong>Offline sessions record nothing at all.</strong>
+                <code>gtag.js</code> is cross-origin and is deliberately not precached by
+                either service worker. This matters most for the Farm Plan Budget, whose
+                users are producers and students, at the Soil Health School or at
+                home, on phones or laptops, potentially with no signal. A workshop room
+                with poor reception can register as almost no traffic. <strong>Do not read a quiet week as nobody using it.</strong>
+            </div>
+
+            <ul>
+                <li><strong>Ad blockers eat 10 to 30% of GA traffic.</strong> Every number
+                    in these reports is a floor, not a count.</li>
+                <li><strong>Only three enhanced measurement options can ever fire.</strong>
+                    Page views, scrolls, and outbound clicks. Site search needs URL query
+                    parameters neither app uses. Video engagement needs embedded video.
+                    Form interactions need <code>&lt;form&gt;</code> elements, and neither
+                    app has a single one. File downloads cannot see a blob URL. The inactive
+                    ones are harmless, so they are left on.</li>
+                <li><strong>Outbound clicks are worth watching in the grazing calculator.</strong>
+                    The one external link is SDSHC's older JotForm version of the cover crop
+                    worksheet, on the cover crop setup screen. Clicks on it say people still
+                    prefer the old online form.</li>
+                <li><strong>Neither app touches the History API</strong>, so GA's automatic
+                    <code>page_view</code> fires once per load and never again. Every move
+                    within a session is an explicit event. Do not expect page-path reports
+                    to show anything beyond the two entry URLs.</li>
+                <li><strong>Rewording a warning starts a new <code>warning_id</code>.</strong>
+                    See the <code>warning_shown</code> section above.</li>
+                <li><strong><code>budget_complete</code> is a defined proxy, not a fact.</strong>
+                    See its section above.</li>
+            </ul>
+
+        </div>
+
+        <footer>
+            South Dakota Soil Health Coalition &middot; GA4 reference for the Grazing
+            Calculator and Farm Plan Budget
+        </footer>
+    </div>
+</body>
+</html>

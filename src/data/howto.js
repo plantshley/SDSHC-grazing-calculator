@@ -84,10 +84,11 @@ export const HOW_TO_SECTIONS = [
       'Your entries save on this device as you type, so closing the page will not lose them.',
       'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season. Once a calculation is saved, that button becomes "Edit saved" and writes your changes back to the same copy.',
       'Clear, on a step, empties that step only. New calculation starts the calculator you are in over from its setup screen. Neither will impact anything you have saved.',
-      'Both calculators save into one list. Each card is tagged with the calculator it came from, and you can use the filter buttons on the saved tab toshow one kind at a time.',
+      'Both calculators save into one list. Each card is tagged with the calculator it came from, and you can use the filter buttons on the Saved tab to show one kind at a time.',
       'Save as, on a card in the Saved tab, writes one calculation out as an image, a spreadsheet, a printout, or a calculation file. Upload a calculation reads a calculation file back in alongside what you already have.',
       'Export backup, on the Saved tab, downloads every saved calculation of both kinds as one file. Restore backup reads it back and replaces everything on the tab, so the calculator says how many are arriving and how many are going before it does anything.',
-      'Nothing is uploaded anywhere. Everything stays in this browser, which also means clearing your browser data will remove it. Export a backup for anything you want to keep.',
+      'Your calculations are not uploaded anywhere. They stay in this browser, which also means clearing your browser data will remove them. Export a backup for anything you want to keep.',
+      'The calculator does count anonymous usage: which worksheet you open, which options you pick, and how far you get. The numbers you type, your pasture names, and your saved calculations are never sent, and nothing identifies you.',
     ],
   },
 ]

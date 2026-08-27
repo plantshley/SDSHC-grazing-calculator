@@ -70,6 +70,8 @@ import {
   downloadBackup,
 } from './export.js'
 
+import { initAnalytics, track, trackOnce, resetOnce, setUserProps } from './analytics.js'
+
 import { esc } from './ui/format.js'
 import { openInfo, openGuide, openModal, closeModal } from './ui/modals.js'
 import { openPhoto, releasePhotoViewer } from './ui/photo.js'
@@ -235,7 +237,7 @@ function footer() {
     <div class="footer">
       <button type="button" class="tip" data-action="how-to">How to use this calculator</button>
       <p class="footer-privacy">
-        Everything you enter stays on this device.
+        Your figures stay on this device.
         <button type="button" class="tip" data-info="privacy">Read more</button>
       </p>
       <p>South Dakota Soil Health Coalition</p>
@@ -530,7 +532,128 @@ function refresh() {
   // words the form on screen used, not the other worksheet's.
   updateOutputs(res, app, { spreadNote: !editingSamples, labels: desc.inputLabels })
   paintAutosave()
+  trackProgress(calc, res)
   return res
+}
+
+/* ──────────────────────────── what GA is told ──────────────────────────── */
+
+/**
+ * The three parameters that describe a calculation without describing anybody's
+ * operation: which worksheet, which questions it was asked, and which forage or
+ * season it was worked for.
+ *
+ * `goals` goes out as one sorted, comma-joined string rather than three flags.
+ * With three goals there are only seven combinations, which is a readable report
+ * table, and GA's "contains" filter still gets a per-goal total in one click.
+ * The combination is the more interesting half anyway: whether somebody asks one
+ * question or runs the whole sheet.
+ *
+ * What is deliberately NOT here: every number on the worksheet. See analytics.js.
+ */
+function calcParams(calc) {
+  const type = calc?.calcType ?? DEFAULT_CALC_TYPE
+  return {
+    worksheet: type,
+    goals: [...(calc?.goals ?? [])].sort().join(','),
+    forage_type: type === DEFAULT_CALC_TYPE ? calc?.forageType || undefined : undefined,
+    season: type === DEFAULT_CALC_TYPE ? undefined : calc?.season || undefined,
+  }
+}
+
+/**
+ * The actions worth counting, and what each one is called in GA.
+ *
+ * An allowlist rather than "track every action": most of the thirty-nine action
+ * names are plumbing (`pick-cell`, `add-sample`, `toggle-step`) and counting them
+ * would bury the eight questions anybody actually asks of this data.
+ *
+ * `next-step` and `go-step` are NOT here. Both can turn back at the speed bump in
+ * `mayLeaveStep()`, and this map fires before the switch runs, so they would count
+ * a move that never happened. They are tracked inside their own cases instead.
+ */
+const TRACKED_ACTIONS = {
+  'toggle-show-all': () => ['show_all_steps', { state: getPref('showAll') ? 'off' : 'on' }],
+  'open-photo': (btn) => ['photo_open', { set: btn.dataset.photoSet }],
+  'how-to': () => ['guide_open', { source: 'footer' }],
+  'open-howto': () => ['guide_open', { source: 'step' }],
+  print: () => ['export_file', { format: 'print', scope: 'working' }],
+  'export-csv': () => ['export_file', { format: 'csv', scope: 'working' }],
+  'export-png': () => ['export_file', { format: 'png', scope: 'working' }],
+  'save-as-csv': () => ['export_file', { format: 'csv', scope: 'saved' }],
+  'save-as-png': () => ['export_file', { format: 'png', scope: 'saved' }],
+  'save-as-json': () => ['export_file', { format: 'json', scope: 'saved' }],
+  'save-as-print': () => ['export_file', { format: 'print', scope: 'saved' }],
+  'backup-all': () => ['export_file', { format: 'json', scope: 'backup' }],
+  'upload-calc': () => ['calc_imported', {}],
+  'restore-all': () => ['backup_restored', {}],
+  'set-saved-kind': (btn) => ['mode_select', { control: 'saved_filter', choice: btn.dataset.kind || 'all' }],
+  // The segmented controls. Every one of these is a decision SDSHC made on the
+  // producer's behalf, and none of them was measurable before now.
+  'set-dm-mode': (btn) => ['mode_select', { control: 'dry_matter', choice: btn.dataset.mode }],
+  'set-frame': (btn) => ['mode_select', { control: 'frame', choice: btn.dataset.mode }],
+}
+
+/**
+ * One delegated hook for the allowlist above, plus the two events that are about
+ * a calculation rather than a button.
+ */
+function trackAction(action, btn, calc) {
+  if (action === 'start') {
+    track('worksheet_start', calcParams(calc))
+    return
+  }
+  // A genuinely blank start, so the once-per-calculation events arm again. The
+  // id changes too, but clearing is cheaper than letting the set grow all session.
+  if (action === 'new-calc' || action === 'choose-new-calc') resetOnce(calc?.id)
+
+  const entry = TRACKED_ACTIONS[action]
+  if (!entry) return
+  const [name, params] = entry(btn)
+  track(name, { worksheet: getActiveType(), ...params })
+}
+
+/**
+ * A warning's identity, from its own first six words.
+ *
+ * The models raise warnings as finished sentences and the flat list is what the
+ * CSV and the share image carry, so there is no id to send. Slugging the opening
+ * is the cheapest thing that reads well in a report ("animal-weight-cannot-be-
+ * below-zero"), and it has one real cost worth knowing before you reword a
+ * warning: **rewording its first six words starts a new dimension value**, and
+ * the old one stops accruing rather than erroring. Giving warnings real ids means
+ * changing what `warnings` holds, which every consumer reads. That is a bigger
+ * change than analytics should force, so this is the trade taken instead.
+ */
+function warningId(text) {
+  return String(text)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 6)
+    .join('-')
+    .slice(0, 60)
+}
+
+/**
+ * Finishing, and anything questionable on the way.
+ *
+ * Both go through `trackOnce()` against the calculation's id: this runs on every
+ * keystroke, so an unguarded `results_complete` would fire again for every
+ * character typed after the last box was filled.
+ */
+function trackProgress(calc, res) {
+  const goals = calc?.goals ?? []
+  if (goals.length && goals.every((g) => !res?.missing?.[g]?.length)) {
+    trackOnce(calc.id, 'results_complete', calcParams(calc))
+  }
+  for (const text of res?.warnings ?? []) {
+    trackOnce(calc.id, 'warning_shown', {
+      worksheet: calc?.calcType ?? DEFAULT_CALC_TYPE,
+      warning_id: warningId(text),
+    })
+  }
 }
 
 /* ───────────────── the spread note waits for the pen to lift ───────────── */
@@ -650,6 +773,17 @@ app.addEventListener('change', (e) => {
   // afterwards silently drops the answer on any select the descriptor claims.
   const isSelect = el.dataset?.path && el.tagName === 'SELECT'
   if (isSelect) setPath(getCalculation(), el.dataset.path, el.value)
+
+  // The occupation period is a select rather than a pill row, so it never
+  // reaches TRACKED_ACTIONS. It is the same kind of answer as the others and
+  // belongs under the same `control` dimension.
+  if (el.dataset?.action === 'set-period') {
+    track('mode_select', {
+      worksheet: getActiveType(),
+      control: 'occupation_period',
+      choice: el.value,
+    })
+  }
 
   // Whatever this worksheet alone knows how to do about it.
   if (activeCalculator().handleChange?.(el, ctx)) return
@@ -850,6 +984,10 @@ document.addEventListener('click', (e) => {
   // The `?` is read-only, always.
   const info = btn.dataset.info
   if (info) {
+    // The FIRST id only. A `?` may open several definitions at once, and sending
+    // the joined list would make every combination its own dimension value; the
+    // first is the one heading the panel and is what was asked about.
+    track('definition_open', { definition_id: info.split(',')[0], worksheet: getActiveType() })
     openInfo(info.split(','), btn.dataset.infoTitle || undefined)
     return
   }
@@ -864,6 +1002,9 @@ function handleAction(action, btn) {
 
   // Whatever only the worksheet on screen knows how to do. Tried first so a
   // calculator can own an action name; everything below is true of all of them.
+  // Before the delegation, so a worksheet owning an action name is still counted.
+  trackAction(action, btn, calc)
+
   if (tabType(getPref('tab')) && activeCalculator().handleAction?.(action, btn, ctx)) return
 
   switch (action) {
@@ -941,6 +1082,10 @@ function handleAction(action, btn) {
       if (!mayLeaveStep(clampStep(step()))) break
       const next = clampStep(step() + 1)
       setStep({ step: next, maxStep: Math.max(maxStep(), next) })
+      // Past the speed bump, so this move is real. `step` is 1-based here because
+      // a report reading "step 0" against a worksheet whose first page is called
+      // step 1 is a translation nobody should have to do.
+      track('step_advance', { worksheet: getActiveType(), step: next + 1, method: 'next' })
       markPassed(next)
       render()
       scrollToWork(workTarget())
@@ -961,6 +1106,11 @@ function handleAction(action, btn) {
       const from = clampStep(step())
       if (to > from && !mayLeaveStep(from)) break
       setStep({ step: to, maxStep: Math.max(maxStep(), to) })
+      // Forward only here too: going BACK by circle is checking a figure, and
+      // counting it as progress would inflate the funnel with the same step twice.
+      if (to > from) {
+        track('step_advance', { worksheet: getActiveType(), step: to + 1, method: 'stepper' })
+      }
       // Forward only, again. Arriving back on step 2 to check a figure does not
       // mean step 1 has been gone past — it means the opposite.
       if (to > from) markPassed(to)
@@ -1045,6 +1195,10 @@ function handleAction(action, btn) {
         // same reason saveCalc() falls back to the stored record's tag.
         calc.tag = tag
         persist(calc)
+        // Tracked here rather than on the button: `save-calc` opens a dialog that
+        // can be cancelled, and a count of dialogs opened is not a count of work
+        // kept. `existing` separates a first save from a re-save of the figures.
+        track('calc_saved', { ...calcParams(calc), first_save: existing ? 'no' : 'yes' })
         closeModal()
         // The autosave to the working key only runs off notify(). Without it a
         // reload shortly after saving shows the old name in the editor even
@@ -1520,10 +1674,23 @@ function scrollToWork(el) {
 document.addEventListener('click', (e) => {
   const font = e.target.closest('[data-font-choice]')
   if (font) {
-    setFont(font.dataset.fontChoice)
+    // Both setters return the RESOLVED value, which is not always what is
+    // stored: an unset theme follows the system, and an unknown font falls back
+    // to `browser`. Reading the pref back would report a blank for the very
+    // users who have never touched either control.
+    const applied = setFont(font.dataset.fontChoice)
+    // The event says somebody went looking for the setting; the user property
+    // says what everybody is actually reading in. Both, for the reason set out
+    // on initAnalytics().
+    track('font_change', { choice: applied })
+    setUserProps({ font: applied })
     return
   }
-  if (e.target.closest('#themeToggle')) toggleTheme()
+  if (e.target.closest('#themeToggle')) {
+    const applied = toggleTheme()
+    track('theme_change', { choice: applied })
+    setUserProps({ theme: applied })
+  }
 })
 
 /**
@@ -1540,8 +1707,10 @@ const overlayWatcher = new MutationObserver(() => {
 
 /* ──────────────────────────────── boot ─────────────────────────────────── */
 
-applyTheme()
-applyFont()
+// Both return the resolved value, which is what the user properties want: the
+// face and the theme actually on screen, including for somebody who has never
+// touched either control.
+initAnalytics({ theme: applyTheme(), font: applyFont() })
 
 // Every calculator's working copy comes back, not just the one whose tab is
 // showing: the other one is what somebody finds when they switch, and finding it

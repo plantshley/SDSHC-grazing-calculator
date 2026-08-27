@@ -17,6 +17,7 @@ import { getCalculation, setPath, notify, newMixRow } from '../state.js'
 import { getPref, setPref } from '../prefs.js'
 import { MIXED } from '../data/forage.js'
 import { openDryMatterTable } from './table.js'
+import { track } from '../analytics.js'
 
 /**
  * The row of the chart a new mix row starts on.
@@ -72,6 +73,12 @@ function syncFramePill(value, root) {
   if (!preset || preset.area == null || String(preset.area) === String(value)) return
 
   calc.frame.key = 'custom'
+  // The pill moved without anybody pressing it, so TRACKED_ACTIONS never sees
+  // this. Left out, "Other frame" would look far less used than it is: typing a
+  // measurement over a preset IS choosing it, and is the commoner of the two
+  // routes. Guarded by the early return above, so it fires on the transition
+  // rather than on every keystroke.
+  track('mode_select', { worksheet: 'perennial', control: 'frame', choice: 'custom' })
   for (const seg of root.querySelectorAll('[data-action="set-frame"]')) {
     seg.setAttribute('aria-pressed', String(seg.dataset.mode === 'custom'))
   }

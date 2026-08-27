@@ -1393,11 +1393,16 @@ test('the footer says where the data lives, on every tab', () => {
   // crops tab was an embedded JotForm and submitting it sent the entries to
   // JotForm, so the blanket promise was one the app could not keep there. The
   // native calculator replaced that tab and the promise is true everywhere.
+  //
+  // The sentence narrowed from "Everything you enter" to "Your figures" when GA
+  // landed: the worksheet you open and the options you pick are now counted, and
+  // a promise covering those would be one the app no longer keeps. The numbers
+  // are still the thing it is about, and they still never leave.
   for (const tab of ['perennial', 'covercrop', 'saved']) {
     click(`[data-action="set-tab"][data-tab="${tab}"]`)
     const line = $('.footer-privacy')
     assert.ok(line, `the ${tab} tab states it`)
-    assert.match(line.textContent, /stays on this device/i)
+    assert.match(line.textContent, /stay on this device/i)
     assert.doesNotMatch(
       line.textContent,
       /JotForm/,

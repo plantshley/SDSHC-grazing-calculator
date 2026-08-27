@@ -116,7 +116,7 @@ export const DEFINITIONS = {
     title: 'Forage left behind',
     body: [
       'How much dry forage per acre you plan to leave standing when the animals move off.',
-      'This is the residual that armors the soil, keeps roots alive, and lets the plant regrow. Grazing it away costs you next year to pay for this year.',
+      'This is the residual that armors the soil, keeps roots alive, and lets the plant regrow. Grazing it has a cost.',
       'A common starting point is to take half and leave half. Your own soil, rainfall, and recovery plan should move that figure, so this one is your call.',
     ],
     source: NRPH,
@@ -126,7 +126,7 @@ export const DEFINITIONS = {
     title: 'Usable forage',
     body: [
       'Available forage minus what you leave behind. This is the amount you can actually plan to graze.',
-      'Every answer at the end of the worksheet is built on this number, so it is worth getting the residual right before you read them.',
+      'Every answer at the end of the worksheet is built on this number, so it is important to get the residual right.',
     ],
     source: NRPH,
   },
@@ -153,8 +153,8 @@ export const DEFINITIONS = {
       // NRPH animal-unit-day: "The pounds of feed needed to meet an animal's
       // daily requirement is usually calculated by taking 2.5 to 3 percent of
       // the animal's body weight."
-      'NRCS puts the usual range at 2.5 to 3 percent. The worksheet uses 2.6 percent.',
-      'Intake changes with the kind and class of animal and with the forage in front of it. A lactating cow eats more than a dry one. Check your own conditions and move the figure if you have reason to.',
+      'NRCS puts the usual range at 2.5 to 3 percent. The worksheet adds 2.6 percent as a default.',
+      'Intake changes with the kind and class of animal and with the forage in front of it. A lactating cow eats more than a dry one. Consider your own conditions and adjust the figure if needed.',
     ],
     source: NRPH,
   },
@@ -178,7 +178,7 @@ export const DEFINITIONS = {
     body: [
       'One animal grazing for one day. A pasture holding 500 animal-days will carry 50 head for 10 days, or 25 head for 20 days.',
       // NRPH: "The amount of forage required by an animal unit for 1 day."
-      'It is a useful way to hold the forage in a pasture in your head without fixing either the herd size or the length of stay first.',
+      'It is a useful way to understand the forage in a pasture without fixing either the herd size or the length of stay first.',
     ],
     source: NRPH,
   },
@@ -188,8 +188,8 @@ export const DEFINITIONS = {
   ungrazeable: {
     title: 'Ungrazeable acres',
     body: [
-      'Acres inside the fence that grow no forage the animals will use. Water, rock, dense timber, roads, buildings, and steep ground they will not climb.',
-      'Counting them costs you real forage on paper that is not there on the ground, which overstates every answer. If you are unsure, walk it or check an aerial photo.',
+      'Acres inside the fence that grow no forage the animals will use. This may include water, rock, dense timber, roads, buildings, and steep ground they will not climb.',
+      'If you are unsure of the amount, walk it or check an aerial photo.',
     ],
   },
 
@@ -215,7 +215,7 @@ export const DEFINITIONS = {
     title: 'Acres needed',
     body: [
       'How much ground your herd needs for one day, and for the whole rotation if you entered planned days.',
-      'Use the daily figure to size a paddock and the total to check the pasture is big enough for the stay you have in mind.',
+      'Use the daily figure to size a paddock and the total to check the pasture is big enough for the stay you would like.',
     ],
   },
 
@@ -223,11 +223,11 @@ export const DEFINITIONS = {
     title: 'Animals allowed',
     body: [
       'How many animals the pasture will carry for the number of days you entered.',
-      'The figure is rounded down. A partial animal does not fit, and rounding up is overstocking.',
+      'Note that the figure is rounded down (partial animals do not count).',
       // NRPH carrying capacity: "The maximum stocking rate possible without
       // inducing permanent or long-term damage to vegetation or related
       // resources."
-      'This is one season, from one set of samples. Carrying capacity changes year to year with rainfall, so do not carry this number into next season.',
+      'This is one season, from one set of samples. Carrying capacity changes year to year with rainfall, so it is recommended to recalculate for each season.',
     ],
     source: NRPH,
   },
@@ -235,7 +235,7 @@ export const DEFINITIONS = {
   totalUsableForage: {
     title: 'Total usable forage',
     body: [
-      'Every pound you can plan to graze in the whole pasture. Grazeable acres times usable forage per acre.',
+      'Every pound you can plan to graze in the whole pasture. Equals grazeable acres times usable forage per acre.',
     ],
   },
 
@@ -244,9 +244,8 @@ export const DEFINITIONS = {
   ccSeason: {
     title: 'Which season dominates',
     body: [
-      'Cover crops put on growth at very different rates depending on what is in them, so the production estimate is different for each.',
-      'Warm-season stands are sorghum-sudan, pearl millet, sunn hemp, and cowpeas. Cool-season stands are cereal rye, oats, barley, peas, turnips, and radish.',
-      'Judge it on what is actually standing out there, not on what went in the drill. A mix that came up mostly rye is a cool-season stand.',
+      'Cover crops put on growth at different rates, so the production estimate is different for each.',
+      'Warm-season stands include sorghum-sudan, pearl millet, sunn hemp, and cowpeas. Cool-season stands include cereal rye, oats, barley, peas, turnips, and radish.',
       'Use the mix estimate when neither dominates. It applies a flat rate to every inch of height rather than treating the first few inches separately.',
     ],
   },
@@ -322,12 +321,13 @@ export const DEFINITIONS = {
   privacy: {
     title: 'Where your calculations live',
     body: [
-      'Everything you enter stays on this device, in this browser. It is not sent anywhere and it is not stored on any server.',
+      'Your figures stay on this device, in this browser. They are not sent anywhere and they are not stored on any server.',
       'The South Dakota Soil Health Coalition cannot see your calculations. Nobody can, except somebody using this device.',
       'Your saved calculations will not appear on your other phone or computer, and they are not shared with anyone.',
       'To move one to another device, or to hand it to somebody else, use "Save as" on its card to download a calculation file, and "Upload a calculation" on the Saved tab to read it back in.',
       'To keep a copy of everything at once, use "Export backup" on the Saved tab. Those files are the only things that ever leave this device, and only when you download them yourself.',
       'Because the calculations live in this browser, clearing your browsing data deletes them. Export a backup for anything you want to keep.',
+      'We count anonymous usage: which worksheet you open, which options you pick, and how far you get. The numbers you type, your pasture names, and your saved calculations are never sent, and nothing identifies you.',
       // This paragraph used to carry an exception: the cover crops tab was an
       // embedded JotForm, and submitting it sent the entries to JotForm. The
       // native cover crop calculator replaced it, so the blanket promise above
