@@ -172,7 +172,11 @@ function tabFromLocation() {
   const path = window.location?.pathname ?? ''
   const base = basePath()
   if (!path.startsWith(base)) return null
-  const slug = path.slice(base.length).replace(/^\/+|\/+$/g, '')
+  // Lowercased because these get typed off a handout and read out at workshops,
+  // where nothing carries the case. /Cover-Crop opens the right worksheet and
+  // syncURL() then rewrites the address to the canonical spelling, so a link
+  // shared onward from there is the one everything else uses.
+  const slug = path.slice(base.length).replace(/^\/+|\/+$/g, '').toLowerCase()
   if (!slug) return null
   return [...ROUTES].find(([, s]) => s === slug)?.[0] ?? null
 }

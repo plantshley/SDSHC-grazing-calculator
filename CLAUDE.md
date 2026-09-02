@@ -102,7 +102,12 @@ opt-out and is read on every load.
 
 At boot **a route beats the stored `tab` pref**, and a bare base URL does not:
 somebody who opened `/cover-crop` asked for that worksheet, and somebody who
-opened the plain address is coming back to where they were.
+opened the plain address is coming back to where they were. An unknown path is a
+bare URL for this purpose, which is what `404.html` serves.
+
+A slug is matched **case-insensitively** and the address is then rewritten to the
+canonical spelling, because these get typed off a handout and read out at
+workshops and neither carries the case.
 
 `routeCopies()` in `vite.config.js` writes `index.html` again at each slug and at
 `404.html`. GitHub Pages is a static file server, so `/cover-crop` is a missing
@@ -116,7 +121,15 @@ and is what `navigateFallback` serves offline.
 
 The slug list is in **two** files, so `test/router.test.js` asserts they agree in
 both directions. A slug in `calculators.js` with no row in `vite.config.js` is a
-link that names the right tab and 404s for whoever it was sent to.
+link that names the right tab and 404s for whoever it was sent to. **Nothing may
+type that list out a third time**: `test/router-build-output.test.js` parses it
+out of the config, so a route added to the config gets checked without anybody
+remembering to.
+
+`main.js` is a module singleton and reads the URL once, in its boot block, so a
+starting URL is **one per test file**. That is why `test/router-*.test.js` is
+seven small files rather than one big one. `test/helpers/boot-app.js` is the shared jsdom
+boot. `app.test.js` and `covercrop.test.js` predate it and still carry their own.
 
 ### Preferences are global; a place in a worksheet is not
 

@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // GitHub Pages serves this repo from a subpath, so every asset URL has to be
@@ -32,6 +32,15 @@ const ROUTES = ['perennial', 'cover-crop', 'saved']
  * out of the precache manifest. They are byte-identical to index.html, which is
  * precached already and is what navigateFallback serves offline; precaching four
  * more copies of it would be paying install size to say the same thing.
+ *
+ * TWO mechanisms put it last and they are not the same one twice. `enforce:
+ * 'post'` is Vite's: it sorts user plugins into pre / normal / post and VitePWA
+ * declares no enforce, so this lands after it for every hook. `order: 'post'` is
+ * Rollup's, on the hook itself. Either alone is enough today — removing
+ * `order` was tried and the copies still landed after sw.js — so the second is
+ * there to survive the first being edited away. What actually PROVES the
+ * ordering is test/router-build-output.test.js, which builds and then asserts
+ * no copy is named anywhere in sw.js.
  */
 function routeCopies() {
   let outDir = 'dist'
@@ -48,7 +57,16 @@ function routeCopies() {
       sequential: true,
       order: 'post',
       handler() {
-        const html = readFileSync(resolve(outDir, 'index.html'), 'utf8')
+        const index = resolve(outDir, 'index.html')
+        // Loudly, and by name. Without this the failure is a bare ENOENT on a
+        // path nobody recognises, for a plugin whose whole job is to write four
+        // files somebody only finds missing once a shared link 404s.
+        if (!existsSync(index)) {
+          throw new Error(
+            `routeCopies: no index.html at ${index}. The route copies were not written.`
+          )
+        }
+        const html = readFileSync(index, 'utf8')
         for (const name of ['404', ...ROUTES]) {
           writeFileSync(resolve(outDir, `${name}.html`), html)
         }

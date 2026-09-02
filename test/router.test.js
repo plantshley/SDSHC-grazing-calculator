@@ -77,7 +77,10 @@ test('a slug names a tab and the two halves agree on the list', async () => {
   // asking about.
   const declared = CONFIG.match(/const ROUTES = \[([^\]]*)\]/)
   assert.ok(declared, 'vite.config.js declares a ROUTES list')
-  const fromBuild = [...declared[1].matchAll(/'([^']+)'/g)].map((m) => m[1])
+  // Either quote, so reformatting the config cannot fail this test for a reason
+  // that has nothing to do with a slug having drifted.
+  const fromBuild = [...declared[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])
+  assert.ok(fromBuild.length, 'the ROUTES list was parsed, not just matched empty')
 
   assert.deepEqual(
     [...fromBuild].sort(),

@@ -104,8 +104,7 @@ export function renderSetup(calc, returning = false) {
       <div class="setup-block">
         <p class="setup-q">2. Which season dominates this cover crop?</p>
         <p class="setup-hint">This sets which production estimate applies. Judge it
-          on what makes up most of the standing growth, not on what was seeded. A stand
-          that came up mostly rye is cool-season. Use the mix estimate when neither
+          on what makes up most of the standing growth, not on what was seeded. Use the mix estimate when neither
           dominates.</p>
 
         <div class="forage-grid season-grid">
