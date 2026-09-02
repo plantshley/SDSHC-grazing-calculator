@@ -272,7 +272,7 @@ export const DEFINITIONS = {
     title: 'Minimum residual height',
     body: [
       'The height you plan to leave standing when the animals come off.',
-      'Four inches is the usual starting point. Leave more on erodible ground, in a dry year, or where you want the regrowth.',
+      '4 inches is the usual starting point. Leave more on erodible ground, in a dry year, or where you want the regrowth.',
       'The residual keeps the soil covered and leaves the plant enough leaf area to regrow. Grazing below it costs production in the following season.',
       'The production estimate is applied twice, once at the stand height and once at the residual height. The difference between the two is what is available to graze.',
     ],

@@ -127,11 +127,87 @@ const wz = () => wizardFor(getActiveType())
  */
 const tabType = (tab) => (CALCULATORS.some((d) => d.id === tab) ? tab : null)
 
+/* ──────────────────────────────── routing ──────────────────────────────── */
+
+/*
+ * Every tab has an address: /perennial, /cover-crop and /saved under the
+ * deployed base. It is one direction of sync in the app and one in the build.
+ *
+ * IN THE APP the URL is only ever REPLACED, never pushed. Pressing Back has
+ * always left this app and it still does, which matters most in the installed
+ * copy on a phone, where Back is the way out and a stack of tab switches would
+ * be a stack of presses to get through. What a link has to do is name a tab, and
+ * replaceState does that: share it, bookmark it, reload it, and the same tab
+ * comes back.
+ *
+ * IN THE BUILD, vite.config.js writes a copy of index.html at each of those
+ * paths plus 404.html. GitHub Pages serves static files and knows nothing about
+ * routes, so without the copies /cover-crop is a 404 on the first visit — the
+ * service worker's navigateFallback only covers a visit after one that worked.
+ * The slugs are in both places and the test asserts they agree.
+ */
+
+/** Where the deployed copy lives: '/SDSHC-grazing-calculator/', or '/' in dev. */
+const BASE_PATH = import.meta.env?.BASE_URL ?? '/'
+
+/**
+ * Tab id -> the path segment naming it.
+ *
+ * The worksheets bring their own from the registry; `saved` is not a calculator
+ * and has no descriptor to carry one.
+ */
+const ROUTES = new Map([...CALCULATORS.map((d) => [d.id, d.slug]), ['saved', 'saved']])
+
+/** The path this app is being served from, always with one trailing slash. */
+const basePath = () => (BASE_PATH.endsWith('/') ? BASE_PATH : `${BASE_PATH}/`)
+
+/**
+ * Which tab the address bar names, or null for the bare base URL.
+ *
+ * Null is not a failure: somebody opening the site with no path is coming back
+ * to wherever they were, which is the stored `tab` preference. Only a URL that
+ * actually names a tab is allowed to override it.
+ */
+function tabFromLocation() {
+  const path = window.location?.pathname ?? ''
+  const base = basePath()
+  if (!path.startsWith(base)) return null
+  const slug = path.slice(base.length).replace(/^\/+|\/+$/g, '')
+  if (!slug) return null
+  return [...ROUTES].find(([, s]) => s === slug)?.[0] ?? null
+}
+
+/**
+ * Point the address bar at the tab on screen.
+ *
+ * Called from render(), which is the one funnel every tab change already goes
+ * through — eight places set the pref and all eight render afterwards, so this
+ * cannot be forgotten at a ninth. That includes printSavedCalc()'s borrow and
+ * its restore, which is why this replaces rather than pushes: a print must not
+ * leave a history entry pointing at a record the user never opened.
+ *
+ * The query string and the fragment are carried over. `?noga=1` is the author's
+ * analytics opt-out and it is read on every load, so dropping it here would turn
+ * reporting back on the first time somebody changed tabs.
+ */
+function syncURL(tab) {
+  const slug = ROUTES.get(tab)
+  if (!slug) return
+  const { pathname, search, hash } = window.location ?? {}
+  // A reload of /cover-crop can land on /cover-crop/ (a static host resolving a
+  // directory), and that is the same address. Rewriting it back every render
+  // would be churn for nothing.
+  if (pathname?.replace(/\/+$/, '') === `${basePath()}${slug}`) return
+  window.history?.replaceState?.(null, '', `${basePath()}${slug}${search ?? ''}${hash ?? ''}`)
+}
+
 /* ──────────────────────────────── render ───────────────────────────────── */
 
 function render() {
   const tab = getPref('tab')
   const forTab = tabType(tab)
+
+  syncURL(tab)
 
   // Replacing the markup drops focus to the body, so nothing is being typed into
   // any more. Left standing, a stale flag would hold the spread note back until
@@ -212,8 +288,9 @@ function header(tab) {
  * their sample weights, their herd size and their acres into a web page at a
  * workshop, often on a borrowed device, and "there is a page about it somewhere"
  * is not the same answer as one sentence they cannot miss. The link opens the
- * full explanation for anyone who wants it, and `.footer button` is hidden when
- * the page is printed, so a printout carries the statement without the controls.
+ * full explanation for anyone who wants it. The whole footer is hidden when the
+ * page is printed: it is site furniture, and on paper the sentence reads as a
+ * caption to the figures above it rather than as a note about the app.
  *
  * NO export links here, unlike farm-budget's copy. Step 5 already carries Save
  * as image, Export CSV and Print, and a card's Save as carries the same four for
@@ -1731,6 +1808,14 @@ for (const desc of CALCULATORS) {
   // and coming back must not throw away the step they were on.
   wizard.startedOnce = !wizard.setupOpen
 }
+
+// A link wins over the stored preference: somebody who opened /cover-crop asked
+// for that worksheet, whatever tab this browser was last on. A bare base URL
+// names nothing and leaves the preference alone, which is what brings a returning
+// user back to where they were. Before setActiveType(), which reads the pref this
+// may have just changed.
+const routedTab = tabFromLocation()
+if (routedTab) setPref('tab', routedTab)
 
 // The tab decides which worksheet is on screen. The Saved tab names no
 // calculator, so it falls back rather than leaving the active one undefined.

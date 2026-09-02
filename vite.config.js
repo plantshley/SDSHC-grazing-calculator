@@ -1,9 +1,61 @@
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 // GitHub Pages serves this repo from a subpath, so every asset URL has to be
 // prefixed. Vite substitutes %BASE_URL% in index.html with this value.
 const BASE = '/SDSHC-grazing-calculator/'
+
+/**
+ * The path segment each tab answers to. Must match `slug` on the descriptors in
+ * src/calculators.js, plus 'saved', which is not a calculator and has none.
+ * test/router.test.js asserts the two lists agree.
+ */
+const ROUTES = ['perennial', 'cover-crop', 'saved']
+
+/**
+ * Write index.html again at every route, and at 404.html.
+ *
+ * GitHub Pages is a static file server: it knows nothing about routes, so
+ * /SDSHC-grazing-calculator/cover-crop is a missing file and answers 404 unless
+ * something is sitting there. The service worker's navigateFallback covers it
+ * only AFTER a visit that already worked, which is exactly not the case for a
+ * link somebody has just been sent.
+ *
+ * `cover-crop.html` answers /cover-crop with a 200 on GitHub Pages, which
+ * resolves an extensionless request to the .html beside it. 404.html is the
+ * backstop for hosts that do not, and for any path no longer routed: it is the
+ * same document, so it boots the app and the app reads the URL.
+ *
+ * Runs LAST, after VitePWA has generated the service worker, so the copies stay
+ * out of the precache manifest. They are byte-identical to index.html, which is
+ * precached already and is what navigateFallback serves offline; precaching four
+ * more copies of it would be paying install size to say the same thing.
+ */
+function routeCopies() {
+  let outDir = 'dist'
+  return {
+    name: 'sdshc-route-copies',
+    apply: 'build',
+    enforce: 'post',
+    // Off the resolved config rather than off the literal above, so this cannot
+    // drift from build.outDir or from the directory vite was run in.
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir)
+    },
+    closeBundle: {
+      sequential: true,
+      order: 'post',
+      handler() {
+        const html = readFileSync(resolve(outDir, 'index.html'), 'utf8')
+        for (const name of ['404', ...ROUTES]) {
+          writeFileSync(resolve(outDir, `${name}.html`), html)
+        }
+      },
+    },
+  }
+}
 
 export default defineConfig({
   base: BASE,
@@ -41,5 +93,6 @@ export default defineConfig({
         ],
       },
     }),
+    routeCopies(),
   ],
 })

@@ -1410,12 +1410,30 @@ test('the footer says where the data lives, on every tab', () => {
     )
   }
 
-  // And it survives printing while its link does not, so a printed worksheet
-  // still carries a statement that is true on paper.
+  // None of it prints. The whole footer is chrome, and the sentence in
+  // particular reads as a caption to the figures above it on paper. It is still
+  // said in three places on screen, which is where the promise is made.
   const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
   const print = css.slice(css.indexOf('@media print'))
-  assert.match(print, /\.footer button/)
-  assert.doesNotMatch(print, /\.footer-privacy\s*\{[^}]*display:\s*none/)
+  assert.match(print, /^\s*\.footer \{/m, 'the print block hides the footer')
+  assert.doesNotMatch(print, /\.footer button/, 'not just the buttons in it')
+})
+
+test('a page printed in dark mode comes out light', () => {
+  const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
+
+  // The dark palette is scoped to @media screen, so paper falls back to :root.
+  // Undoing it token by token inside the print block would be a second copy of
+  // the light theme, and a copy goes stale the first time a colour moves.
+  // Anything at column 0 is a rule nobody wrapped.
+  for (const m of css.matchAll(/^\[data-theme=["']dark["']\]/gm)) {
+    assert.fail(`a dark rule at index ${m.index} sits outside @media screen`)
+  }
+  assert.match(css, /@media screen \{\s*\[data-theme="dark"\] \{/, 'the palette is wrapped')
+
+  // And the browser is told, for the widgets it draws itself.
+  const print = css.slice(css.indexOf('@media print'))
+  assert.match(print, /color-scheme: light/)
 })
 
 test('the footer link explains at length and writes nothing', () => {

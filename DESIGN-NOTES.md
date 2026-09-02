@@ -68,6 +68,71 @@ and splitting them leaves a hole where `notify()` fires about record X while
 
 ---
 
+## Every tab has an address
+
+The three tabs were one URL. Somebody sending a colleague to the cover crop
+worksheet had to send the address and then say which tab to press, and a
+bookmark landed on whichever tab that browser was last on.
+
+### Paths, not a hash
+
+`#/cover-crop` needs no build step at all, which is the whole of its case. It was
+rejected because the address is the thing being shared: it goes in an email, on a
+handout, and read out at a workshop, and a hash reads as a fragment of a page
+rather than as a page. The build cost turned out to be one plugin of a dozen
+lines, because GitHub Pages resolves `/cover-crop` to `cover-crop.html` sitting
+beside `index.html`, so a copy of the document at each route is the whole
+mechanism. `404.html` is the same copy again and covers a host that will not do
+that, and any route dropped later.
+
+The copies are written **after** VitePWA has generated the service worker, and
+that ordering is deliberate rather than incidental. Written before it they would
+land in the precache manifest: four more copies of a document already precached,
+paid for in install size on a phone, to answer a request `navigateFallback`
+answers offline anyway. Their only job is the very first visit, which is the one
+visit that is online by definition.
+
+### Replaced, never pushed
+
+The tempting version pushes a history entry per tab, so Back walks the tabs. It
+was not built, and the reason is the installed copy: on Android, Back is how you
+leave an app, and a session that had touched three tabs and printed something
+would be four presses deep in a stack the user never asked for. Nothing about a
+shared link needs a stack — it needs the address to name the tab, which
+`replaceState` does, and the reload path proves it.
+
+That also settles `printSavedCalc()` for free. It swaps a borrowed record onto
+the screen, renders, and swaps back on `afterprint`, so it changes the tab twice
+for something the user did not open. Pushing would leave an entry pointing at
+somebody else's calculation. Replacing leaves nothing behind, so the borrow needs
+no special case, which is why `syncURL()` could go in `render()` and cover all
+eight call sites rather than being spelled out at each of them.
+
+There is no `popstate` handler. Nothing pushes, so within the document there is
+no entry to pop; leaving the site and coming back is a full load, which reads the
+URL at boot like any other. A handler here would be code that cannot run.
+
+### A slug is not an id
+
+`covercrop` is a storage key on every record ever written; `/cover-crop` is read
+by a person. Reusing the id as the slug would have saved a descriptor field and
+tied a URL somebody bookmarked to a value that cannot be changed without a
+migration. They are separate fields for that reason, and the test asserts the
+slug is URL-safe and unique rather than asserting what it is.
+
+### The list lives in two files
+
+`vite.config.js` cannot import `calculators.js` — it would pull the whole UI into
+the build config — so the slugs are written out twice, once in the registry and
+once in the plugin. That is the failure mode this feature has: a third worksheet
+whose slug is added to the descriptor and not to the build gets a working tab, a
+correct-looking address bar, and a 404 for everyone it is sent to, on the first
+visit only. Nothing on this device would ever show it. `test/router.test.js`
+parses `ROUTES` out of the config and compares the two lists in both directions,
+the same shape `test/themelab.test.js` uses for `GROUPS` against `:root`.
+
+---
+
 ## Preferences are global; a place in a worksheet is not
 
 `step`, `maxStep` and `openSteps` were flat keys in `prefs.js` when there was one
@@ -1199,9 +1264,14 @@ person about, and it is in three places on purpose:
   thing.
 - **The *Saving your work* section of the how-to**, which already ended on it.
 
-**The sentence survives printing and the link does not.** The print block hides
-`.footer button`, so a worksheet handed to a landlord or an NRCS office still
-carries the statement, and it is still true on paper.
+**None of it prints.** The print block hides `.footer`, and it used to hide only
+`.footer button` — keeping the sentence on paper on the grounds that a worksheet
+handed to a landlord or an NRCS office should still carry it. It reads wrong
+there. On screen the line sits under the app's own controls and is plainly about
+the app; on a printout every control is gone and the same grey sentence sits
+directly under the figures, where it reads as a caption to them. The promise is
+made in three places and all three are on screen, which is where somebody is
+deciding whether to type their acres in.
 
 It is also the one line in the footer with a **width**, `max-width` plus auto side
 margins in `app.css`. Set to the full width of a desktop page it was a single long

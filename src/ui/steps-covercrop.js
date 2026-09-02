@@ -117,7 +117,7 @@ function step2(calc) {
         suffix: 'in',
         info: 'ccResidual',
         step: '0.5',
-        hint: 'Four inches is the usual starting point. More on erodible or dry ground.',
+        hint: '4 inches is the usual starting point. More on erodible or dry ground.',
       })}
     </div>
 

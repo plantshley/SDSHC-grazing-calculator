@@ -89,9 +89,14 @@ export function initAnalytics(userProps = {}) {
     window.gtag = function () { window.dataLayer.push(arguments) }
     window.gtag('js', new Date())
     window.gtag('config', MEASUREMENT_ID, {
-      // Both calculators are single-page and neither touches the History API, so
-      // GA's automatic page_view fires once per load and nothing else. Every
-      // move inside the app is an explicit event instead.
+      // One page_view on load, for whichever tab the URL names. Every move
+      // inside the app is an explicit event instead.
+      //
+      // Changing tabs REPLACES the URL (see the routing block in main.js), and
+      // GA4's enhanced measurement watches replaceState as well as pushState, so
+      // a tab change can raise a second page_view of its own. That is a fair
+      // reading of what happened and is left alone. What must not come back is a
+      // history entry per tab: pushing would turn one visit into a trail.
       send_page_view: true,
       user_properties: {
         ...userProps,

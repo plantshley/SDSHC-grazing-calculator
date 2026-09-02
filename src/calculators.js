@@ -45,6 +45,16 @@ import * as ccReport from './report-covercrop.js'
 const PERENNIAL = {
   id: 'perennial',
   tabLabel: 'Perennial grazing',
+  /**
+   * The path segment that names this worksheet in the address bar.
+   *
+   * Separate from `id` because `id` is a storage key on every record ever
+   * written and a URL is read by people: 'covercrop' is the key, '/cover-crop'
+   * is the link. Changing a slug breaks a link somebody bookmarked; changing an
+   * id breaks every saved calculation. They are allowed to differ and must not
+   * be collapsed into one.
+   */
+  slug: 'perennial',
   /** For a saved card's badge and anywhere the two have to be told apart. */
   shortName: 'Perennial',
   /** What the chooser says about it, in terms of what you take to the field. */
@@ -87,6 +97,7 @@ const PERENNIAL = {
 const COVERCROP = {
   id: 'covercrop',
   tabLabel: 'Cover crop grazing',
+  slug: 'cover-crop',
   shortName: 'Cover crop',
   newCalcBlurb:
     'Annual cover crops, from the average height of the stand measured with a yardstick.',

@@ -30,7 +30,7 @@ descriptor is active. **Adding a calculator is adding a row there and the module
 it names.** It is not editing the machinery.
 
 ```js
-{ id, tabLabel, shortName, newCalcBlurb,
+{ id, slug, tabLabel, shortName, newCalcBlurb,
   newCalculation, resolved, compute,
   stepLabels, stepFields, stepInputs, inputLabels, goals,
   started(calc), setupAnswered(calc),
@@ -74,6 +74,49 @@ a user who never opens the cover crop tab never gets a cover crop record written
 anywhere. `setCalculation(calc, type)` makes the written slot **active**, because
 every caller wants both and splitting them opens the hole where `notify()` fires
 about record X while `writeEverywhere()` reads the active slot.
+
+### Every tab has an address
+
+`/perennial`, `/cover-crop` and `/saved`, under the deployed base. The worksheet
+slugs come off the descriptors, and `saved` is named in `main.js` because it is
+not a calculator and has no descriptor to carry one.
+
+**`slug` and `id` are different things and must not be collapsed.** `id` is a
+storage key written into every record ever saved; `slug` is read by people.
+`covercrop` is the key, `/cover-crop` is the link. Changing a slug breaks a
+bookmark; changing an id breaks every saved calculation.
+
+**The URL is replaced, never pushed.** Back has always left this app and still
+does, which matters most in the installed copy on a phone, where Back is the way
+out and a stack of tab switches would be a stack of presses to get through. A
+link's job is to name a tab, and `replaceState` does that: share it, bookmark it,
+reload it, the same tab comes back. There is no `popstate` handler because
+nothing pushes an entry for one to answer.
+
+`syncURL()` is called from **`render()`**, the one funnel every tab change goes
+through: eight places set the `tab` pref and all eight render afterwards. That
+includes `printSavedCalc()`'s borrow and restore, which is the other reason this
+replaces — a print must not leave a history entry pointing at a record nobody
+opened. It carries the **query string** over, because `?noga=1` is the analytics
+opt-out and is read on every load.
+
+At boot **a route beats the stored `tab` pref**, and a bare base URL does not:
+somebody who opened `/cover-crop` asked for that worksheet, and somebody who
+opened the plain address is coming back to where they were.
+
+`routeCopies()` in `vite.config.js` writes `index.html` again at each slug and at
+`404.html`. GitHub Pages is a static file server, so `/cover-crop` is a missing
+file and answers 404 on a **first** visit; the service worker's
+`navigateFallback` only covers a visit after one that already worked.
+`cover-crop.html` answers the extensionless request with a 200, and `404.html` is
+the backstop for a host that will not do that and for any path no longer routed.
+The plugin runs **last, after VitePWA**, so the copies stay out of the precache
+manifest — they are byte-identical to `index.html`, which is precached already
+and is what `navigateFallback` serves offline.
+
+The slug list is in **two** files, so `test/router.test.js` asserts they agree in
+both directions. A slug in `calculators.js` with no row in `vite.config.js` is a
+link that names the right tab and 404s for whoever it was sent to.
 
 ### Preferences are global; a place in a worksheet is not
 
@@ -615,8 +658,11 @@ never read from the record's stored `results`. Same rule as reopening one.
 
 `footer()` in `main.js` renders on every tab and states it in one sentence
 (`.footer-privacy`), with a `privacy` definition behind *Read more* and the same
-fact at the end of the how-to's *Saving your work*. The sentence survives
-printing and the link does not — the print block hides `.footer button`.
+fact at the end of the how-to's *Saving your work*. **None of it prints** —
+the print block hides `.footer`, not just the buttons in it. The footer is site
+furniture, and on paper the sentence reads as a caption to the figures above it
+rather than as a note about the app. The three places the promise is made are all
+on screen, which is where it is being made.
 
 **`footer()` takes no arguments, and one sentence covers every tab.** It used to
 take the tab, because the cover crops tab was a cross-origin JotForm and
@@ -749,6 +795,11 @@ Still wanted, and the dead files to clear: see *[DESIGN-NOTES.md](DESIGN-NOTES.m
 `vite.config.js` sets `base: '/SDSHC-grazing-calculator/'`. `index.html` uses
 `%BASE_URL%` for public assets — a `./`-relative URL resolves against the current
 page, which breaks on any path but the site root.
+
+`routeCopies()` in the same file writes `index.html` again at `/perennial`,
+`/cover-crop`, `/saved` and `404.html`, because Pages serves files and not
+routes. It must stay **last** in `plugins`, after VitePWA, so the copies are not
+precached. See *Every tab has an address*.
 
 `.github/workflows/deploy.yml` runs `npm test` before `npm run build`, so a
 broken model blocks the deploy. Keep it that way.
