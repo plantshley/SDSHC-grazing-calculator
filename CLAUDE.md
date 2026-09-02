@@ -784,9 +784,12 @@ offline install size: **keep every file under about 500 KB and the long side at
   every sublabel say so — **do not drop either or collapse the two notes.**
 - Stage photos default to HIDDEN (`showStagePhotos: false`).
 - A cover crop season carries `photos: []` under the same rule, flattened by
-  `registerSeasonSet()` in `setup-covercrop.js`. **All three are empty**, so all
-  three render as placeholders; the seasons are the minimum viable set and
-  filling them in is an edit to `src/data/covercrop.js`.
+  `registerSeasonSet()` in `setup-covercrop.js`. **All three are filled** — one
+  stand per season, in `public/covercrop-images/`. The cool one is portrait and
+  the other two are landscape, which is fine: the card thumbnail is a 4/3
+  `object-fit: cover` crop either way, and the viewer is `contain`. The season
+  cards are the cover crop worksheet's only photo slots; its steps carry no media
+  panel, unlike perennial's.
 
 Still wanted, and the dead files to clear: see *[DESIGN-NOTES.md](DESIGN-NOTES.md)*.
 
@@ -822,8 +825,8 @@ refreshes the APK or the user reinstalls.
 - `demand()`, `daysFrom()`, `acresFrom()` and `animalsFrom()` are exported
   separately from `calc.js` because both models use them. The two worksheets
   share their arithmetic from step 3 on and share nothing at all before it.
-- `public/covercrop-images/` is empty. Every season card and every cover crop
-  step photo renders as a labelled placeholder until it is filled in, which is a
-  data-file edit in `src/data/covercrop.js` and no code change.
+- `public/covercrop-images/` holds the three season photos and nothing else. The
+  cover crop steps have no media panel at all, so the photography wanted for them
+  in [DESIGN-NOTES.md](DESIGN-NOTES.md) needs a slot before it needs a file.
 - jsdom loads no CSS, so `el.hidden` in `test/app.test.js` reflects the attribute
   rather than what a browser paints.

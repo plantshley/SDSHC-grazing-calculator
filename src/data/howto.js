@@ -9,16 +9,16 @@ export const HOW_TO_SECTIONS = [
   {
     heading: 'What this does',
     body: [
-      'This is two SDSHC worksheets as calculators. Each works out how long a piece will feed your herd, how many acres you need, or how many animals you can run.',
-      'Perennial grazing is the Graziers Math Worksheet, for native range and tame pasture. It works from clipped forage samples, so it measures what is growing rather than reading a stocking rate off a table.',
+      'Each calculator can work out how long a piece will feed your herd, how many acres you need, or how many animals you can run.',
+      'Perennial grazing is the Graziers Math Worksheet, for native range and tame pasture. It works from clipped forage samples.',
       'Cover crop grazing is the Grazing Cover Crops Worksheet, for annual cover crops. It works from the average height of the stand.',
-      'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it. The steps and the numbers match the paper worksheets, so you can follow along with a printed copy.',
+      'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it.',
       'Every ? button explains a term. Tapping one never changes your numbers.',
     ],
   },
   {
     heading: 'Before you start: perennial grazing',
-    body: ['You will need to be out in the pasture for the first part of this. Tools and information you may need include:'],
+    body: ['Tools and information you may need include:'],
     steps: [
       'A clipping hoop or frame, and its area in square feet.',
       'Scissors or hand shears, and bags for the samples.',
@@ -41,7 +41,7 @@ export const HOW_TO_SECTIONS = [
   },
   {
     heading: 'Before you start: cover crop grazing',
-    body: ['Nothing is clipped, weighed, or dried. Production is estimated from the height of the stand. Tools and information you may need include:'],
+    body: ['Tools and information you may need include:'],
     steps: [
       'A yardstick or a tape measure.',
       'Which season dominates the standing growth: warm, cool, or a mix.',

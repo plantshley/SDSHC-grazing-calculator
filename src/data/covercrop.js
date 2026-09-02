@@ -48,16 +48,26 @@ export const SEASONS = [
     base: 1275,
     anchor: 4,
     perInch: 200,
-    photos: [],
+    photos: [
+      {
+        src: 'covercrop-images/warm-sorghum.webp',
+        alt: 'A tall sorghum-sudan stand seen from the side, wide leaves standing well above the bare residue at its base',
+      },
+    ],
   },
   {
     id: 'cool',
     label: 'Cool-season dominant',
-    sub: 'Cereal rye, oats, barley, peas, turnips, radish',
+    sub: 'Cereal rye, oats, barley, peas, clover, turnips, radish',
     base: COOL_SEASON_BASE,
     anchor: 4,
     perInch: 250,
-    photos: [],
+    photos: [
+      {
+        src: 'covercrop-images/cool-rye-clover.webp',
+        alt: 'Cereal rye standing above a dense mat of crimson clover in red bloom, wet with dew',
+      },
+    ],
   },
   {
     id: 'mix',
@@ -66,7 +76,12 @@ export const SEASONS = [
     base: 0,
     anchor: 0,
     perInch: 215,
-    photos: [],
+    photos: [
+      {
+        src: 'covercrop-images/mix-multispecies.webp',
+        alt: 'A cover crop mix in flower to the horizon: field peas in white bloom among purple phacelia, buckwheat, and brassicas',
+      },
+    ],
   },
 ]
 

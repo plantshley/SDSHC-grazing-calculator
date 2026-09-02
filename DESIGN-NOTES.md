@@ -1484,7 +1484,7 @@ Stage photos default to HIDDEN (`showStagePhotos: false`) for the same reason.
 | B/C | 5 | Grass growth stages | done, borrowed from one cool season species |
 | D | 5 | A forb through its five stages (purple coneflower) | **borrowing the grass photos, and saying so** |
 | M | 3 | How to clip, how to dry, how to weigh | empty |
-| CC-A | 3 | One stand per cover crop season: warm-dominant, cool-dominant, mixed | **empty — the minimum viable set** |
+| CC-A | 3 | One stand per cover crop season: warm-dominant, cool-dominant, mixed | **filled** |
 | CC-B | 2 | Reading average height off a yardstick in a stand | empty |
 | CC-C | 2 | A stand grazed to roughly 4" residual, ideally paired before/after | empty |
 | CC-D | 2 | Short occupation strip-grazed, against 30 days of trampling and selection | empty |
@@ -1556,9 +1556,21 @@ two steps — clipped samples dried and weighed, against a height read off a
 yardstick — and share everything after them. That split is the whole argument for
 two models over one parameterised one.
 
-`public/covercrop-images/` does not exist yet, so every season card and every
-cover crop step photo is a labelled placeholder. The minimum viable set is three,
-one per season, and adding them is an edit to `src/data/covercrop.js`.
+`public/covercrop-images/` holds the minimum viable set: three photos, one per
+season: a sorghum-sudan stand shot from the side, cereal rye over crimson clover,
+and a flowering multi-species mix. Each is a stand seen at grazing height rather
+than a plant identification shot, because the question the card is answering is
+which season this field is, not what the species looks like close up. The alt
+text describes what is in the frame rather than repeating the species list on the
+card, under the same rule as the stage photos.
+
+The cool one is portrait, the other two landscape. That is not worth fixing: the
+card thumbnail is a 4/3 `object-fit: cover` crop whatever comes in, so the grid
+is uniform, and the full viewer is `contain`, so a portrait letterboxes and shows
+whole. Cropping the file to match would throw away photo for no gain on screen.
+
+Rows CC-B to CC-D have nowhere to go yet: the cover crop steps carry no media
+panel, so those want a slot before they want a file.
 
 jsdom loads no CSS, so `el.hidden` in `test/app.test.js` reflects the attribute
 rather than what a browser paints. Anything depending on the stylesheet has to
