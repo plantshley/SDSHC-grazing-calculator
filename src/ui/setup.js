@@ -58,8 +58,6 @@ export function renderSetup(calc, returning = false) {
       <div class="setup-block">
         <p class="setup-q">2. What forage are you evaluating?</p>
         <p class="setup-hint">Pick the type that makes up most of what you clipped.
-          This chooses which row of the dry matter chart applies. Your sample already
-          holds the real mix; this only decides how it is dried down on paper.
           Tap a photo to see it large, with the species it covers.</p>
 
         <div class="forage-grid">
