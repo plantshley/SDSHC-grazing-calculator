@@ -1447,7 +1447,14 @@ test('the footer link explains at length and writes nothing', () => {
   assert.match(body, /cannot see your calculations/i)
   assert.match(body, /clearing your browsing data/i)
   assert.match(body, /Export backup/, 'and says how to keep a copy on purpose')
-  assert.match(body, /JotForm/, 'and names the one exception')
+  // The JotForm warning is NOT here. It sits on the link itself, in
+  // `.cc-jotform`, which is the one screen the link is on; a modal opened from
+  // every tab's footer would warn about another site on tabs that do not link
+  // to it. What this paragraph owes instead is the analytics carve-out, because
+  // that one is true of every tab.
+  assert.match(body, /anonymous usage/i, 'and says what is counted')
+  assert.match(body, /nothing identifies you/i)
+  assert.doesNotMatch(body, /JotForm/i, 'the link carries its own warning')
   assert.equal($$('.modal-body input, .modal-body select').length, 0, 'nothing to fill in')
   click('.modal-close')
 

@@ -327,7 +327,6 @@ export const DEFINITIONS = {
       'To keep a copy of everything at once, use "Export backup" on the Saved tab. Those files are the only things that ever leave this device, and only when you download them yourself.',
       'Because the calculations live in this browser, clearing your browsing data deletes them. Export a backup for anything you want to keep.',
       'The website counts anonymous usage like page and option selections, but numbers you type, pasture names, and saved calculations are never sent, and nothing identifies you.',
-
     ],
   },
 }
