@@ -364,7 +364,7 @@ export function compute(c = {}) {
   if (leaveMode === 'pct') {
     const harvestPct = nonNegative(c.usable?.harvestPct, 'Harvest percent', warnings)
     if (harvestPct > 100) {
-      warnings.push('Harvest percent cannot be above 100. Check the figure.')
+      warnings.push('Harvest percent cannot be above 100%. Check the figure.')
     }
     // An explicit 0 is the mirror of leaving more than is available, and needs
     // the same explanation. Without this the answers collapse to zero with
