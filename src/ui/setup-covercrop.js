@@ -147,9 +147,9 @@ export function renderSetup(calc, returning = false) {
            the thing the footer's one sentence can no longer be asked to cover. -->
       <p class="hint cc-jotform">
         This cover crop grazing calculator is still up as a
-        <a href="${JOTFORM_URL}" target="_blank" rel="noopener noreferrer">JotForm</a>
-        if you prefer that version. It needs an internet connection, and anything submitted there goes to
-        JotForm rather than staying on your device.
+        <a href="${JOTFORM_URL}" target="_blank" rel="noopener noreferrer">Jotform</a>
+        if you prefer that version. Anything submitted there goes to
+        Jotform rather than staying on your device.
       </p>
     </div>`
 }

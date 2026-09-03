@@ -9,10 +9,10 @@ export const HOW_TO_SECTIONS = [
   {
     heading: 'What this does',
     body: [
-      'Each calculator can work out how long a piece will feed your herd, how many acres you need, or how many animals you can run.',
-      'Perennial grazing is the Graziers Math Worksheet, for native range and tame pasture. It works from clipped forage samples.',
-      'Cover crop grazing is the Grazing Cover Crops Worksheet, for annual cover crops. It works from the average height of the stand.',
-      'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it.',
+      'Each calculator can work out how many days an area can feed your herd, how many acres you need, or how many animals can be supported.',
+      'Perennial grazing is used for native range and tame pasture. It works from clipped forage samples.',
+      'Cover crop grazing is used for annual cover crops. It works from the average height of the stand.',
+      'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it. Hit save to have a calucation save to the Saved tab',
       'Every ? button explains a term. Tapping one never changes your numbers.',
     ],
   },
@@ -30,7 +30,7 @@ export const HOW_TO_SECTIONS = [
   {
     heading: 'Working through perennial grazing',
     steps: [
-      'Choose the answers you want. You can pick more than one. The calculator asks only for what those answers need.',
+      'Choose the answers you want. You can pick more than one. The calculator asks for inputs required only for the selected goals.',
       'Choose the forage type that makes up most of your stand.',
       'Clip and weigh at least five samples, and enter each weight in grams.',
       'Enter your frame size and the growth stage, or your own dried sample percent.',
@@ -53,8 +53,8 @@ export const HOW_TO_SECTIONS = [
   {
     heading: 'Working through cover crop grazing',
     steps: [
-      'Choose the answers you want. You can pick more than one. The calculator asks only for what those answers need.',
-      'Choose the season that makes up most of the standing growth. The three seasons grow at different rates, so this sets the production estimate.',
+      'Choose the answers you want. You can pick more than one. The calculator asks for inputs required only for the selected goals.',
+      'Choose the season that makes up most of the standing growth. Each grows at different rates, so this sets the production estimate.',
       'Measure the average height of the stand in inches, in several places across the field.',
       'Enter the residual height you plan to leave. What stays standing is not available to graze, so it is subtracted first.',
       'Enter how long the animals will be on the piece, or type your own utilization percent.',
@@ -67,7 +67,7 @@ export const HOW_TO_SECTIONS = [
     body: [
       'Every step shows its own sub-result, so you can see where a number came from and catch any errors.',
       'The bar at the bottom of the screen keeps the running figures in view while you work.',
-      'Turn on "Show all steps" to see the whole worksheet on one page. Printing always shows all five steps, whichever one is open.',
+      'Turn on "Show all steps" to see the whole worksheet on one page.',
     ],
   },
   {
@@ -83,12 +83,12 @@ export const HOW_TO_SECTIONS = [
     body: [
       'Your entries save on this device as you type, so closing the page will not lose them.',
       'Use Save calculation to keep a named copy you can come back to, for example one per pasture per season. Once a calculation is saved, that button becomes "Edit saved" and writes your changes back to the same copy.',
-      'Clear, on a step, empties that step only. New calculation starts the calculator you are in over from its setup screen. Neither will impact anything you have saved.',
-      'Both calculators save into one list. Each card is tagged with the calculator it came from, and you can use the filter buttons on the Saved tab to show one kind at a time.',
+      '"Clear" on a step empties that step only. New calculation starts the calculator you are in over from its setup screen. Neither will impact anything you have saved.',
+      'Both calculators save into one list. Each card is tagged with the calculator it came from, and you can use the filter buttons on the Saved tab to show either Cover Crop or Perennial calculations.',
       'Save as, on a card in the Saved tab, writes one calculation out as an image, a spreadsheet, a printout, or a calculation file. Upload a calculation reads a calculation file back in alongside what you already have.',
       'Export backup, on the Saved tab, downloads every saved calculation of both kinds as one file. Restore backup reads it back and replaces everything on the tab, so the calculator says how many are arriving and how many are going before it does anything.',
       'Your calculations are not uploaded anywhere. They stay in this browser, which also means clearing your browser data will remove them. Export a backup for anything you want to keep.',
-      'The calculator does count anonymous usage: which worksheet you open, which options you pick, and how far you get. The numbers you type, your pasture names, and your saved calculations are never sent, and nothing identifies you.',
+      'The website counts anonymous usage like page and option selections, but numbers you type, pasture names, and saved calculations are never sent, and nothing identifies you.',
     ],
   },
 ]

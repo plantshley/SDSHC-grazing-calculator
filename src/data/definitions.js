@@ -254,7 +254,7 @@ export const DEFINITIONS = {
     title: 'Average height',
     body: [
       'The average height of the standing growth across the whole field, in inches.',
-      'Take readings in several places across the field rather than one reading in one spot. Do not measure the tallest seed heads, and do not skip the thin places. Both belong in the average.',
+      'Take readings in several places across the field rather than one reading in one spot. Avoid measuring just the tallest seed heads, and do not skip the thin places, as both contribute to the average.',
       'Every figure in this worksheet is derived from this one measurement, so the accuracy of the result depends on it.',
     ],
   },
@@ -263,8 +263,8 @@ export const DEFINITIONS = {
     title: 'Total air-dry production',
     body: [
       'What the whole standing crop is worth, in pounds per acre, before anything is taken off for what you will leave behind.',
-      'It is worked out from the height you measured and the estimate for the season that dominates: a figure for the first four inches, then a figure for every inch above that. The mix estimate is a flat rate for every inch instead.',
-      'Air-dry, so it is already the dry part. There is no separate dry matter step on this worksheet.',
+      'It is worked out from the height you measured and the estimate for the season that dominates.',
+      'There is no separate dry matter step on this worksheet like there is for perennial grazing.',
     ],
   },
 
@@ -273,7 +273,7 @@ export const DEFINITIONS = {
     body: [
       'The height you plan to leave standing when the animals come off.',
       '4 inches is the usual starting point. Leave more on erodible ground, in a dry year, or where you want the regrowth.',
-      'The residual keeps the soil covered and leaves the plant enough leaf area to regrow. Grazing below it costs production in the following season.',
+      'The residual keeps the soil covered and leaves the plant enough leaf area to regrow, so grazing below it may cost production in the following season.',
       'The production estimate is applied twice, once at the stand height and once at the residual height. The difference between the two is what is available to graze.',
     ],
   },
@@ -281,7 +281,7 @@ export const DEFINITIONS = {
   ccAvailableForage: {
     title: 'Available forage',
     body: [
-      'Total production minus the residual you plan to leave. Pounds per acre.',
+      'Total production minus the residual you plan to leave, pounds per acre.',
       'This is not the same as usable forage. Available forage is everything standing above your residual height. Usable forage is the share of that the animals eat, after what is trampled, fouled, or passed over.',
     ],
   },
@@ -290,9 +290,9 @@ export const DEFINITIONS = {
     title: 'Percent utilization',
     body: [
       'The share of the available forage that actually gets eaten.',
-      'The rest is trampled, fouled, bedded on, or passed over. It stays on the field as residue, but it is not feed and must not be counted as feed.',
+      'The rest is trampled, fouled, bedded on, or passed over. It stays on the field as residue, but it is not counted as feed.',
       'The shorter the animals are on one piece, the higher it goes. Half a day to a day is 80%. Two or three days is 75%. Four days is 70%, five days is 65%, and anything from six to thirty days is 60%.',
-      'Fencing off a smaller area is how the occupation period gets shortened. That is why the paddock figures on the last step are worth having.',
+      'Fencing off a smaller area will result in a shorter occupation period.',
     ],
   },
 
@@ -301,11 +301,10 @@ export const DEFINITIONS = {
   backupFile: {
     title: 'Backups and calculation files',
     body: [
-      'A backup is a .json file holding everything on the Saved tab at once: every saved calculation, its color, and the order you dragged them into. "Export backup" downloads it.',
-      'A calculation file is a .json file holding one calculation. "Save as" on a card writes one, and "Upload a calculation" reads one back in alongside what you already have. Use it to move one calculation to another device or to hand it to somebody else.',
-      'Your calculations live in this browser, so clearing your browsing data deletes them, and so does replacing the device. A backup is how you get them back.',
+      'A backup is a .json file holding everything on the Saved tab at once. "Export backup" downloads it.',
+      'A calculation file is a .json file holding one calculation. Select "Save as" on a card to download one, and "Upload a calculation" to read one back in alongside what you already have saved. Use it to move one calculation to another device or to share with others.',
+      'Your calculations live in this browser, so clearing your browsing data deletes them. You can restore them with a backup.',
       '"Restore backup" replaces everything on the Saved tab with what is in the file. Calculations saved on this device that are not in the file are deleted, and there is no undo. The calculator states how many are arriving and how many are going before it does anything.',
-      'The backup file is dated, so backups taken on different days sit beside each other in your downloads folder rather than overwriting one another.',
     ],
   },
 
@@ -322,22 +321,13 @@ export const DEFINITIONS = {
     title: 'Where your calculations live',
     body: [
       'Your figures stay on this device, in this browser. They are not sent anywhere and they are not stored on any server.',
-      'The South Dakota Soil Health Coalition cannot see your calculations. Nobody can, except somebody using this device.',
-      'Your saved calculations will not appear on your other phone or computer, and they are not shared with anyone.',
-      'To move one to another device, or to hand it to somebody else, use "Save as" on its card to download a calculation file, and "Upload a calculation" on the Saved tab to read it back in.',
+      'The South Dakota Soil Health Coalition cannot see your calculations.',
+      'Your saved calculations will not appear on your other devices (unless uploaded via a calculation file or backup restore).',
+      'To move one to another device, or to share with others, use "Save as" on its card to download a calculation file, and "Upload a calculation" on the Saved tab to read it back in.',
       'To keep a copy of everything at once, use "Export backup" on the Saved tab. Those files are the only things that ever leave this device, and only when you download them yourself.',
       'Because the calculations live in this browser, clearing your browsing data deletes them. Export a backup for anything you want to keep.',
-      'We count anonymous usage: which worksheet you open, which options you pick, and how far you get. The numbers you type, your pasture names, and your saved calculations are never sent, and nothing identifies you.',
-      // This paragraph used to carry an exception: the cover crops tab was an
-      // embedded JotForm, and submitting it sent the entries to JotForm. The
-      // native cover crop calculator replaced it, so the blanket promise above
-      // is now true of every tab and the exception is gone.
-      //
-      // The older JotForm is still linked from the cover crop setup screen, and
-      // the link says for itself where its entries go. It is a link off this
-      // site rather than a part of it, which is the difference that lets the
-      // sentence above stand unqualified.
-      'The setup screen for cover crops links to SDSHC’s older online version of that worksheet. That one is hosted by JotForm, so anything submitted there goes to them. It is a separate website, and nothing you enter in this calculator is sent to it.',
+      'The website counts anonymous usage like page and option selections, but numbers you type, pasture names, and saved calculations are never sent, and nothing identifies you.',
+
     ],
   },
 }
