@@ -371,7 +371,7 @@ export function compute(c = {}) {
     // nothing on screen saying why.
     if (availableForage > 0 && harvestPct === 0 && !isBlank(c.usable?.harvestPct)) {
       warnings.push(
-        'Havest percent cannot be 0 when there is forage available. Check the figure.'
+        'Harvest percent cannot be 0% when there is forage available. Check the figure.'
       )
     }
     const capped = Math.min(harvestPct, 100)

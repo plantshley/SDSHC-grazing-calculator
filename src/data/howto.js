@@ -12,7 +12,7 @@ export const HOW_TO_SECTIONS = [
       'Each calculator can work out how many days an area can feed your herd, how many acres you need, or how many animals can be supported.',
       'Perennial grazing is used for native range and tame pasture. It works from clipped forage samples.',
       'Cover crop grazing is used for annual cover crops. It works from the average height of the stand.',
-      'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it. Hit save to have a calucation save to the Saved tab',
+      'Pick one from the tabs at the top. Each keeps its own entries, so you can leave one part way through and come back to it. Press Save to keep a calculation on the Saved tab.',
       'Every ? button explains a term. Tapping one never changes your numbers.',
     ],
   },
