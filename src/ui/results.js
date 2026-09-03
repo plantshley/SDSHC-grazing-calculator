@@ -301,7 +301,7 @@ export function updateOutputs(
         res.sampleMin
       )} to ${FORMATTERS.grams(res.sampleMax)}. That is a wide spread for ${
         res.sampleCount
-      } samples, so the average is resting on very little. Clipping a few more spots is the cheapest accuracy in this worksheet.`
+      } samples. It is recommended to clip a few more spots to improve the accuracy of the calculation.`
     }
   }
 

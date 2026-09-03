@@ -262,10 +262,9 @@ export function exportRow() {
 export function paddockShape(calc) {
   return `
     <p class="sub-title">Paddock size for one day ${infoButton('paddock', 'Paddock')}</p>
-    <p class="hint">The acres your herd needs each day, laid out as fence. Left
-      blank it is drawn as a square, which uses the least fence for the area. If
+    <p class="hint">The acres your herd needs each day, laid out as fence. If
       you are running off an existing fence line, enter the side you already have
-      and the other one is worked out for you.</p>
+      and the other one is calculated. If left blank, it is drawn as a square.</p>
 
     <div class="paddock-row">
       ${numField({

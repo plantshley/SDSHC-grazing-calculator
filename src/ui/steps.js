@@ -194,7 +194,7 @@ function step2(calc) {
   const DM_MODES = [
     { key: 'stage', label: 'Use the chart', sub: 'Pick the growth stage you clipped at' },
     { key: 'own', label: 'I dried my own', sub: 'Enter the percentage you measured' },
-    { key: 'mix', label: 'Weighted mix', sub: 'Two or three types, each a real share' },
+    { key: 'mix', label: 'Weighted mix', sub: 'Two or more types make up a share' },
   ]
 
   return `
@@ -351,7 +351,7 @@ function stagePicker(calc) {
 function mixBuilder(calc) {
   const rows = calc.dm?.mix ?? []
   return `
-    <p class="hint">For a stand where two or three types each make up a real share.
+    <p class="hint">For a stand where two or more types each make up a real share.
       ${esc('Shares are treated as weights, so they do not have to total exactly 100.')}
       ${infoButton('mixBuilder', 'Weighted mix')}</p>
 
@@ -412,9 +412,9 @@ function mixBuilder(calc) {
 function step3(calc) {
   const mode = calc.usable?.mode ?? 'lbs'
   return `
-    <p class="hint">Some forage has to stay on the ground. It armors the soil, keeps
-      roots alive, and lets the plant recover. Say how much you are leaving, either
-      as pounds per acre or as the share you plan to take.</p>
+    <p class="hint">Leaving some forage on the ground armors the soil, keeps
+      roots alive, and lets the plant recover. Say how much you are leaving in
+      pounds per acre, or say how much you plan to take as a percentage.</p>
 
     <div class="inline-row">
       ${modePill({
@@ -443,7 +443,7 @@ function step3(calc) {
               value: calc.usable?.harvestPct,
               suffix: '%',
               info: 'harvestPct',
-              hint: 'Take half and leave half is 50%. Shorter grazing periods raise this.',
+              hint: 'Take half and leave half is 50%. Shorter grazing periods usually mean a higher percent can be taken.',
             })
       }
     </div>

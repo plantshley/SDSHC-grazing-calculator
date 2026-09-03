@@ -1837,6 +1837,6 @@ if (!storageAvailable()) {
   const note = document.createElement('p')
   note.className = 'offline-note'
   note.textContent =
-    'This browser is not allowing storage for this site, so your entries will be lost when you close the page. Private browsing is the usual cause.'
+    'This browser is not allowing storage for this site, so your entries will be lost when you close the page. Check to see if you are in Private Browsing.'
   app.prepend(note)
 }

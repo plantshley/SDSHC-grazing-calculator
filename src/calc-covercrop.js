@@ -72,7 +72,7 @@ export const GOALS = [
     key: 'days',
     label: 'Number of grazing days',
     short: 'Grazing days',
-    sub: 'You know the acres and your herd. Work out how long they can stay.',
+    sub: 'You know the acres and your herd. Work out how long they can graze.',
   },
   {
     key: 'acres',
@@ -122,7 +122,7 @@ export const INPUT_LABELS = {
   season: 'Which season the cover crop is dominated by',
   height: 'Average height of the stand, in inches',
   residualHeight: 'The residual height you plan to leave, in inches',
-  utilization: 'Percent utilization, or how long the animals stay on the piece',
+  utilization: 'Percent utilization, or how long the animals graze on the piece',
   animalWeight: 'Average weight of your animals',
   bodyWeightPct: 'Percent of body weight eaten per day (2.6% if unsure)',
   numAnimals: 'Number of animals in the herd',
@@ -168,7 +168,7 @@ export function productionAt(height, season, label, warnings) {
   }
   if (h < anchor) {
     warnings?.push(
-      `${label} of ${h} inches is below the ${anchor} inches this estimate starts from, so it cannot be worked out. It is counted as 0 here.`
+      `${label} of ${h} inches is below the ${anchor} inches this estimate starts from, so it cannot be calculated. It is counted as 0 here.`
     )
     return 0
   }
@@ -245,7 +245,7 @@ export function computeCoverCrop(c = {}) {
     isBlank(c.utilization?.periodPct)
   ) {
     warnings.push(
-      `"${c.utilization.periodKey}" is not an occupation period this calculator knows. Choose it again.`
+      `"${c.utilization.periodKey}" is not an occupation period this calculator can use. Choose again.`
     )
   }
   const rawUtil = nonNegative(
@@ -254,7 +254,7 @@ export function computeCoverCrop(c = {}) {
     warnings
   )
   if (rawUtil > 100) {
-    warnings.push('Utilization cannot be above 100%. Nothing would be left behind.')
+    warnings.push('Utilization cannot be above 100%. Check the figure.')
   }
   const utilizationPct = Math.min(rawUtil, 100)
   const usableForage = finite(availableForage * (utilizationPct / 100))

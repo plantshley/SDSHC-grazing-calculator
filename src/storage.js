@@ -485,7 +485,7 @@ export function importBackupJSON(text) {
     return {
       ok: false,
       error: looksLikeCalculation(parsed)
-        ? 'That file holds one calculation, not a backup. Use "Upload a calculation" to bring it in alongside what you already have.'
+        ? 'That file holds one calculation, not a backup. Use "Upload a calculation" to add it alongside what you already have.'
         : 'That file is not a backup of your saved calculations.',
     }
   }

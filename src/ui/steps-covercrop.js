@@ -74,7 +74,7 @@ function estimateLine(calc) {
 function step1(calc) {
   return `
     <p class="hint">Measure the standing growth in several places across the field
-      and use the average. Do not measure the tallest seed heads, and do not skip
+      and use the average. Do not measure just the tallest seed heads, and do not skip
       the thin spots.</p>
 
     ${estimateLine(calc)}
@@ -148,7 +148,7 @@ function step3(calc) {
   return `
     <p class="hint">Utilization is the share of the available forage the animals
       eat. It rises as the occupation period gets shorter. Fencing off a smaller
-      area is how the occupation period is shortened.</p>
+      area will shorten the occupation period.</p>
 
     <div class="dm-split">
       <!-- The pill gets a label row of its own, and that is what holds it level
@@ -164,7 +164,7 @@ function step3(calc) {
           action: 'set-util-mode',
           current: mode,
           modes: [
-            { key: 'period', label: 'From how long they stay' },
+            { key: 'period', label: 'From how long they graze' },
             { key: 'own', label: 'Enter a percent' },
           ],
         })}
@@ -178,7 +178,7 @@ function step3(calc) {
               value: calc.utilization?.ownPct,
               suffix: '%',
               info: 'ccUtilization',
-              hint: 'The worksheet works in the 60% to 80% range.',
+              hint: 'The 60% to 80% range is typical.',
             })
           : periodPicker(calc)
       }
@@ -267,7 +267,7 @@ function step4(calc) {
       needsHerd
         ? ''
         : `<p class="hint">Your herd size is not needed here. It is what
-             ${esc('"How many animals can I run?"')} works out for you.</p>`
+             ${esc('"How many animals can I graze?"')} works out for you.</p>`
     }
 
     <div class="results">

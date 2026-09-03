@@ -60,7 +60,7 @@ export const GOALS = [
     key: 'days',
     label: 'Number of grazing days',
     short: 'Grazing days',
-    sub: 'You know your pasture and your herd. Work out how long they can stay.',
+    sub: 'You know your pasture and your herd. Work out how long they can graze.',
   },
   {
     key: 'acres',
@@ -364,14 +364,14 @@ export function compute(c = {}) {
   if (leaveMode === 'pct') {
     const harvestPct = nonNegative(c.usable?.harvestPct, 'Harvest percent', warnings)
     if (harvestPct > 100) {
-      warnings.push('Harvest percent cannot be above 100. Nothing would be left behind.')
+      warnings.push('Harvest percent cannot be above 100. Check the figure.')
     }
     // An explicit 0 is the mirror of leaving more than is available, and needs
     // the same explanation. Without this the answers collapse to zero with
     // nothing on screen saying why.
     if (availableForage > 0 && harvestPct === 0 && !isBlank(c.usable?.harvestPct)) {
       warnings.push(
-        'A harvest of 0% means nothing is grazed, so there is nothing to work out. Check the harvest percent.'
+        'Havest percent cannot be 0 when there is forage available. Check the figure.'
       )
     }
     const capped = Math.min(harvestPct, 100)
@@ -522,7 +522,7 @@ function resolveDryMatter(c, warnings) {
   if (mode === 'own') {
     const own = nonNegative(c.dm?.ownPct, 'Dry matter percent', warnings)
     if (own > 100) {
-      warnings.push('Dry matter cannot be above 100%. A dried sample cannot weigh more than it did wet.')
+      warnings.push('Dry matter cannot be above 100%.')
       return 100
     }
     return own
@@ -532,7 +532,7 @@ function resolveDryMatter(c, warnings) {
     const blended = blendDryMatter(c.dm?.mix, warnings)
     if (blended.shareTotal > 0 && Math.abs(blended.shareTotal - 100) > 0.5) {
       warnings.push(
-        `Your stand percentages total ${Math.round(blended.shareTotal)}%, not 100%. The blend still works, but check for a row you meant to add.`
+        `Your stand percentages total ${Math.round(blended.shareTotal)}%, not 100%. The mix still works, but check for a row you meant to add.`
       )
     }
     return Math.min(blended.pct, 100)

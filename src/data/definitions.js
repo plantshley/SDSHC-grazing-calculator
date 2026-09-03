@@ -104,7 +104,7 @@ export const DEFINITIONS = {
   mixBuilder: {
     title: 'Weighted mix',
     body: [
-      'For a stand where two or three forage types each make up a clear share.',
+      'For a stand where two or more forage types each make up a clear share.',
       'Enter each type, its growth stage, and roughly what percent of the stand it is. The result is each dry matter figure weighted by its share.',
       'The shares are treated as weights, so 60 and 30 gives the same answer as 67 and 33. If they do not total 100 the calculator still works, and it will say so in case you meant to add another row.',
     ],

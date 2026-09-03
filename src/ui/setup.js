@@ -58,7 +58,7 @@ export function renderSetup(calc, returning = false) {
       <div class="setup-block">
         <p class="setup-q">2. What forage are you evaluating?</p>
         <p class="setup-hint">Pick the type that makes up most of what you clipped.
-          Tap a photo to see it large, with the species it covers.</p>
+          Tap a photo to see it large.</p>
 
         <div class="forage-grid">
           ${FORAGE_TYPES.map(

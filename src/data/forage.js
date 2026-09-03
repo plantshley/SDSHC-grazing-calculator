@@ -114,12 +114,12 @@ const FRAME = {
 export const STAGE_PHOTOS = {
   coolSeason: {
     species: SQUIRRELTAIL,
-    note: `The photos are ${SQUIRRELTAIL.toLowerCase()}. Every grass row of the chart uses these same five stages, so read them for what the plant is doing, not for the date.`,
+    note: `Note: the photos are ${SQUIRRELTAIL.toLowerCase()}. Every grass row of the chart uses these same five stages, so read them for what the plant is doing rather than for the date.`,
     photos: [FRAME.growthInit, FRAME.bootLate, FRAME.seed, FRAME.seedShatter, FRAME.dormant],
   },
   forb: {
     species: SQUIRRELTAIL,
-    note: `The photos are ${SQUIRRELTAIL.toLowerCase()}, a grass, standing in until forbs are photographed. Read them for how far through the season the stand is, not for what a forb looks like.`,
+    note: `Note: the photos are ${SQUIRRELTAIL.toLowerCase()}, a grass, standing in until forbs are photographed. Read them for how far through the season the stand is rather than comparing how your stand looks.`,
     photos: [FRAME.growthInit, FRAME.flowering, FRAME.seed, FRAME.seedShatter, FRAME.dormant],
   },
 }
