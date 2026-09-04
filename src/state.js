@@ -12,7 +12,7 @@
  * deliberate zero and quietly halve results.
  */
 
-import { SCHEMA_VERSION, DEFAULT_BODY_WEIGHT_PCT } from './calc.js'
+import { SCHEMA_VERSION, DEFAULT_BODY_WEIGHT_PCT, DEFAULT_AREA_UNIT } from './calc.js'
 import { dryMatterFor } from './data/forage.js'
 import { DEFAULT_CALC_TYPE } from './schema.js'
 import { makeId } from './ids.js'
@@ -53,8 +53,12 @@ export function newCalculation(name = 'My perennial calculation') {
      * a figure the user never entered and never checked, and it silently
      * multiplies every sample weight by 100. Blank means the frame is an
      * outstanding question, which is what answered() in calc.js now reports.
+     *
+     * The unit is what the BOX is in, not what the model works in. A record
+     * written before the option existed carries none, and areaUnit() in calc.js
+     * reads a missing one as square feet.
      */
-    frame: { key: 'custom', customArea: '' },
+    frame: { key: 'custom', customArea: '', areaUnit: DEFAULT_AREA_UNIT },
     dm: {
       mode: 'stage',
       /** For a single forage type: which stage. */

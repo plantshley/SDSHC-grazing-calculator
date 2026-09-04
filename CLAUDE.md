@@ -260,6 +260,14 @@ inside `:has(.step-pill:not([hidden]))`, so a head with nothing to say does not
 pay a row of `gap` for an empty line. The indent is a **measured constant** —
 chevron, gap, badge, gap — because CSS cannot ask the badge how wide it came out.
 
+The three how-to panels — clip, dry, weigh — are **one dialog that pages**,
+`openHowTo()` in `steps.js`. They are three parts of one job done in order, so
+the arrows and the left/right keys move between them and **wrap**, and
+`setModalTitle()` moves the modal head with the panel. A heading left behind is
+page two read under page one's title. The key hook is registered through
+`addModalKeyHook()`, so it lives and dies with the dialog, and `releaseHowTo()`
+hangs off the same overlay watcher as the photo viewer.
+
 ### A step change lands on the work, not on the top of the page
 
 `scrollToWork(sel)` in `main.js` is what **Next**, **Back**, a **stepper circle**,
@@ -343,6 +351,44 @@ Leaving a preset for Other frame **empties the box**, and only then: pressing
 Other frame while already on it must not wipe a measurement that was typed in.
 The state that leaves behind is the app's own starting state, so every answer
 goes back to a dash until a real measurement arrives.
+
+`frame.areaUnit` is what the **box** is in, `sqft` or `sqin` from `AREA_UNITS`,
+and the model divides by `perSqFt`. A tape reads inches, so a homemade frame is
+"36 by 36" long before it is 9 sq ft. Four rules, and the case for each is that
+the alternative is silent:
+
+- **The suffix IS the control.** `field()` takes a `suffixSelect` and renders the
+  unit as a `<select>` where the `sq ft` label used to sit, against the number it
+  applies to. It carries no `data-path`, deliberately: `main.js` writes a select
+  to its path **before** the descriptor sees the change, and a unit already
+  overwritten cannot be converted from. It is handled by `data-action` in
+  `handleChange()`, the same as the growth stage select, and it says its own
+  `mode_select` because `TRACKED_ACTIONS` is a **click** allowlist.
+- Switching units **converts** the figure, it does not reinterpret it.
+  `convertArea()` rounds at four decimals so a round trip lands back on what was
+  typed. Reading "2" as 2 sq in the moment the unit changes moves the answer by a
+  factor of 144 with nothing on screen saying so.
+- Choosing a **preset puts the box back into square feet**. The presets are
+  stated in sq ft on the pill, in the hint, and on the paper worksheet, and 0.96
+  shown as 138.24 sq in agrees with no copy of it. Paper parity again.
+- `syncFramePill()` compares against the preset **as shown**, converted into the
+  live unit. Against the raw 0.96 it reads the app's own figure as a number of
+  the user's own and moves the pill to Other frame on the next keystroke.
+
+A unit key nothing matches is **unanswered**: warn and work nothing out, the
+same shape as an unknown `frame.key` one branch up. A missing one is `sqft` —
+every record written before the option existed carries none.
+
+`MIN_PLAUSIBLE_FRAME_SQ_FT` (0.05) and `MAX_PLAUSIBLE_FRAME_SQ_FT` (100) are the
+unit option's own `IMPLAUSIBLE_HEIGHT_IN`, and the same **query, not a limit**: it
+warns and works the answer out. The slip it catches is "2" typed while the box
+reads sq in — a frame an inch and a half across, a multiplier of nearly 7,000
+lbs/ac per gram, and the only figure on this sheet nothing else can question,
+since 2 is positive, finite, and an ordinary number of square feet. Both bounds
+sit far outside every real frame (the two hoops, a square metre quadrat at 10.76,
+a thousandth-acre plot at 43.56) under the same rule as the twelve-foot stand: **a
+warning that fires on real work is worse than no warning.** A blank box returns
+before the check, so an unanswered question is never queried as an implausible one.
 
 ### Exhibit 4-2 lives in one file
 

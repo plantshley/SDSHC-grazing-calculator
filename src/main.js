@@ -73,10 +73,10 @@ import {
 import { initAnalytics, track, trackOnce, resetOnce, setUserProps } from './analytics.js'
 
 import { esc } from './ui/format.js'
-import { openInfo, openGuide, openModal, closeModal } from './ui/modals.js'
+import { openInfo, openGuide, closeModal } from './ui/modals.js'
 import { openPhoto, releasePhotoViewer } from './ui/photo.js'
 import { renderStepper } from './ui/stepper.js'
-import { howToPanel } from './ui/steps.js'
+import { openHowTo, releaseHowTo } from './ui/steps.js'
 import { renderStickyBar, updateOutputs } from './ui/results.js'
 import {
   renderSaved,
@@ -1241,11 +1241,9 @@ function handleAction(action, btn) {
       render()
       break
     }
-    case 'open-howto': {
-      const panel = howToPanel(btn.dataset.howto)
-      if (panel) openModal(panel.title, panel.html, { wide: true })
+    case 'open-howto':
+      openHowTo(btn.dataset.howto)
       break
-    }
 
     /* photos — the viewer is the same control whatever it is showing */
     case 'open-photo':
@@ -1775,7 +1773,7 @@ document.addEventListener('click', (e) => {
 })
 
 /**
- * Drop the photo viewer's state whenever the modal closes.
+ * Drop the state of whichever modal pages through content, when it closes.
  *
  * It closes four ways: the X, the backdrop, Escape, and another modal opening
  * over it. Watching the overlay's class covers all four without each of them
@@ -1783,7 +1781,10 @@ document.addEventListener('click', (e) => {
  */
 const overlayWatcher = new MutationObserver(() => {
   const overlay = document.querySelector('.overlay')
-  if (overlay && !overlay.classList.contains('open')) releasePhotoViewer()
+  if (overlay && !overlay.classList.contains('open')) {
+    releasePhotoViewer()
+    releaseHowTo()
+  }
 })
 
 /* ──────────────────────────────── boot ─────────────────────────────────── */

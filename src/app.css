@@ -1492,6 +1492,82 @@ body:has(.sticky-bar) {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- a unit chosen inside the box --------------------------------------- */
+
+/* The frame area is a figure whose UNIT is an answer, so the suffix is the
+   control rather than a label beside it. styles.css owns .affix and .suffix
+   and is shared with two other tools, so everything that makes this one a
+   select is here.
+
+   Full height, not inset: styles.css puts a 44px minimum on every input and
+   select for a reason, and a control that shrank to the text it replaced
+   would drop the target to about half that. `min-height: 0` is what lets the
+   44px come from the box it sits in instead of from the select itself, which
+   would otherwise grow the row.
+
+   It sits at --affix-gap, which .has-spin holds at 28px, so it clears the
+   spinner the browser draws at the right edge rather than fighting it for the
+   same clicks. */
+/* The box has to be told how much of its right-hand end the control takes, and
+   for a select that CANNOT be counted off the label the way .has-suffix counts a
+   text suffix: the browser draws an arrow of its own, and the type is 16px on a
+   phone and smaller on a desktop. So the width is stated here and the padding is
+   worked out from it. Both live or die together — this is one measurement written
+   twice, not two numbers to tune. */
+.input-wrap:has(.suffix-select) {
+  --suffix-w: 80px;
+}
+
+.input-wrap:has(.suffix-select) input {
+  padding-right: calc(var(--suffix-w) + var(--affix-gap) + 6px);
+}
+
+.suffix-select {
+  pointer-events: auto;
+  top: 0;
+  bottom: 0;
+  width: var(--suffix-w);
+  min-height: 0;
+  padding: 0 2px 0 7px;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.suffix-select:hover {
+  color: var(--brand-ink);
+  background: var(--olive-bg);
+}
+
+/* 16px on a phone, and no smaller. styles.css sets that on every input and
+   select for one reason written up beside it: iOS Safari ZOOMS THE PAGE when a
+   field under 16px takes focus, and it does not zoom back out. A select is a
+   field for that purpose. So the reduction is scoped to pointers that hover,
+   which is desktop, exactly as the mono type rules do it — and the reservation
+   above comes down with it, because it is a measurement of this control. */
+@media (hover: hover) {
+  .input-wrap:has(.suffix-select) {
+    --suffix-w: 66px;
+  }
+
+  .suffix-select {
+    font-size: 13px;
+  }
+}
+
+/* The arrow is drawn by the browser, and for a LIGHT page unless it is told
+   otherwise — on a dark card it came out a dark chevron on a dark ground. Same
+   fix styles.css makes for a number input's spinner, and scoped the same way. */
+@media screen {
+  [data-theme="dark"] .suffix-select {
+    color-scheme: dark;
+  }
+}
+
 /* ---- instructional panels ----------------------------------------------- */
 
 /* stretch, not start: the three captions are different lengths and one of them
@@ -1595,6 +1671,20 @@ body:has(.sticky-bar) {
   border-radius: 6px;
   border: 1px solid var(--border);
   font-size: 13px;
+}
+
+/* Clip, dry, and weigh are three parts of one job, so the modal pages between
+   them. The row sits below the panel and at the right-hand end, where a "next"
+   control is looked for, and a rule above it separates paging from the steps it
+   pages through. */
+.howto-page {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 /* ---- photos ------------------------------------------------------------- */
@@ -1784,7 +1874,8 @@ body:has(.sticky-bar) {
   gap: 4px;
 }
 
-.pv-btn {
+.pv-btn,
+.howto-page-btn {
   width: 44px;
   height: 44px;
   min-height: 44px;
@@ -1798,17 +1889,20 @@ body:has(.sticky-bar) {
   cursor: pointer;
 }
 
-.pv-btn:hover:not(:disabled) {
+.pv-btn:hover:not(:disabled),
+.howto-page-btn:hover:not(:disabled) {
   border-color: var(--sky);
   color: var(--sky);
 }
 
-.pv-btn:disabled {
+.pv-btn:disabled,
+.howto-page-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.pv-count {
+.pv-count,
+.howto-count {
   font-size: 12.5px;
   color: var(--muted);
   min-width: 58px;
@@ -3208,6 +3302,7 @@ body:has(.sticky-bar) {
 [data-font="mono"] .saved-filter-hint,
 [data-font="mono"] .saved-meta,
 [data-font="mono"] .pv-count,
+[data-font="mono"] .howto-count,
 [data-font="mono"] .pick-sub,
 [data-font="mono"] .sticky-links .tip {
   font-size: 11px;
@@ -3334,6 +3429,16 @@ body:has(.sticky-bar) {
 
   .step-num {
     border-color: #999;
+  }
+
+  /* The unit is part of the figure, so it prints — as the label it replaced,
+     not as a control. .mode-pill is hidden outright two rules up because a
+     segmented control says nothing on paper that the box below it does not;
+     this one is the only place the unit is written down. */
+  .suffix-select {
+    appearance: none;
+    border-left: none;
+    color: inherit;
   }
 
   .box,

@@ -52,6 +52,77 @@ export const FRAMES = [
   { key: 'custom', label: 'Other frame', area: null, multiplier: null },
 ]
 
+/**
+ * The units a frame of your own can be measured in.
+ *
+ * A homemade frame is measured with a tape and a tape reads inches, so a square
+ * yard of PVC comes out as "36 by 36" long before it comes out as 9 sq ft. The
+ * division by 144 is arithmetic the calculator can do, and doing it in your head
+ * before you can use the box is where the wrong answer gets typed.
+ *
+ * Square feet stays first and stays the default: it is what the printed
+ * worksheet asks for and what both hoop presets are stated in.
+ */
+export const AREA_UNITS = [
+  { key: 'sqft', label: 'sq ft', perSqFt: 1 },
+  { key: 'sqin', label: 'sq in', perSqFt: 144 },
+]
+
+export const DEFAULT_AREA_UNIT = 'sqft'
+
+/**
+ * The range a clipping frame plausibly falls in, in square feet.
+ *
+ * A plausibility query and not a limit, the same as IMPLAUSIBLE_HEIGHT_IN on
+ * the other model: it says the figure is worth checking and works the answer
+ * out anyway.
+ *
+ * The failure it catches is the one the unit option introduced. "2" typed
+ * while the box reads sq in is a frame an inch and a half across, a multiplier
+ * of nearly 7,000 lbs/ac per gram, and every figure downstream of it looks
+ * like a figure. Nothing else on the sheet would query it: 2 is positive,
+ * finite, and a perfectly ordinary number of square feet.
+ *
+ * Both bounds sit far outside any real frame on purpose, because a warning
+ * that fires on real work is worse than no warning. The two NRCS hoops are
+ * 0.96 and 1.92, a square metre quadrat is 10.76, and a thousandth-acre plot
+ * is 43.56 — all of them well inside. 0.05 sq ft is a frame under three inches
+ * square, and 100 sq ft is a ten foot square. Neither is a clipping frame.
+ */
+export const MIN_PLAUSIBLE_FRAME_SQ_FT = 0.05
+export const MAX_PLAUSIBLE_FRAME_SQ_FT = 100
+
+/**
+ * A unit's descriptor, or undefined for a key nothing matches.
+ *
+ * Blank resolves to square feet rather than to nothing: every record written
+ * before this option existed carries no unit at all, and all of them are in
+ * square feet. Same load-bearing fallback as calcType, one field down.
+ */
+export function areaUnit(key) {
+  return AREA_UNITS.find((u) => u.key === (key || DEFAULT_AREA_UNIT))
+}
+
+/**
+ * A typed area from one unit into the other, as a string for the box.
+ *
+ * Switching units CONVERTS rather than reinterprets. Reading "2" as 2 sq in the
+ * moment the pill is pressed changes the answer by a factor of 144 with nothing
+ * on screen saying so; converting it to 288 keeps the frame the same size, which
+ * is what pressing a unit is a statement about.
+ *
+ * Blank stays blank, because an empty box is an outstanding question in either
+ * unit, and the figure is rounded off at four decimals so a round trip lands
+ * back on the number that was typed rather than on its float noise.
+ */
+export function convertArea(value, from, to) {
+  const a = areaUnit(from)
+  const b = areaUnit(to)
+  if (!a || !b || a === b || isBlank(value)) return value
+  const n = num(value)
+  return String(Number((finite((n / a.perSqFt) * b.perSqFt)).toFixed(4)))
+}
+
 /** The worksheet's default intake. NRPH puts the usual range at 2.5% to 3%. */
 export const DEFAULT_BODY_WEIGHT_PCT = 2.6
 
@@ -243,7 +314,7 @@ export function averageSample(samples, warnings) {
 /* ─────────────────────────────── step 2 ────────────────────────────────── */
 
 /** Pounds per acre from one gram of sample, for the chosen frame. */
-export function frameMultiplier(frameKey, customArea, warnings) {
+export function frameMultiplier(frameKey, customArea, warnings, unitKey) {
   const preset = FRAMES.find((f) => f.key === frameKey)
   if (preset && preset.multiplier != null) return preset.multiplier
 
@@ -254,8 +325,33 @@ export function frameMultiplier(frameKey, customArea, warnings) {
     return 0
   }
 
-  const area = nonNegative(customArea, 'Frame area', warnings)
+  // A unit this build cannot look up is the same case one line up, and gets the
+  // same answer: say so and work nothing out. Reading it as square feet would
+  // be a plausible figure computed off a measurement in something else.
+  const unit = areaUnit(unitKey)
+  if (!unit) {
+    warnings?.push(
+      `"${unitKey}" is not a unit this calculator knows. Choose square feet or square inches.`
+    )
+    return 0
+  }
+
+  const measured = nonNegative(customArea, 'Frame area', warnings)
+  const area = safeDiv(measured, unit.perSqFt)
   if (area <= 0) return 0
+
+  // Flagged, not refused. A blank box has already returned above, so this
+  // only ever queries a measurement somebody actually typed.
+  if (area < MIN_PLAUSIBLE_FRAME_SQ_FT || area > MAX_PLAUSIBLE_FRAME_SQ_FT) {
+    const bound =
+      area < MIN_PLAUSIBLE_FRAME_SQ_FT
+        ? `under ${MIN_PLAUSIBLE_FRAME_SQ_FT} sq ft, smaller`
+        : `over ${MAX_PLAUSIBLE_FRAME_SQ_FT} sq ft, larger`
+    warnings?.push(
+      `A frame area of ${measured} ${unit.label} is ${bound} than any clipping frame. Check the figure and the unit.`
+    )
+  }
+
   return safeDiv(GRAMS_TO_LBS_PER_ACRE, area)
 }
 
@@ -349,7 +445,12 @@ export function compute(c = {}) {
 
   /* Step 2 */
   nextStep()
-  const multiplier = frameMultiplier(c.frame?.key, c.frame?.customArea, warnings)
+  const multiplier = frameMultiplier(
+    c.frame?.key,
+    c.frame?.customArea,
+    warnings,
+    c.frame?.areaUnit
+  )
   const totalProduction = finite(sample.avgGrams * multiplier)
 
   const dryMatterPct = resolveDryMatter(c, warnings)

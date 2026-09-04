@@ -22,7 +22,8 @@ import {
   pickCard,
 } from './fields.js'
 import { stageThumb } from './table.js'
-import { FRAMES } from '../calc.js'
+import { openModal, setModalTitle, addModalKeyHook } from './modals.js'
+import { FRAMES, AREA_UNITS, areaUnit } from '../calc.js'
 import { INSTRUCTIONS } from '../data/instructions.js'
 import { FORAGE_TYPES, MIXED, STAGE_PHOTOS, stagesFor, forageById } from '../data/forage.js'
 import { getPref } from '../prefs.js'
@@ -151,21 +152,86 @@ function step1(calc) {
  * Media on the left, numbered steps on the right. A collapsed panel above the
  * weight boxes was competing for the top of the step with the thing the step is
  * for, and it could not show a video at a useful size in the width it had.
+ *
+ * The three panels are three parts of ONE job, done in order, so the modal
+ * pages between them. Somebody who has just read how to clip wants how to dry
+ * next, and closing the dialog to hunt for the second card is a step the arrows
+ * remove. Paging wraps, the same as the photo viewer, because three panels is a
+ * loop rather than a list with an end to fall off.
  */
-export function howToPanel(id) {
-  const panel = INSTRUCTIONS.find((p) => p.id === id)
-  if (!panel) return null
+let howTo = null
 
-  return {
-    title: panel.title,
-    html: `
-      <div class="howto-modal">
-        <div class="howto-modal-media">${mediaSlot(panel)}</div>
-        <ol class="howto-steps">
-          ${panel.body.map((line) => `<li>${esc(line)}</li>`).join('')}
-        </ol>
-      </div>`,
-  }
+export function openHowTo(id) {
+  const start = INSTRUCTIONS.findIndex((p) => p.id === id)
+  if (start < 0) return
+
+  const body = openModal(
+    INSTRUCTIONS[start].title,
+    `<div class="howto-modal" data-howto-panel></div>
+     <div class="howto-page">
+       <button type="button" class="howto-page-btn" data-howto-nav="prev"
+         aria-label="Previous instructions">&#8249;</button>
+       <span class="howto-count" role="status" aria-live="polite" data-howto-count></span>
+       <button type="button" class="howto-page-btn" data-howto-nav="next"
+         aria-label="Next instructions">&#8250;</button>
+     </div>`,
+    { wide: true }
+  )
+
+  howTo = { body, i: start }
+
+  body.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-howto-nav]')
+    if (btn) stepHowTo(btn.dataset.howtoNav === 'next' ? 1 : -1)
+  })
+
+  // Arrows belong to whatever modal is open, and only while it is open. There
+  // is no text box in this dialog, so left and right are free to mean paging.
+  addModalKeyHook((e) => {
+    if (!howTo) return
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      stepHowTo(-1)
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      stepHowTo(1)
+    }
+  })
+
+  showHowTo(start)
+}
+
+function showHowTo(i) {
+  if (!howTo) return
+  const panel = INSTRUCTIONS[i]
+  howTo.i = i
+
+  howTo.body.querySelector('[data-howto-panel]').innerHTML = `
+    <div class="howto-modal-media">${mediaSlot(panel)}</div>
+    <ol class="howto-steps">
+      ${panel.body.map((line) => `<li>${esc(line)}</li>`).join('')}
+    </ol>`
+
+  // The heading is in the modal head, not in the body this module owns, so it
+  // has to be moved deliberately. Left behind, page two reads under page one's
+  // title, which is worse than no title at all.
+  setModalTitle(panel.title)
+  howTo.body.querySelector('[data-howto-count]').textContent = `${i + 1} of ${INSTRUCTIONS.length}`
+
+  const single = INSTRUCTIONS.length < 2
+  howTo.body.querySelector('[data-howto-nav="prev"]').disabled = single
+  howTo.body.querySelector('[data-howto-nav="next"]').disabled = single
+}
+
+function stepHowTo(delta) {
+  if (!howTo || INSTRUCTIONS.length < 2) return
+  const n = INSTRUCTIONS.length
+  showHowTo((howTo.i + delta + n) % n)
+}
+
+/** Called by main.js when the modal closes, so the next open starts clean. */
+export function releaseHowTo() {
+  howTo = null
 }
 
 /** A photo or video when there is one, a labelled placeholder until then. */
@@ -190,6 +256,7 @@ function step2(calc) {
   const frameKey = calc.frame?.key ?? 'custom'
   const mode = calc.dm?.mode ?? 'stage'
   const preset = FRAMES.find((f) => f.key === frameKey)
+  const unit = areaUnit(calc.frame?.areaUnit) ?? AREA_UNITS[0]
 
   const DM_MODES = [
     { key: 'stage', label: 'Use the chart', sub: 'Pick the growth stage you clipped at' },
@@ -224,11 +291,23 @@ function step2(calc) {
         label: 'Frame area',
         path: 'frame.customArea',
         value: calc.frame?.customArea,
-        suffix: 'sq ft',
-        step: '0.01',
+        // The unit is an answer, so the suffix IS the control: it sits against
+        // the number it applies to, where the label it replaced was, rather than
+        // on a second pill elsewhere on a row that already carries one.
+        suffixSelect: {
+          action: 'set-frame-unit',
+          value: unit.key,
+          ariaLabel: 'Units the frame area is measured in',
+          options: AREA_UNITS.map((u) => ({ key: u.key, label: u.label })),
+        },
+        // Square inches come off a tape measure as whole numbers. Square feet
+        // do not, and 0.96 needs two places to exist at all.
+        step: unit.key === 'sqin' ? '1' : '0.01',
         hint: preset?.area
           ? `The ${preset.label.toLowerCase()} measures ${preset.area} sq ft. Type your own to use a different frame.`
-          : 'Measure the inside of your frame. A 12 by 12 inch frame is 1 square foot.',
+          : unit.key === 'sqin'
+            ? 'Measure the inside of your frame and multiply the two sides. A 12 by 12 inch frame is 144 square inches.'
+            : 'Measure the inside of your frame. A 12 by 12 inch frame is 1 square foot.',
       })}
     </div>
 

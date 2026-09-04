@@ -137,6 +137,19 @@ export function openModal(title, bodyHtml, { wide = false } = {}) {
   return body
 }
 
+/**
+ * Retitle the dialog that is already open.
+ *
+ * A modal that pages between panels — the how-to instructions do — has to move
+ * its heading with the panel, and the heading is in the modal head rather than
+ * in the body the caller owns. Read-only by the same rule as everything else
+ * here: it writes a title and nothing else.
+ */
+export function setModalTitle(title) {
+  if (!overlay?.classList.contains('open')) return
+  overlay.querySelector('.modal-title').textContent = title
+}
+
 export function closeModal() {
   if (!overlay) return
   overlay.classList.remove('open')

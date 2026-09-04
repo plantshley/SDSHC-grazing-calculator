@@ -5,6 +5,9 @@ import {
   compute,
   averageSample,
   frameMultiplier,
+  convertArea,
+  MIN_PLAUSIBLE_FRAME_SQ_FT,
+  MAX_PLAUSIBLE_FRAME_SQ_FT,
   blendDryMatter,
   demand,
   paddockSides,
@@ -102,6 +105,83 @@ test('a custom frame area uses the exact conversion', () => {
   near(m, GRAMS_TO_LBS_PER_ACRE / 2, 0.001, 'custom multiplier')
   assert.equal(frameMultiplier('custom', 0), 0, 'a zero area cannot divide')
   assert.equal(frameMultiplier('custom', ''), 0, 'a blank area cannot divide')
+})
+
+test('a custom frame area can be given in square inches', () => {
+  // 144 sq in is 1 sq ft, so the two have to reach the same multiplier. A
+  // frame measured with a tape is not a different frame.
+  near(frameMultiplier('custom', 144, undefined, 'sqin'), frameMultiplier('custom', 1), 1e-9)
+  near(frameMultiplier('custom', 288, undefined, 'sqin'), frameMultiplier('custom', 2), 1e-9)
+
+  // No unit at all is square feet. Every record written before the option
+  // existed carries none, and all of them are in square feet.
+  assert.equal(frameMultiplier('custom', 2, undefined, ''), frameMultiplier('custom', 2))
+  assert.equal(frameMultiplier('custom', 2, undefined, undefined), frameMultiplier('custom', 2))
+  assert.equal(frameMultiplier('custom', 0, undefined, 'sqin'), 0, 'a zero area cannot divide')
+
+  // A unit nothing matches is unanswered, not assumed. Reading it as square
+  // feet would be a plausible figure computed off a measurement in something
+  // else. Same shape as the unknown frame key one test up.
+  const warnings = []
+  assert.equal(frameMultiplier('custom', 144, warnings, 'sqcubits'), 0)
+  assert.equal(warnings.length, 1, 'and it says so')
+  assert.match(warnings[0], /sqcubits/)
+})
+
+test('an implausible frame area is queried, not refused', () => {
+  // The slip the unit option introduces: 2 typed while the box reads sq in is
+  // a frame an inch and a half across and a multiplier of nearly 7,000. It is
+  // the one figure here nothing else would question.
+  const small = []
+  const m = frameMultiplier('custom', 2, small, 'sqin')
+  assert.equal(small.length, 1, 'it says so')
+  assert.match(small[0], /smaller than any clipping frame/)
+  assert.match(small[0], /2 sq in/, 'in the unit it was typed in')
+  assert.ok(m > 0, 'and works the answer out anyway. A query, not a limit.')
+
+  const big = []
+  frameMultiplier('custom', 500, big, 'sqft')
+  assert.equal(big.length, 1)
+  assert.match(big[0], /larger than any clipping frame/)
+
+  // Both bounds sit far outside any real frame, because a warning that fires
+  // on real work is worse than no warning. Every frame anybody clips with is
+  // inside them: the two NRCS hoops, a square metre quadrat, a 1/1000 acre plot.
+  for (const area of [0.96, 1.92, 4, 10.7639, 43.56]) {
+    const quiet = []
+    frameMultiplier('custom', area, quiet, 'sqft')
+    assert.equal(quiet.length, 0, `${area} sq ft is a real frame and is not queried`)
+  }
+  const inches = []
+  frameMultiplier('custom', 144, inches, 'sqin')
+  assert.equal(inches.length, 0, 'and so is a 12 by 12 frame measured with a tape')
+
+  // A blank box is not an implausible frame, it is an unanswered question.
+  const blank = []
+  assert.equal(frameMultiplier('custom', '', blank, 'sqin'), 0)
+  assert.equal(blank.length, 0)
+
+  assert.ok(
+    MIN_PLAUSIBLE_FRAME_SQ_FT < 0.25 && MAX_PLAUSIBLE_FRAME_SQ_FT > 43.56,
+    'the bounds stay outside every frame anybody actually clips with'
+  )
+})
+
+test('switching units converts the measurement rather than reinterpreting it', () => {
+  // Pressing "sq in" is a statement about how the frame was measured, not a
+  // new frame, so the figure travels with the unit.
+  assert.equal(convertArea('2', 'sqft', 'sqin'), '288')
+  assert.equal(convertArea('288', 'sqin', 'sqft'), '2')
+  assert.equal(convertArea('0.96', 'sqft', 'sqin'), '138.24')
+  assert.equal(
+    convertArea('138.24', 'sqin', 'sqft'),
+    '0.96',
+    'a round trip lands back on what was typed, not on its float noise'
+  )
+
+  assert.equal(convertArea('', 'sqft', 'sqin'), '', 'blank is outstanding in either unit')
+  assert.equal(convertArea('2', 'sqft', 'sqft'), '2', 'the same unit is not a conversion')
+  assert.equal(convertArea('2', 'sqft', 'furlongs'), '2', 'and nor is a unit nothing matches')
 })
 
 test('blank sample rows are skipped, not counted as zero', () => {

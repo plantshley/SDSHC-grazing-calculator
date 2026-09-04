@@ -87,12 +87,26 @@ function type(sel, value) {
   return el
 }
 
+/** Pick an option the way a user would, so the delegated listener fires. */
+function pick(sel, value) {
+  const el = typeof sel === 'string' ? $(sel) : sel
+  assert.ok(el, `expected to find ${sel}`)
+  el.value = String(value)
+  el.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+  return el
+}
+
 function choose(sel) {
   const el = typeof sel === 'string' ? $(sel) : sel
   assert.ok(el, `expected to find ${sel}`)
   el.checked = true
   el.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
   return el
+}
+
+/** A key pressed on the document, which is where the modal listens. */
+function key(name) {
+  document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: name, bubbles: true }))
 }
 
 /** Read a rendered figure by its [data-out] key. */
@@ -281,6 +295,98 @@ test('a frame preset fills the area box, and typing over it is Other frame', () 
   assert.equal($('[data-path="frame.customArea"]').value, '2')
 
   click('[data-action="set-frame"][data-mode="small"]')
+  click('[data-action="go-step"][data-step="4"]')
+})
+
+test('a frame of your own can be measured in square inches', () => {
+  click('[data-action="go-step"][data-step="1"]')
+  click('[data-action="set-frame"][data-mode="custom"]')
+  type('[data-path="frame.customArea"]', '2')
+
+  // The unit is the suffix, in the box, against the number it applies to.
+  const unit = () =>
+    $('[data-path="frame.customArea"]').closest('.input-wrap').querySelector('.suffix-select')
+  assert.ok(unit(), 'the unit is chosen inside the box, not on a control beside it')
+  const production = out('totalProduction')
+
+  // Choosing a unit says how the frame was measured. It is not a different
+  // frame, so the measurement travels with it and the answer does not move.
+  pick(unit(), 'sqin')
+  assert.equal($('[data-path="frame.customArea"]').value, '288', '2 sq ft is 288 sq in')
+  assert.equal(unit().value, 'sqin', 'and the box says which it is in')
+  assert.equal(out('totalProduction'), production, 'the same frame, so the same answer')
+
+  pick(unit(), 'sqft')
+  assert.equal(
+    $('[data-path="frame.customArea"]').value,
+    '2',
+    'a round trip lands back on what was typed'
+  )
+
+  // A tape reads inches, which is the whole point: 12 by 12 is 144 sq in.
+  type('[data-path="frame.customArea"]', '1')
+  const oneSquareFoot = out('totalProduction')
+  pick(unit(), 'sqin')
+  assert.equal($('[data-path="frame.customArea"]').value, '144')
+  assert.equal(out('totalProduction'), oneSquareFoot)
+
+  // The slip the unit option introduces, and the only thing on the sheet that
+  // can question it: 2 is positive, finite, and an ordinary number of sq ft.
+  type('[data-path="frame.customArea"]', '2')
+  assert.match(
+    $('.step[data-step="1"] [data-warnings]').textContent,
+    /smaller than any clipping frame/,
+    'and it lands on the step that raised it'
+  )
+  assert.notEqual(
+    out('totalProduction'),
+    '—',
+    'and it is a query, not a limit: the answer is still worked out'
+  )
+
+  // A preset is stated in square feet on the pill, in the hint, and on the
+  // printed worksheet, so choosing one puts the box back into them. 138.24
+  // sq in is the same hoop and agrees with no copy of the worksheet.
+  click('[data-action="set-frame"][data-mode="small"]')
+  assert.equal($('[data-path="frame.customArea"]').value, '0.96')
+  assert.equal(unit().value, 'sqft')
+  assert.equal(out('totalProduction'), '2,500 lbs/ac', 'and the worksheet constant is back')
+
+  click('[data-action="go-step"][data-step="4"]')
+})
+
+test('the how-to panels page between themselves', () => {
+  click('[data-action="go-step"][data-step="0"]')
+  click('[data-action="open-howto"][data-howto="clip"]')
+
+  assert.equal($('.modal-title').textContent, 'How to clip')
+  assert.equal($('[data-howto-count]').textContent, '1 of 3')
+
+  // Clip, dry, and weigh are three parts of one job, done in order, so the
+  // next one is an arrow away rather than a close and a hunt for the card.
+  click('[data-howto-nav="next"]')
+  assert.equal($('.modal-title').textContent, 'How to dry', 'the head moves with the panel')
+  assert.equal($('[data-howto-count]').textContent, '2 of 3')
+  assert.match($('.howto-steps').textContent, /stops losing weight/)
+
+  // Three panels is a loop, so neither arrow dead-ends.
+  click('[data-howto-nav="next"]')
+  click('[data-howto-nav="next"]')
+  assert.equal($('.modal-title').textContent, 'How to clip', 'next wraps round')
+  click('[data-howto-nav="prev"]')
+  assert.equal($('.modal-title').textContent, 'How to weigh', 'and back wraps the other way')
+
+  // The arrow keys do the same, and only while the dialog owns the screen.
+  key('ArrowLeft')
+  assert.equal($('.modal-title').textContent, 'How to dry')
+  key('ArrowRight')
+  assert.equal($('.modal-title').textContent, 'How to weigh')
+
+  click('.modal-close')
+  assert.equal($('.overlay.open'), null, 'and it closes like any other modal')
+  key('ArrowLeft')
+  assert.equal($('.overlay.open'), null, 'a stray arrow afterwards does nothing')
+
   click('[data-action="go-step"][data-step="4"]')
 })
 

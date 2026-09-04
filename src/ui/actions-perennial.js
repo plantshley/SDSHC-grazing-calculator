@@ -12,7 +12,7 @@
  * page and a UI module reaching back into it would close a cycle.
  */
 
-import { FRAMES } from '../calc.js'
+import { FRAMES, DEFAULT_AREA_UNIT, areaUnit, convertArea } from '../calc.js'
 import { getCalculation, setPath, notify, newMixRow } from '../state.js'
 import { getPref, setPref } from '../prefs.js'
 import { MIXED } from '../data/forage.js'
@@ -70,7 +70,12 @@ export function chooseForage(id, ctx) {
 function syncFramePill(value, root) {
   const calc = getCalculation()
   const preset = FRAMES.find((f) => f.key === calc.frame?.key)
-  if (!preset || preset.area == null || String(preset.area) === String(value)) return
+  if (!preset || preset.area == null) return
+  // Against the preset AS SHOWN. A preset is stated in square feet and the
+  // box may be in square inches, so comparing the raw 0.96 would read the
+  // figure the app itself just put there as a number of the user's own.
+  const shown = convertArea(String(preset.area), 'sqft', calc.frame?.areaUnit)
+  if (String(shown) === String(value)) return
 
   calc.frame.key = 'custom'
   // The pill moved without anybody pressing it, so TRACKED_ACTIONS never sees
@@ -82,6 +87,33 @@ function syncFramePill(value, root) {
   for (const seg of root.querySelectorAll('[data-action="set-frame"]')) {
     seg.setAttribute('aria-pressed', String(seg.dataset.mode === 'custom'))
   }
+}
+
+/**
+ * The unit the frame area box is in.
+ *
+ * The measurement travels with it. Choosing "sq in" is a statement about how
+ * the frame was measured, not about a different frame, so 2 sq ft becomes 288
+ * sq in rather than silently shrinking the hoop by a factor of 144.
+ *
+ * It carries no `data-path`, so nothing has written the new unit yet and the
+ * old one is still there to convert from. A select main.js writes by path is
+ * written BEFORE the descriptor sees it, which would leave nothing to read.
+ */
+function chooseAreaUnit(value, ctx) {
+  const calc = getCalculation()
+  const from = calc.frame.areaUnit || DEFAULT_AREA_UNIT
+  const to = areaUnit(value)?.key
+  if (!to || to === from) return
+
+  calc.frame.areaUnit = to
+  calc.frame.customArea = convertArea(calc.frame.customArea, from, to)
+  // A select never reaches TRACKED_ACTIONS, which is a click allowlist. It is
+  // the same kind of answer as the frame size beside it and belongs under the
+  // same `control` dimension, so it says so itself.
+  track('mode_select', { worksheet: 'perennial', control: 'frame_unit', choice: to })
+  notify()
+  ctx.render()
 }
 
 /** A keystroke in a box this worksheet cares about beyond writing the value. */
@@ -106,6 +138,10 @@ export function handleChange(el, ctx) {
   const action = el.dataset?.action
   if (action === 'set-forage') {
     chooseForage(el.value, ctx)
+    return true
+  }
+  if (action === 'set-frame-unit') {
+    chooseAreaUnit(el.value, ctx)
     return true
   }
   if (action === 'set-stage') {
@@ -142,7 +178,14 @@ export function handleAction(action, btn, ctx) {
       // the box in so the figure being used is on screen and can be measured
       // against the hoop in the pickup.
       const preset = FRAMES.find((f) => f.key === calc.frame.key)
-      if (preset?.area != null) calc.frame.customArea = String(preset.area)
+      // And in square feet, which is the unit the preset is stated in on the
+      // pill, in the hint, and on the printed worksheet. Converting 0.96 into
+      // 138.24 square inches to preserve a unit nobody is using any more puts
+      // a figure on screen that agrees with no copy of the worksheet.
+      if (preset?.area != null) {
+        calc.frame.customArea = String(preset.area)
+        calc.frame.areaUnit = DEFAULT_AREA_UNIT
+      }
       // Leaving a preset for "Other frame" empties the box, because the figure
       // in it is the preset's and not the user's. Left there it reads as an
       // answer, and 0.96 sq ft is a plausible enough number for somebody's own

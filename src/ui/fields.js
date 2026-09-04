@@ -74,6 +74,10 @@ const idFor = (path) => `f-${String(path).replace(/[.[\]]/g, '-')}`
  * @param {string} [o.type]     'text' | 'number'
  * @param {string} [o.prefix]   shown inside the input frame, left
  * @param {string} [o.suffix]   'lbs', '%', 'ac' — shown inside the frame, right
+ * @param {object} [o.suffixSelect]  the suffix AS A CONTROL, in the same place
+ *   `{ action, value, options: [{key, label}], ariaLabel }`. For a figure whose
+ *   unit is itself an answer: the unit belongs against the number it applies to,
+ *   not on a second control elsewhere on the row. Overrides `suffix`.
  * @param {string} [o.info]     definition key for the `?`
  * @param {string} [o.hint]     one line under the box
  * @param {string} [o.aside]    raw markup pinned right of the label row
@@ -86,10 +90,15 @@ export function field(o) {
   // painting a spinner at the right edge. See the .input-wrap block in
   // styles.css — `has-spin` alone is not enough, a one-character `%` and a
   // six-character `lbs/ac` want very different reservations.
+  //
+  // A suffix that is a <select> is NOT measured here. Its width depends on the
+  // arrow the browser draws and on a font size that changes between a phone and
+  // a desktop, so the stylesheet reserves that one off the control's own width
+  // instead. See `.input-wrap:has(.suffix-select)` in app.css.
   const wrap = [
     'input-wrap',
     o.prefix ? 'has-prefix' : '',
-    o.suffix ? 'has-suffix' : '',
+    o.suffix || o.suffixSelect ? 'has-suffix' : '',
     o.type === 'number' ? 'has-spin' : '',
   ]
     .filter(Boolean)
@@ -98,7 +107,7 @@ export function field(o) {
     <div class="field">
       ${labelRow(id, o)}
       <div class="${wrap}"${
-        o.suffix ? ` style="--suffix-len: ${String(o.suffix).length}"` : ''
+        o.suffix && !o.suffixSelect ? ` style="--suffix-len: ${String(o.suffix).length}"` : ''
       }>
         ${o.prefix ? `<span class="affix prefix">${esc(o.prefix)}</span>` : ''}
         <input
@@ -112,10 +121,35 @@ export function field(o) {
           placeholder="${esc(o.placeholder ?? '')}"
           ${o.ariaLabel ? `aria-label="${esc(o.ariaLabel)}"` : ''}
         />
-        ${o.suffix ? `<span class="affix suffix">${esc(o.suffix)}</span>` : ''}
+        ${o.suffixSelect ? suffixSelect(o.suffixSelect) : ''}
+        ${o.suffix && !o.suffixSelect ? `<span class="affix suffix">${esc(o.suffix)}</span>` : ''}
       </div>
       ${o.hint ? `<p class="hint">${esc(o.hint)}</p>` : ''}
     </div>`
+}
+
+/**
+ * The suffix, when the unit is an answer rather than a label. It carries the
+ * box's own height so the target stays full size, and a hairline down its left
+ * edge so it reads as a control and not as the text it replaced.
+ *
+ * No `data-path`: main.js writes a select's value to its path BEFORE the
+ * descriptor sees the event, and a unit that has already changed cannot be
+ * converted from. The worksheet handles it by `data-action`, the same as the
+ * growth stage select.
+ */
+function suffixSelect(o) {
+  return `<select class="affix suffix suffix-select" data-action="${esc(o.action)}"
+    aria-label="${esc(o.ariaLabel || 'Units')}">
+    ${o.options
+      .map(
+        (x) =>
+          `<option value="${esc(x.key)}"${x.key === o.value ? ' selected' : ''}>${esc(
+            x.label
+          )}</option>`
+      )
+      .join('')}
+  </select>`
 }
 
 /** A number box. inputmode=decimal so phones open the numeric keypad. */

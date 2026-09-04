@@ -11,7 +11,7 @@
  */
 
 import { FORMATTERS } from './ui/format.js'
-import { GOALS } from './calc.js'
+import { GOALS, areaUnit } from './calc.js'
 import { forageById, MIXED, stagesFor } from './data/forage.js'
 
 /**
@@ -173,7 +173,11 @@ function frameLabel(calc) {
   const key = calc.frame?.key
   if (key === 'small') return 'Small hoop, 0.96 sq ft'
   if (key === 'large') return 'Large hoop, 1.92 sq ft'
-  return `Custom, ${calc.frame?.customArea || '?'} sq ft`
+  // In the unit it was measured in, not converted to square feet. The row
+  // below it already carries the multiplier the model worked out, so this
+  // one is here to be checked against the frame in the pickup.
+  const unit = areaUnit(calc.frame?.areaUnit)?.label ?? 'sq ft'
+  return `Custom, ${calc.frame?.customArea || '?'} ${unit}`
 }
 
 function dryMatterLabel(calc) {
